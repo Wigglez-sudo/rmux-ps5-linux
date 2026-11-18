@@ -1,0 +1,246 @@
+=== 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
+
+
+{
+ "id": 4216234111,
+ "node_id": "PRR_kwDORo2YCs77TqB_",
+ "user": {
+  "login": "rmuxnet",
+  "id": 116457149,
+  "node_id": "U_kgDOBvD-vQ",
+  "avatar_url": "https://avatars.githubusercontent.com/u/116457149?v=4",
+  "gravatar_id": "",
+  "url": "https://api.github.com/users/rmuxnet",
+  "html_url": "https://github.com/rmuxnet",
+  "followers_url": "https://api.github.com/users/rmuxnet/followers",
+  "following_url": "https://api.github.com/users/rmuxnet/following{/other_user}",
+  "gists_url": "https://api.github.com/users/rmuxnet/gists{/gist_id}",
+  "starred_url": "https://api.github.com/users/rmuxnet/starred{/owner}{/repo}",
+  "subscriptions_url": "https://api.github.com/users/rmuxnet/subscriptions",
+  "organizations_url": "https://api.github.com/users/rmuxnet/orgs",
+  "repos_url": "https://api.github.com/users/rmuxnet/repos",
+  "events_url": "https://api.github.com/users/rmuxnet/events{/privacy}",
+  "received_events_url": "https://api.github.com/users/rmuxnet/received_events",
+  "type": "User",
+  "user_view_type": "public",
+  "site_admin": false
+ },
+ "body": "Peak shi. We merge prod.",
+ "commit_id": "65cb0c2b4a880d548af86906e2be11df553b961e",
+ "state": "approved",
+ "html_url": "https://github.com/rmuxnet/ps4-linux-12xx/pull/10#pullrequestreview-4216234111",
+ "pull_request_url": "https://api.github.com/repos/rmuxnet/ps4-linux-12xx/pulls/10",
+ "_links": {
+  "html": {
+   "href": "https://github.com/rmuxnet/ps4-linux-12xx/pull/10#pullrequestreview-4216234111"
+  },
+  "pull_request": {
+   "href": "https://api.github.com/repos/rmuxnet/ps4-linux-12xx/pulls/10"
+  }
+ },
+ "submitted_at": "2026-05-03T11:27:35Z",
+ "updated_at": "2026-05-03T11:27:35Z"
+}
+
+
+=== 2026-05-25T00:08:48Z  rmuxnet/ps4-linux-12xx  [issue #15 opened]
+Unable to find some blobs
+
+## Build Environment
+
+| Field | Your answer |
+|---|---|
+| Host OS / distro | Debian 13 |
+| Host architecture | x86_64 |
+| Clang/LLVM version | 21.1.8 |
+| GNU Make version | 4.3 |
+| Python version | Python 3.14.3 |
+| Available RAM | 16GB |
+| Available disk space | 545GB |
+
+---
+
+## Kernel / Build Information
+
+| Field | Your answer |
+|---|---|
+| Branch | baikal/7.0.8-Stable |
+| Commit | 96baa15c98d9504191e671b8c2ba876fd3e49518 |
+| Build profile | General |
+| ThinLTO |
+| Build method | build.sh |
+
+---
+
+## Build command used
+
+./build.sh, toggled southbridge to baikal, build profile to general, and ran fetch firmware blobs.
+
+---
+
+## Where did it fail
+
+- [ ] `build.sh` pre-checks (missing firmware, config issues)
+
+---
+
+## Error output
+
+<details>
+<summary>Build error output</summary>
+
+```
+╔══════════════════════════════════════════════════╗
+║ PS4-Linux Strawberry Builder                     ║
+╠══════════════════════════════════════════════════╣
+║ 1) Build bzImage                                 ║
+║ 2) Fetch firmware blobs                          ║
+║ 3) Both (fetch + build)                          ║
+║ 4) Threads to use: 8 / 8                         ║
+║ 5) Quit                                          ║
+║ 6) Build profile: general                      ║
+║ 7) Show/switch build profile                      ║
+║ 8) Build LTO: ThinLTO                         ║
+║ 9) Southbridge: Baikal                    ║
+╚══════════════════════════════════════════════════╝
+
+Select option [1-9]: 2
+[*] Setting CONFIG_EXTRA_FIRMWARE_DIR=/home/raj-jyot/kernel-upgrade/ps4-linux-12xx/extra_firmware
+[*] Blobs required by CONFIG_EXTRA_FIRMWARE:
+    mrvl/sd8897_uapsta.bin
+    mediatek/mt7668pr2h.bin
+    EEPROM_MT7668.bin
+    EEPROM_MT7668_e1.bin
+    mt7668_patch_e1_hdr.bin
+    mt7668_patch_e2_hdr.bin
+    TxPwrLimit_MT76x8.dat
+    wifi.cfg
+    WIFI_RAM_CODE2_SDIO_MT7668.bin
+    WIFI_RAM_CODE2_USB_MT7668.bin
+    WIFI_RAM_CODE_MT7668.bin
+    mrvl/sd8797_uapsta.bin
+    amdgpu/liverpool_ce.bin
+    amdgpu/liverpool_me.bin
+    amdgpu/liverpool_mec.bin
+    amdgpu/liverpool_mec2.bin
+    amdgpu/liverpool_pfp.bin
+    amdgpu/liverpool_rlc.bin
+    amdgpu/liverpool_sdma.bin
+    amdgpu/liverpool_sdma1.bin
+    amdgpu/gladius_ce.bin
+    amdgpu/gladius_me.bin
+    amdgpu/gladius_mec.bin
+    amdgpu/gladius_mec2.bin
+    amdgpu/gladius_pfp.bin
+    amdgpu/gladius_rlc.bin
+    amdgpu/gladius_sdma.bin
+    amdgpu/gladius_sdma1.bin
+
+  [=] Already exists: mrvl/sd8897_uapsta.bin
+  [=] Already exists: mediatek/mt7668pr2h.bin
+  [=] Already exists: EEPROM_MT7668.bin
+  [=] Already exists: EEPROM_MT7668_e1.bin
+  [=] Already exists: mt7668_patch_e1_hdr.bin
+  [=] Already exists: mt7668_patch_e2_hdr.bin
+  [=] Already exists: TxPwrLimit_MT76x8.dat
+  [=] Already exists: wifi.cfg
+  [=] Already exists: WIFI_RAM_CODE2_SDIO_MT7668.bin
+  [=] Already exists: WIFI_RAM_CODE2_USB_MT7668.bin
+  [=] Already exists: WIFI_RAM_CODE_MT7668.bin
+  [=] Already exists: mrvl/sd8797_uapsta.bin
+  [↓] Fetching: amdgpu/liverpool_ce.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_ce.bin
+  [↓] Fetching: amdgpu/liverpool_me.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_me.bin
+  [↓] Fetching: amdgpu/liverpool_mec.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_mec.bin
+  [↓] Fetching: amdgpu/liverpool_mec2.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_mec2.bin
+  [↓] Fetching: amdgpu/liverpool_pfp.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_pfp.bin
+  [↓] Fetching: amdgpu/liverpool_rlc.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_rlc.bin
+  [↓] Fetching: amdgpu/liverpool_sdma.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_sdma.bin
+  [↓] Fetching: amdgpu/liverpool_sdma1.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/liverpool_sdma1.bin
+  [↓] Fetching: amdgpu/gladius_ce.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_ce.bin
+  [↓] Fetching: amdgpu/gladius_me.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_me.bin
+  [↓] Fetching: amdgpu/gladius_mec.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_mec.bin
+  [↓] Fetching: amdgpu/gladius_mec2.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_mec2.bin
+  [↓] Fetching: amdgpu/gladius_pfp.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_pfp.bin
+  [↓] Fetching: amdgpu/gladius_rlc.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_rlc.bin
+  [↓] Fetching: amdgpu/gladius_sdma.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_sdma.bin
+  [↓] Fetching: amdgpu/gladius_sdma1.bin
+curl: (22) The requested URL returned error: 404
+  [✗] FAILED: amdgpu/gladius_sdma1.bin
+
+The following blobs could not be fetched:
+  amdgpu/liverpool_ce.bin
+  amdgpu/liverpool_me.bin
+  amdgpu/liverpool_mec.bin
+  amdgpu/liverpool_mec2.bin
+  amdgpu/liverpool_pfp.bin
+  amdgpu/liverpool_rlc.bin
+  amdgpu/liverpool_sdma.bin
+  amdgpu/liverpool_sdma1.bin
+  amdgpu/gladius_ce.bin
+  amdgpu/gladius_me.bin
+  amdgpu/gladius_mec.bin
+  amdgpu/gladius_mec2.bin
+  amdgpu/gladius_pfp.bin
+  amdgpu/gladius_rlc.bin
+  amdgpu/gladius_sdma.bin
+  amdgpu/gladius_sdma1.bin
+raj-jyot@Backbreaker:~/kernel-upgrade/ps4-linux-12xx$ 
+
+```
+
+</details>
+
+<details>
+<summary>Full build log (optional)</summary>
+
+```
+paste here
+```
+
+</details>
+
+---
+
+## Additional context
+
+I tried going to the website that it seems to pull the GPU drivers from but it 404s
+
+---
+
+> **Before submitting**, please check:
+> - [ Yes] I have read the build instructions in the [README](https://github.com/rmuxnet/ps4-linux-12xx/blob/7.0-Stable/README.md)
+> - [ Yes] I have placed the SD8797 firmware at `extra_firmware/mrvl/sd8797_uapsta.bin` if required by my config
+> - [ Yes] I have searched existing [Issues](https://github.com/rmuxnet/ps4-linux-12xx/issues) for this error
+> - [ No] I am on a supported branch (`7.0-Stable` recommended)
+
+
