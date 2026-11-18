@@ -263,6 +263,24 @@ there is no such code in existing codebase
 open a separate PR for this. for transperancy each commit and PR should address only one issue.
 
 
+=== 2026-03-22T20:56:29Z  ArabPixel/ps4-linux-payloads  [comment on #2]
+switch vram to mb & add 256/512mb server payloads
+
+Well done! Looks good to me
+
+
+=== 2026-03-22T20:56:42Z  ArabPixel/ps4-linux-payloads  [PR #2 merged]
+
+
+
+
+
+=== 2026-03-26T06:48:09Z  rmuxnet/ps4-linux-12xx  [comment on #1]
+6.18.18-Strawberry: amdgpu-ps4_bridge: Add 480p and 720p support
+
+Oi blet
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
