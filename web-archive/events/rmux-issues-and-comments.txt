@@ -1,3 +1,127 @@
+=== 2026-01-13T17:21:01Z  Nazky/Y2JB-WebUI  [PR #1 opened]
+
+
+
+
+
+=== 2026-01-13T18:22:17Z  Nazky/Y2JB-WebUI  [PR #1 merged]
+
+
+
+
+
+=== 2026-01-13T19:21:05Z  Nazky/Y2JB-WebUI  [comment on #1]
+Add Y2JB core update feature via UI and backend
+
+that would be very cool, i am going to refresh the ui because i don't really like it it's not very responsive either i will try to make something better
+
+
+=== 2026-01-13T22:36:50Z  Nazky/Y2JB-WebUI  [PR #2 opened]
+
+
+
+
+
+=== 2026-01-13T23:02:18Z  Nazky/Y2JB-WebUI  [comment on #2]
+Major Update: UI Redesign, JSON Config & New Features
+
+ok that's really cool lmao i don't really like the jailbreak button seems a odd but yeah it's way better lol
+
+
+=== 2026-01-14T08:25:35Z  Nazky/Y2JB-WebUI  [PR #3 opened]
+
+
+
+
+
+=== 2026-01-14T08:50:02Z  Nazky/Y2JB-WebUI  [comment on #3]
+UI: Update button and The Payload list, Remove index.css
+
+i'm done here. the custom JS loading is simple enough, jsut add supported file type and specify the port. but yeah can't testi myself now as im nowhere near to my house .
+
+
+=== 2026-01-14T20:08:48Z  Nazky/Y2JB-WebUI  [comment on #3]
+UI: Update button and The Payload list, Remove index.css
+
+amazing work thanks ! i am going to do the rest and i have some idea too for some new features
+
+
+=== 2026-01-14T20:08:53Z  Nazky/Y2JB-WebUI  [PR #3 merged]
+
+
+
+
+
+=== 2026-01-15T08:45:37Z  Nazky/Y2JB-WebUI  [comment on #3]
+UI: Update button and The Payload list, Remove index.css
+
+> amazing work thanks ! i am going to do the rest and i have some idea too for some new features
+
+I had some ideas too, but not sure if it's useful, but we will see, I'm bored either way.
+
+
+=== 2026-01-16T13:47:51Z  Nazky/Y2JB-WebUI  [comment on #4]
+Update: add support for updating and custom .js payloads
+
+you are too fast i was working on the repo management yesterday 😭😭😭 for the download0.dat and the youtube blocker it's basiclly something that can be done with a payload (or using ftp but it's more easy i think to just send a payload that is doing everything) i am going to work in it when the webui is completly done
+
+
+=== 2026-01-16T19:03:41Z  Nazky/Y2JB-WebUI  [PR #5 opened]
+
+
+
+
+
+=== 2026-01-16T19:52:33Z  Nazky/Y2JB-WebUI  [comment on #5]
+Y2JB-WEBUI: add repo manager, versioning, and meow meow
+
+i just test it and it's very good for now (i didn't test the repo manager but i guess it's working lol) i am going to follow you on twitter
+
+
+=== 2026-01-17T18:22:38Z  Nazky/Y2JB-WebUI  [PR #7 opened]
+
+
+
+
+
+=== 2026-01-17T20:56:08Z  Nazky/Y2JB-WebUI  [PR #7 merged]
+
+
+
+
+
+=== 2026-01-18T11:54:23Z  Nazky/Y2JB-WebUI  [comment on #9]
+Feat: Sort and delay
+
+Give Me couple of hours, the first part is done already, the delay one, will try adding into settings category.
+
+
+=== 2026-01-18T14:59:40Z  Nazky/Y2JB-WebUI  [PR #10 opened]
+
+
+
+
+
+=== 2026-01-18T15:21:02Z  Nazky/Y2JB-WebUI  [PR #10 merged]
+
+
+
+
+
+=== 2026-01-20T06:49:10Z  Nazky/Y2JB-WebUI  [comment on #12]
+Make it as DNS server
+
+> this project is using flask to host the website and using python code, there is definitely a way to make it a dns but not like ps5-exploit-host, first i want this project to be really done with everything before then i will work on the dns
+
+Mitm is the way i used for dns nonsense. But that's another case.
+
+
+=== 2026-01-20T16:04:28Z  Nazky/Y2JB-WebUI  [comment on #12]
+Make it as DNS server
+
+<img width="745" height="961" alt="Image" src="https://github.com/user-attachments/assets/387091cf-c319-4792-9882-1bc8c28f8fc8" />
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
