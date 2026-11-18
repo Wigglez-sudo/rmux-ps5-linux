@@ -122,6 +122,60 @@ Make it as DNS server
 <img width="745" height="961" alt="Image" src="https://github.com/user-attachments/assets/387091cf-c319-4792-9882-1bc8c28f8fc8" />
 
 
+=== 2026-01-20T20:28:45Z  Nazky/Y2JB-WebUI  [comment on #17]
+Kstuff question.
+
+its harcoded . lapse n then kstuff gets pushed.
+
+
+=== 2026-01-21T08:50:59Z  Nazky/Y2JB-WebUI  [PR #15 merged]
+
+
+
+
+
+=== 2026-01-21T16:08:59Z  Nazky/Y2JB-WebUI  [comment on #12]
+Make it as DNS server
+
+@Nazky close it
+
+
+=== 2026-01-21T16:55:54Z  Nazky/Y2JB-WebUI  [PR #20 opened]
+
+
+
+
+
+=== 2026-01-25T14:19:14Z  Nazky/Y2JB-WebUI  [PR #25 opened]
+
+
+
+
+
+=== 2026-01-25T17:19:44Z  Nazky/Y2JB-WebUI  [comment on #26]
+Broken since Backpork feature was introduced
+
+> No issue when I jump back to last working commit [737d4cd](https://github.com/Nazky/Y2JB-WebUI/commit/737d4cd2972453bf9dc9c5f562597de18e5d3a1e) container is healthy again
+
+Ah shit forgot to test on my server 😭
+
+Works fine on my pc.(wingay)
+
+
+=== 2026-01-25T19:14:30Z  Nazky/Y2JB-WebUI  [comment on #26]
+Broken since Backpork feature was introduced
+
+> maybe not the best idea to directly merge lmao
+
+Silence. U allowed it. Lel
+
+
+=== 2026-01-26T09:54:26Z  Nazky/Y2JB-WebUI  [PR #28 opened]
+
+
+
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
