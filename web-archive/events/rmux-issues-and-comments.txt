@@ -244,3 +244,53 @@ I tried going to the website that it seems to pull the GPU drivers from but it 4
 > - [ No] I am on a supported branch (`7.0-Stable` recommended)
 
 
+
+=== 2026-10-13T20:17:36Z  Michele-M-Media/HYPERHEN  [issue #1 labeled]
+retarded person alert.
+
+### HyperHEN version
+
+1
+
+### Firmware
+
+1
+
+### How was it loaded
+
+Other
+
+### Area
+
+Other
+
+### What happened
+
+1
+
+### Expected result
+
+1
+
+### Other homebrew also running
+
+- [ ] None
+- [ ] etaHEN
+- [ ] CheatRunner
+- [ ] PHU Tools
+- [ ] YonCore
+- [ ] Kylin Core
+- [ ] Other
+
+### Logs
+
+```text
+1
+```
+
+
+=== 2026-10-25T20:42:11Z  ps5-linux/ps5-linux-loader  [PR #73 merged]
+
+
+
+
