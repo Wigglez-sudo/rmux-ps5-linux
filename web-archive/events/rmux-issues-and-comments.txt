@@ -176,6 +176,47 @@ Silence. U allowed it. Lel
 
 
 
+=== 2026-02-03T10:36:25Z  Nazky/Y2JB-WebUI  [comment on #35]
+etahen.bin priority list
+
+<img width="673" height="339" alt="Image" src="https://github.com/user-attachments/assets/ad67d513-50b6-4917-af1c-ee8ad2fc24bc" />seems okay?
+
+
+
+=== 2026-02-03T15:30:31Z  Nazky/Y2JB-WebUI  [PR #37 merged]
+
+
+
+
+
+=== 2026-02-05T11:58:30Z  Nazky/Y2JB-WebUI  [comment on #39]
+DNS permission issues on docker
+
+Sleep
+
+
+=== 2026-02-06T07:45:27Z  Nazky/Y2JB-WebUI  [comment on #38]
+Subpath support?
+
+> brother, this is the lowest of low priorities
+> 
+> enjoy your sleep
+
+Give more suggestions. I'm bored. Like 5 of em. Be my chatgpt lol
+
+
+=== 2026-02-07T01:22:19Z  Nazky/Y2JB-WebUI  [comment on #38]
+Subpath support?
+
+I go sleep now
+
+
+=== 2026-02-10T08:22:13Z  Vuemony/vue-after-free  [PR #46 opened]
+
+
+
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
