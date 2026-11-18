@@ -247,6 +247,22 @@ I've changed "user: 1000:1000" for my admin and root id on docker-compose, but s
 Great job btw!
 
 
+=== 2026-03-19T16:24:56Z  thedragonsinn/ub-core  [comment on #3]
+fix(helpers/logger): persist telegraph token and skip empty log upload
+
+> * avoiding a blocking HTTP call
+
+what blocking call?
+
+> * remove erroneous await on sync get_access_token().
+
+there is no such code in existing codebase
+
+> * cmd_usage_logger.py: add st_size == 0 guard alongside is_file() check to prevent send_document raising ValueError on empty log file.
+
+open a separate PR for this. for transperancy each commit and PR should address only one issue.
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
