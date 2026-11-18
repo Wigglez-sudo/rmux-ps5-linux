@@ -217,6 +217,36 @@ I go sleep now
 
 
 
+=== 2026-02-22T11:20:50Z  Nazky/Y2JB-WebUI  [issue #39 labeled]
+DNS permission issues on docker
+
+Having this error on docker on synology nas:
+
+```
+[DNS] CRITICAL: Permission denied. Run as Root/Sudo.
+--- Initializing DNS Server on 172.21.0.2 ---
+```
+
+I've changed "user: 1000:1000" for my admin and root id on docker-compose, but still getting the same error.
+
+Great job btw!
+
+
+=== 2026-02-28T19:19:37Z  Nazky/Y2JB-WebUI  [issue #39 closed]
+DNS permission issues on docker
+
+Having this error on docker on synology nas:
+
+```
+[DNS] CRITICAL: Permission denied. Run as Root/Sudo.
+--- Initializing DNS Server on 172.21.0.2 ---
+```
+
+I've changed "user: 1000:1000" for my admin and root id on docker-compose, but still getting the same error.
+
+Great job btw!
+
+
 === 2026-05-03T11:27:36Z  rmuxnet/ps4-linux-12xx  [review]
 
 
