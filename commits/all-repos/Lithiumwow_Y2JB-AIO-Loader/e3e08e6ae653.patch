@@ -1,0 +1,36 @@
+From e3e08e6ae6538e9c28a6130af9ce4ddd45550d28 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 03:43:00 +0100
+Subject: [PATCH] Func: Update Repos.js
+
+Adds Spinner + Toast for indicating download.
+---
+ static/repos.js | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/static/repos.js b/static/repos.js
+index 9943ca2..0ec6b54 100644
+--- a/static/repos.js
++++ b/static/repos.js
+@@ -96,8 +96,11 @@ async function loadRepos() {
+ 
+ async function updateSingleRepo(name, btn) {
+     const icon = btn.querySelector('i');
+-    icon.classList.add('fa-spin');
++    const originalClass = icon.className;
++    
++    icon.className = 'fa-solid fa-spinner fa-spin';
+     btn.disabled = true;
++    Toast.show(`Updating ${name}...`, 'info');
+ 
+     try {
+         const res = await fetch('/update_repos', {
+@@ -117,7 +120,7 @@ async function updateSingleRepo(name, btn) {
+     } catch (e) {
+         Toast.show("Update failed: " + e.message, "error");
+     } finally {
+-        icon.classList.remove('fa-spin');
++        icon.className = originalClass;
+         btn.disabled = false;
+     }
+ }

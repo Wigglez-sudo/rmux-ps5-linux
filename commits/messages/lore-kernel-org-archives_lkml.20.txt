@@ -1,0 +1,27 @@
+======================================================================
+commit 37071f41ae716cefe93e8e1309f9193c2f8a932b
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Thu, 1 Oct 2026 18:36:25 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit 5f22e4e4c6c96155fba2672d6944a13c167cfb6f
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:15 +0000
+
+Re: [PATCH v3 0/2] Input: Add Awinic AW8697 haptics driver
+
+======================================================================
+commit cdc598de78f918a1fc34da0a405eed1e29311df3
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Sat, 3 Oct 2026 08:27:50 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit d49a12162dc98986631d526f5b847c59d32262bb
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:48 +0000
+
+Re: [PATCH v4 0/2] media: i2c: Samsung S5K3T2 image sensor

@@ -1,0 +1,18 @@
+From 7efeec426d0234ccacd1ccc5eb7f16bf0c2ce950 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 18 Jan 2026 15:51:45 +0100
+Subject: [PATCH] (.gitignore): Add payload_delay_flags.json
+
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index 2b5b928..0719dbc 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -4,3 +4,4 @@
+ static/config/settings.json
+ static/config/payload_config.json
+ static/config/payload_order.json
++static/config/payload_delay_flags.json

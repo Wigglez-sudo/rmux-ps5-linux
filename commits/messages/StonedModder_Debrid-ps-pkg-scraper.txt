@@ -1,0 +1,52 @@
+======================================================================
+commit 0fcee72720d843d308708b590affdcdb6058282a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 16:51:41 +0100
+
+rework: add passwords and grouping
+
+======================================================================
+commit 18e597074e91393f9cc13a6bae6e9d785deadfcb
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 16:50:56 +0100
+
+Add .gitignore to exclude __pycache__ directory
+
+Added a .gitignore file to prevent tracking of Python bytecode cache files in the src/__pycache__ directory.
+
+======================================================================
+commit 25e1b54cdd71fa8b7288f6fd0e44821df45deaa1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 16:02:05 +0100
+
+improve code quality
+
+======================================================================
+commit 33f8c2c0e69f806caaab157ded707940a310b61e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 16:01:48 +0100
+
+remove unused module
+
+======================================================================
+commit 5c299544ce5fd4090892be7114b234e6e193b659
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 12:14:26 +0100
+
+v1.0
+
+======================================================================
+commit cefdf647d3db8b6cb6aa0585c47b08044276dc56
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 16:51:14 +0100
+
+Add rich and questionary to requirements
+
+Added 'rich' and 'questionary' packages to requirements.txt to support enhanced terminal output and interactive prompts.
+
+======================================================================
+commit d1a731d439e87f8f95fb8778bdd31bbdb124c84b
+author rmxunet <armandas.kvietkus@proton.me>
+date   Fri, 30 Jan 2026 22:33:01 +0100
+
+1.1

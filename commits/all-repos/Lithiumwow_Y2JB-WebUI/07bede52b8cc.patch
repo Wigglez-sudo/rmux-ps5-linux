@@ -1,0 +1,128 @@
+From 07bede52b8cc4a42d31c92d7c116f4ff9ac17bd1 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 27 Jan 2026 22:08:42 +0100
+Subject: [PATCH] feat: Add support for private repos
+
+---
+ src/repo_manager.py  | 26 +++++++++++++++++++-------
+ static/repos.js      | 11 ++++++++++-
+ templates/repos.html |  5 +++++
+ 3 files changed, 34 insertions(+), 8 deletions(-)
+
+diff --git a/src/repo_manager.py b/src/repo_manager.py
+index 732643d..dac9766 100644
+--- a/src/repo_manager.py
++++ b/src/repo_manager.py
+@@ -37,10 +37,14 @@ def delete_repo_entry(name):
+         del repos[name]
+         save_repos(repos)
+ 
+-def get_github_asset_url(repo_name, asset_pattern):
++def get_github_asset_url(repo_name, asset_pattern, token=None):
+     try:
+         api_url = f"https://api.github.com/repos/{repo_name}/releases"
+-        response = requests.get(api_url, timeout=10)
++        headers = {"Accept": "application/vnd.github.v3+json"}
++        if token:
++            headers["Authorization"] = f"token {token}"
++            
++        response = requests.get(api_url, headers=headers, timeout=10)
+         response.raise_for_status()
+         releases = response.json()
+         for release in releases:
+@@ -48,18 +52,24 @@ def get_github_asset_url(repo_name, asset_pattern):
+             for asset in assets:
+                 if fnmatch.fnmatch(asset['name'], asset_pattern):
+                     print(f"Found {asset_pattern} in release: {release.get('tag_name')}")
+-                    return asset.get('browser_download_url')
++                    return asset.get('url') if token else asset.get('browser_download_url')
+         print(f"Asset {asset_pattern} not found in recent releases of {repo_name}")
+         return None
+     except Exception as e:
+         print(f"GitHub API Error: {e}")
+         return None
+ 
+-def download_file(url, save_path):
++def download_file(url, save_path, token=None):
+     ensure_dir(save_path)
+     try:
+         print(f"Downloading {url}...")
+-        with requests.get(url, stream=True, timeout=30) as r:
++        headers = {}
++        if token:
++            headers["Authorization"] = f"token {token}"
++            if "api.github.com" in url:
++                headers["Accept"] = "application/octet-stream"
++
++        with requests.get(url, headers=headers, stream=True, timeout=30) as r:
+             r.raise_for_status()
+             with open(save_path, 'wb') as f:
+                 for chunk in r.iter_content(chunk_size=8192):
+@@ -77,18 +87,20 @@ def update_payloads(targets=['all']):
+         print(f"Processing {name}...")
+         download_url = None
+         save_path = config.get('save_path')
++        token = config.get('token')
++        
+         if config.get('type') == 'direct':
+             download_url = config.get('url')
+         elif config.get('type') == 'release':
+             repo = config.get('repo')
+             pattern = config.get('asset_pattern')
+             if repo and pattern:
+-                download_url = get_github_asset_url(repo, pattern)
++                download_url = get_github_asset_url(repo, pattern, token)
+             else:
+                 results['errors'].append(f"{name}: Missing repo/pattern config")
+                 continue
+         if download_url and save_path:
+-            success, msg = download_file(download_url, save_path)
++            success, msg = download_file(download_url, save_path, token)
+             if success:
+                 results['updated'].append(name)
+             else:
+diff --git a/static/repos.js b/static/repos.js
+index 6edf44b..19a395e 100644
+--- a/static/repos.js
++++ b/static/repos.js
+@@ -135,7 +135,15 @@ async function saveRepo() {
+         return Toast.show("Filename must end with .bin, .elf, .js, or .dat", "warning");
+     }
+ 
+-    let payload = { name, old_name: oldName, type, save_path: `payloads/${name}` };
++    const token = document.getElementById('repo-token').value.trim();
++
++    let payload = { 
++        name, 
++        old_name: oldName, 
++        type, 
++        save_path: `payloads/${name}`,
++        token: token || null 
++    };
+ 
+     if (type === 'direct') {
+         payload.url = document.getElementById('repo-url').value.trim();
+@@ -200,6 +208,7 @@ async function editRepo(name) {
+             document.getElementById('old-name-ref').value = name;
+             document.getElementById('repo-name').value = name;
+             document.getElementById('repo-type').value = config.type;
++            document.getElementById('repo-token').value = config.token || '';
+             toggleFields();
+             if (config.type === 'direct') {
+                 document.getElementById('repo-url').value = config.url || '';
+diff --git a/templates/repos.html b/templates/repos.html
+index bb0d4ea..0a42132 100644
+--- a/templates/repos.html
++++ b/templates/repos.html
+@@ -191,6 +191,11 @@ <h2 id="modalTitle" class="text-xl font-bold mb-4">Add Repository</h2>
+                         <input type="text" id="repo-pattern" placeholder="*.elf" class="input-field w-full p-2 border rounded-lg">
+                         <p class="text-[10px] opacity-40 mt-1">Use wildcards (*) for version numbers. Ex: <span class="font-mono text-brand-light">app-*.zip</span></p>
+                     </div>
++                    <div>
++                        <label class="block text-xs uppercase opacity-70 mb-1 font-bold">GitHub Token (Optional)</label>
++                        <input type="password" id="repo-token" placeholder="ghp_xxxxxxxxxxxx" class="input-field w-full p-2 border rounded-lg font-mono">
++                        <p class="text-[10px] opacity-40 mt-1">Required for private repositories. Create one in GitHub Developer Settings.</p>
++                    </div>
+                 </div>
+             </div>
+ 

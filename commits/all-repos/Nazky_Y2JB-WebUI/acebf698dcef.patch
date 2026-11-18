@@ -1,0 +1,236 @@
+From acebf698dcefcfc9563f82fcf8e564b98ab4c288 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 22:17:01 +0100
+Subject: [PATCH] UI: add credits section
+
+i'm really bored damn
+---
+ server.py                |  4 ++
+ static/credits.js        | 83 ++++++++++++++++++++++++++++++++++++++++
+ static/style/credits.css | 35 +++++++++++++++++
+ templates/credits.html   | 49 ++++++++++++++++++++++++
+ templates/index.html     |  4 ++
+ 5 files changed, 175 insertions(+)
+ create mode 100644 static/credits.js
+ create mode 100644 static/style/credits.css
+ create mode 100644 templates/credits.html
+
+diff --git a/server.py b/server.py
+index 5287e86..4ebaea0 100644
+--- a/server.py
++++ b/server.py
+@@ -280,6 +280,10 @@ def remove_repo():
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+ 
++@app.route('/credits')
++def credits_page():
++    return render_template('credits.html')
++
+ if __name__ == "__main__":
+     threading.Thread(target=check_ajb, daemon=True).start()
+     app.run(host="0.0.0.0", port=8000 ,debug=False)
+\ No newline at end of file
+diff --git a/static/credits.js b/static/credits.js
+new file mode 100644
+index 0000000..5f857ff
+--- /dev/null
++++ b/static/credits.js
+@@ -0,0 +1,83 @@
++document.addEventListener('DOMContentLoaded', () => {
++    const credits = [
++        {
++            author: "Gezine",
++            project: "Y2JB",
++            role: "Core Project",
++            url: "https://github.com/Gezine/Y2JB/",
++            authorUrl: "https://github.com/Gezine",
++            avatar: "https://avatars.githubusercontent.com/u/30000519?v=4"
++        },
++        {
++            author: "itsPLK",
++            project: "ps5_y2jb_autoloader",
++            role: "Inspiration",
++            url: "https://github.com/itsPLK/ps5_y2jb_autoloader",
++            authorUrl: "https://github.com/itsPLK",
++            avatar: "https://avatars.githubusercontent.com/u/209955039?s=200&v=4"
++        },
++        {
++            author: "EchoStretch",
++            project: "kstuff",
++            role: "Payload",
++            url: "https://github.com/EchoStretch/kstuff",
++            authorUrl: "https://github.com/EchoStretch",
++            avatar: "https://avatars.githubusercontent.com/u/98502641?v=4"
++        },
++        {
++            author: "voidwhisper-ps",
++            project: "ShadowMount",
++            role: "Payload",
++            url: "https://github.com/voidwhisper-ps/ShadowMount",
++            authorUrl: "https://github.com/voidwhisper-ps",
++            avatar: "https://avatars.githubusercontent.com/u/253620578?v=4"
++        },
++        {
++            author: "drakmor",
++            project: "ftpsrv",
++            role: "Payload",
++            url: "https://github.com/drakmor/ftpsrv",
++            authorUrl: "https://github.com/drakmor",
++            avatar: "https://avatars.githubusercontent.com/u/1344732?v=4"
++        }
++    ];
++
++    const container = document.getElementById('credits-grid');
++    
++    credits.forEach((credit, index) => {
++        const card = document.createElement('div');
++        card.style.animationDelay = `${index * 100}ms`;
++        card.className = `surface border rounded-xl p-5 hover:border-brand-blue/50 transition-all duration-300 group animate-slide-up opacity-0 fill-mode-forwards`;
++
++        card.innerHTML = `
++            <div class="flex items-start justify-between">
++                <div class="flex items-center gap-3">
++                    <img src="${credit.avatar}" alt="${credit.author}" class="w-10 h-10 rounded-full object-cover shadow-lg border border-white/10 bg-surface">
++                    <div>
++                        <h3 class="font-bold text-lg leading-tight group-hover:text-brand-light transition-colors">
++                            ${credit.author}
++                        </h3>
++                        <span class="text-[10px] opacity-50 uppercase tracking-wider font-bold border border-white/10 px-1.5 py-0.5 rounded">
++                            ${credit.role}
++                        </span>
++                    </div>
++                </div>
++                <a href="${credit.authorUrl}" target="_blank" class="opacity-40 hover:opacity-100 hover:text-brand-light transition-all">
++                    <i class="fa-brands fa-github text-xl"></i>
++                </a>
++            </div>
++            
++            <div class="mt-4 pt-4 border-t border-oled-border">
++                <div class="flex items-center justify-between text-sm">
++                    <span class="opacity-70 font-mono text-xs">${credit.project}</span>
++                    <a href="${credit.url}" target="_blank" class="flex items-center gap-2 text-xs font-bold text-brand-light opacity-80 hover:opacity-100 transition-opacity">
++                        <span>View Project</span>
++                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
++                    </a>
++                </div>
++            </div>
++        `;
++        
++        container.appendChild(card);
++    });
++});
+\ No newline at end of file
+diff --git a/static/style/credits.css b/static/style/credits.css
+new file mode 100644
+index 0000000..dc8140c
+--- /dev/null
++++ b/static/style/credits.css
+@@ -0,0 +1,35 @@
++html.dark body { background-color: #000000; color: #e5e5e5; }
++html.dark .surface { background-color: #121212; border-color: #2a2a2a; }
++html.dark .input-field { background-color: #000000; border-color: #333; color: white; }
++
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++@keyframes slideUp {
++    from {
++        opacity: 0;
++        transform: translateY(20px);
++    }
++    to {
++        opacity: 1;
++        transform: translateY(0);
++    }
++}
++
++@keyframes fadeIn {
++    from { opacity: 0; }
++    to { opacity: 1; }
++}
++
++.animate-slide-up {
++    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
++}
++
++.animate-fade-in {
++    animation: fadeIn 0.8s ease-out forwards;
++}
++
++.fill-mode-forwards {
++    animation-fill-mode: forwards;
++}
+\ No newline at end of file
+diff --git a/templates/credits.html b/templates/credits.html
+new file mode 100644
+index 0000000..693252b
+--- /dev/null
++++ b/templates/credits.html
+@@ -0,0 +1,49 @@
++<!DOCTYPE html>
++<html lang="en" class="dark">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Y2JB - Credits</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++    <script>
++        tailwind.config = {
++            darkMode: 'class',
++            theme: {
++                extend: {
++                    fontFamily: { sans: ['Inter', 'sans-serif'] },
++                    colors: {
++                        oled: { base: '#000000', surface: '#121212', border: '#2a2a2a' },
++                        brand: { blue: '#00439c', light: '#0070d1' }
++                    }
++                }
++            }
++        }
++    </script>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/credits.css') }}">
++    <script src="{{ url_for('static', filename='credits.js') }}" defer></script>
++</head>
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto transition-colors duration-300">
++
++    <header class="flex items-center gap-4 mb-8 animate-fade-in">
++        <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all hover:scale-105 active:scale-95 text-brand-light">
++            <i class="fa-solid fa-arrow-left"></i>
++        </a>
++        <div>
++            <h1 class="text-2xl font-bold">Credits</h1>
++            <p class="text-xs opacity-50 uppercase tracking-widest font-medium">Community & Developers</p>
++        </div>
++    </header>
++
++    <main>
++        <div id="credits-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
++            </div>
++
++        <footer class="mt-12 text-center opacity-40 text-xs">
++            <p>Y2JB-WebUI</p>
++        </footer>
++    </main>
++
++</body>
++</html>
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index f8a64c1..e160a6b 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -53,6 +53,10 @@
+                         <i class="fa-solid fa-gear"></i>
+                         <span>Repos</span>
+                     </a>
++                    <a href="{{ url_for('credits_page') }}" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                        <i class="fa-solid fa-heart"></i>
++                        <span>Credits</span>
++                    </a>
+                     <div class="relative">
+                         <button onclick="toggleRepoList(event)" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                             <span>Select Update</span>

@@ -1,0 +1,75 @@
+From 02f7e3aa2fcbb71408260b901a1c4a1cc17669ed Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 17:40:32 +0100
+Subject: [PATCH] feat(client): implement settings fetch and save logic
+
+- Add functionality to load current config on page load.
+- Implement saveAllSettings() to POST data to the new API.
+- Add toast notifications for success/error states.
+---
+ static/settings.js | 55 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+ create mode 100644 static/settings.js
+
+diff --git a/static/settings.js b/static/settings.js
+new file mode 100644
+index 0000000..62c6158
+--- /dev/null
++++ b/static/settings.js
+@@ -0,0 +1,55 @@
++document.addEventListener('DOMContentLoaded', loadSettings);
++
++async function loadSettings() {
++    try {
++        const response = await fetch('/api/settings');
++        const config = await response.json();
++
++        if (config.ip) document.getElementById('ip').value = config.ip;
++        if (config.ftp_port) document.getElementById('ftp_port').value = config.ftp_port;
++        
++        const ajbCheckbox = document.getElementById('ajb');
++        if (config.ajb && config.ajb.toLowerCase() === 'true') {
++            ajbCheckbox.checked = true;
++        } else {
++            ajbCheckbox.checked = false;
++        }
++
++    } catch (error) {
++        console.error('Error loading settings:', error);
++        showToast('Failed to load settings', 'error');
++    }
++}
++
++async function saveAllSettings() {
++    const ip = document.getElementById('ip').value;
++    const ftpPort = document.getElementById('ftp_port').value;
++    const ajb = document.getElementById('ajb').checked ? "true" : "false";
++
++    const payload = {
++        ip: ip,
++        ftp_port: ftpPort,
++        ajb: ajb
++    };
++
++    try {
++        const response = await fetch('/api/settings', {
++            method: 'POST',
++            headers: {
++                'Content-Type': 'application/json',
++            },
++            body: JSON.stringify(payload)
++        });
++
++        const result = await response.json();
++
++        if (result.success) {
++            showToast('Settings saved successfully!', 'success');
++        } else {
++            showToast('Error: ' + result.error, 'error');
++        }
++    } catch (error) {
++        console.error('Error saving settings:', error);
++        showToast('Connection error while saving', 'error');
++    }
++}
+\ No newline at end of file

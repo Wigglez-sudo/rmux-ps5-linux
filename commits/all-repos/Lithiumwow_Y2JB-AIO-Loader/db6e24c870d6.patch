@@ -1,0 +1,783 @@
+From db6e24c870d646272cdcb41fa13d5adb8ba3b672 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 18 Jan 2026 12:57:59 +0100
+Subject: [PATCH] feat(ftp): Add Initial Support
+
+SOMEONE HELP MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE.
+
+Tested on my pc with a fake python ftp server, worked well, hopefully Playstation will be happy too lmao.
+---
+ server.py            |  90 ++++++++++++
+ src/ftp_manager.py   | 117 +++++++++++++++
+ static/ftp.js        | 336 +++++++++++++++++++++++++++++++++++++++++++
+ static/style/ftp.css |  26 ++++
+ templates/ftp.html   | 130 +++++++++++++++++
+ templates/index.html |   5 +-
+ 6 files changed, 703 insertions(+), 1 deletion(-)
+ create mode 100644 src/ftp_manager.py
+ create mode 100644 static/ftp.js
+ create mode 100644 static/style/ftp.css
+ create mode 100644 templates/ftp.html
+
+diff --git a/server.py b/server.py
+index 4a31e79..7495392 100644
+--- a/server.py
++++ b/server.py
+@@ -14,6 +14,9 @@
+ import threading
+ import requests
+ import socket
++from src.ftp_manager import list_ftp_directory, delete_item, create_directory, rename_item, download_file_content, upload_file_content
++import io
++from flask import send_file
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -428,6 +431,93 @@ def network_info():
+         "client_ip": client_ip
+     })
+ 
++@app.route('/ftp')
++def ftp_page():
++    return render_template('ftp.html')
++
++@app.route('/api/ftp/list', methods=['POST'])
++def api_ftp_list():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    path = request.json.get('path', '/')
++    
++    if not ip:
++        return jsonify({"success": False, "error": "IP not configured"}), 400
++        
++    result = list_ftp_directory(ip, port, path)
++    if result['success']:
++        return jsonify(result)
++    else:
++        return jsonify(result), 500
++
++@app.route('/api/ftp/download_file', methods=['POST'])
++def api_ftp_download():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    path = request.json.get('path')
++    
++    result = download_file_content(ip, port, path)
++    if result['success']:
++        if request.json.get('as_text'):
++            try:
++                return jsonify({"success": True, "content": result['content'].decode('utf-8')})
++            except:
++                return jsonify({"success": False, "error": "Could not decode file as text"})
++        
++        filename = os.path.basename(path)
++        return send_file(
++            io.BytesIO(result['content']),
++            as_attachment=True,
++            download_name=filename,
++            mimetype='application/octet-stream'
++        )
++    return jsonify(result), 500
++
++@app.route('/api/ftp/upload_file', methods=['POST'])
++def api_ftp_upload():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    
++    path = request.form.get('path')
++    file = request.files.get('file')
++    
++    text_content = request.form.get('content')
++    
++    if text_content is not None:
++        result = upload_file_content(ip, port, path, text_content.encode('utf-8'))
++        return jsonify(result)
++
++    if file:
++        file_content = file.read()
++        filename = secure_filename(file.filename)
++        full_path = f"{path.rstrip('/')}/{filename}"
++        result = upload_file_content(ip, port, full_path, file_content)
++        return jsonify(result)
++        
++    return jsonify({"success": False, "error": "No data provided"}), 400
++
++@app.route('/api/ftp/action', methods=['POST'])
++def api_ftp_action():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    
++    data = request.json
++    action = data.get('action')
++    path = data.get('path')
++    
++    if action == 'delete':
++        return jsonify(delete_item(ip, port, path, data.get('is_dir', False)))
++    elif action == 'mkdir':
++        return jsonify(create_directory(ip, port, path))
++    elif action == 'rename':
++        return jsonify(rename_item(ip, port, path, data.get('new_path')))
++        
++    return jsonify({"success": False, "error": "Invalid action"}), 400
++
+ if __name__ == "__main__":
+     threading.Thread(target=check_ajb, daemon=True).start()
+     app.run(host="0.0.0.0", port=8000 ,debug=False)
+\ No newline at end of file
+diff --git a/src/ftp_manager.py b/src/ftp_manager.py
+new file mode 100644
+index 0000000..4424662
+--- /dev/null
++++ b/src/ftp_manager.py
+@@ -0,0 +1,117 @@
++import ftplib
++import os
++import io
++import re
++
++def get_ftp_connection(ip, port):
++    ftp = ftplib.FTP()
++    ftp.connect(ip, int(port), timeout=10)
++    ftp.login('', '')
++    return ftp
++
++def parse_ftp_list_line(line):
++    parts = re.split(r'\s+', line, maxsplit=8)
++    if len(parts) < 9:
++        return None
++
++    perms = parts[0]
++    is_dir = perms.startswith('d')
++    size = parts[4]
++    name = parts[-1]
++    return {
++        "name": name,
++        "type": "dir" if is_dir else "file",
++        "size": size,
++        "raw": line
++    }
++
++def list_ftp_directory(ip, port, path='/'):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        ftp.cwd(path)
++        lines = []
++        ftp.retrlines('LIST', lines.append)
++        items = []
++        for line in lines:
++            parsed = parse_ftp_list_line(line)
++            if parsed and parsed['name'] not in ['.', '..']:
++                items.append(parsed)
++        items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
++        return {"success": True, "path": path, "items": items}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
++
++def download_file_content(ip, port, path):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        buffer = io.BytesIO()
++        ftp.retrbinary(f"RETR {path}", buffer.write)
++        buffer.seek(0)
++        return {"success": True, "content": buffer.getvalue()}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
++
++def upload_file_content(ip, port, path, file_content):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        ftp.storbinary(f"STOR {path}", io.BytesIO(file_content))
++        return {"success": True}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
++
++def delete_item(ip, port, path, is_dir=False):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        if is_dir:
++            ftp.rmd(path)
++        else:
++            ftp.delete(path)
++        return {"success": True}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
++
++def create_directory(ip, port, path):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        ftp.mkd(path)
++        return {"success": True}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
++
++def rename_item(ip, port, old_path, new_path):
++    ftp = None
++    try:
++        ftp = get_ftp_connection(ip, port)
++        ftp.rename(old_path, new_path)
++        return {"success": True}
++    except Exception as e:
++        return {"success": False, "error": str(e)}
++    finally:
++        if ftp:
++            try: ftp.quit()
++            except: pass
+\ No newline at end of file
+diff --git a/static/ftp.js b/static/ftp.js
+new file mode 100644
+index 0000000..e8b1b32
+--- /dev/null
++++ b/static/ftp.js
+@@ -0,0 +1,336 @@
++let currentPath = "/";
++let currentFiles = [];
++
++document.addEventListener('DOMContentLoaded', () => {
++    loadDirectory('/');
++});
++
++async function loadDirectory(path) {
++    showLoader(true);
++    try {
++        const response = await fetch('/api/ftp/list', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ path })
++        });
++        
++        const data = await response.json();
++        
++        if (data.success) {
++            currentPath = path;
++            currentFiles = data.items;
++            renderFiles(data.items);
++            updateBreadcrumbs(path);
++            document.getElementById('connection-status').innerText = "Connected";
++            document.getElementById('connection-status').className = "text-xs uppercase tracking-wider text-green-500 font-bold font-mono";
++        } else {
++            Toast.show(data.error || "Failed to list directory", "error");
++        }
++    } catch (e) {
++        Toast.show("Connection Error", "error");
++    } finally {
++        showLoader(false);
++    }
++}
++
++function renderFiles(items) {
++    const container = document.getElementById('file-list');
++    container.innerHTML = '';
++
++    if (items.length === 0) {
++        container.innerHTML = `<div class="p-8 text-center opacity-30">Empty Directory</div>`;
++        return;
++    }
++
++    items.forEach(item => {
++        const isDir = item.type === 'dir';
++        const icon = isDir ? 'fa-folder text-yellow-500' : 'fa-file text-brand-light';
++        const size = isDir ? '-' : formatBytes(item.size);
++        
++        const div = document.createElement('div');
++        div.className = "grid grid-cols-12 gap-4 p-3 border-b border-white/5 hover:bg-white/5 transition-colors items-center group text-sm";
++        div.innerHTML = `
++            <div class="col-span-1 text-center"><i class="fa-solid ${icon}"></i></div>
++            <div class="col-span-7 md:col-span-6 font-medium truncate cursor-pointer select-none" onclick="${isDir ? `openDir('${item.name}')` : `editFile('${item.name}')`}">
++                ${item.name}
++            </div>
++            <div class="col-span-2 hidden md:block text-right font-mono opacity-60 text-xs">${size}</div>
++            <div class="col-span-4 md:col-span-3 flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
++                ${!isDir ? `<button onclick="downloadFile('${item.name}')" class="p-1.5 hover:text-brand-light" title="Download"><i class="fa-solid fa-download"></i></button>` : ''}
++                <button onclick="renameItem('${item.name}')" class="p-1.5 hover:text-yellow-400" title="Rename"><i class="fa-solid fa-pen"></i></button>
++                <button onclick="deleteItem('${item.name}', ${isDir})" class="p-1.5 hover:text-red-500" title="Delete"><i class="fa-solid fa-trash"></i></button>
++            </div>
++        `;
++        container.appendChild(div);
++    });
++}
++
++function openDir(name) {
++    const newPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    loadDirectory(newPath);
++}
++
++function navigateUp() {
++    if (currentPath === '/') return;
++    const parts = currentPath.split('/');
++    parts.pop();
++    const newPath = parts.length === 1 ? '/' : parts.join('/');
++    loadDirectory(newPath);
++}
++
++function refreshDir() {
++    loadDirectory(currentPath);
++}
++
++function updateBreadcrumbs(path) {
++    document.getElementById('breadcrumbs').innerText = path;
++}
++
++async function createFolder() {
++    const name = prompt("Folder Name:");
++    if (!name) return;
++    
++    const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    await performAction('mkdir', { path });
++}
++
++function createFile() {
++    const name = prompt("New File Name (e.g., script.py):");
++    if (!name) return;
++
++    const exists = currentFiles.find(f => f.name === name);
++    if (exists) {
++        Toast.show("File already exists!", "error");
++        return;
++    }
++
++    openEditorModal(name, "");
++}
++
++async function deleteItem(name, isDir) {
++    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
++    const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    await performAction('delete', { path, is_dir: isDir });
++}
++
++async function renameItem(name) {
++    const newName = prompt("New Name:", name);
++    if (!newName || newName === name) return;
++    
++    const oldPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    const newPath = currentPath === '/' ? `/${newName}` : `${currentPath}/${newName}`;
++    
++    await performAction('rename', { path: oldPath, new_path: newPath });
++}
++
++async function performAction(action, data) {
++    showLoader(true);
++    try {
++        const res = await fetch('/api/ftp/action', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ action, ...data })
++        });
++        const json = await res.json();
++        if (json.success) refreshDir();
++        else Toast.show(json.error, "error");
++    } catch (e) {
++        Toast.show("Action failed", "error");
++    } finally {
++        showLoader(false);
++    }
++}
++
++async function handleUpload(input) {
++    if (!input.files.length) return;
++    const file = input.files[0];
++    
++    const formData = new FormData();
++    formData.append('file', file);
++    formData.append('path', currentPath);
++    
++    showLoader(true);
++    try {
++        const res = await fetch('/api/ftp/upload_file', {
++            method: 'POST',
++            body: formData
++        });
++        const json = await res.json();
++        if (json.success) {
++            Toast.show("Upload successful", "success");
++            refreshDir();
++        } else {
++            Toast.show(json.error, "error");
++        }
++    } catch (e) {
++        Toast.show("Upload failed", "error");
++    } finally {
++        input.value = '';
++        showLoader(false);
++    }
++}
++
++function downloadFile(name) {
++    const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    fetch('/api/ftp/download_file', {
++        method: 'POST',
++        headers: {'Content-Type': 'application/json'},
++        body: JSON.stringify({ path })
++    })
++    .then(res => res.blob())
++    .then(blob => {
++        const url = window.URL.createObjectURL(blob);
++        const a = document.createElement('a');
++        a.href = url;
++        a.download = name;
++        document.body.appendChild(a);
++        a.click();
++        window.URL.revokeObjectURL(url);
++    })
++    .catch(() => Toast.show("Download failed", "error"));
++}
++
++async function editFile(name) {
++    const ext = name.split('.').pop().toLowerCase();
++    
++    const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'];
++    if (imageExts.includes(ext)) {
++        viewImage(name);
++        return;
++    }
++
++    const editable = ['txt', 'json', 'ini', 'xml', 'py', 'js', 'css', 'html', 'sh', 'conf', 'md', 'yml'];
++    
++    if (!editable.includes(ext)) {
++        downloadFile(name);
++        return;
++    }
++
++    const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    showLoader(true);
++    try {
++        const res = await fetch('/api/ftp/download_file', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ path, as_text: true })
++        });
++        const json = await res.json();
++        if (json.success) {
++            openEditorModal(name, json.content);
++        } else {
++            Toast.show("Could not open file", "error");
++        }
++    } catch(e) {
++        Toast.show("Error opening file", "error");
++    } finally {
++        showLoader(false);
++    }
++}
++
++async function viewImage(name) {
++    const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
++    showLoader(true);
++    
++    try {
++        const res = await fetch('/api/ftp/download_file', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ path })
++        });
++        
++        if (!res.ok) throw new Error("Failed to fetch image");
++        
++        const blob = await res.blob();
++        
++        const url = window.URL.createObjectURL(blob);
++        
++        const imgTarget = document.getElementById('image-viewer-target');
++        const downloadLink = document.getElementById('image-viewer-download');
++        
++        imgTarget.src = url;
++        document.getElementById('image-viewer-filename').innerText = name;
++        
++        // Setup the download button in the viewer
++        downloadLink.href = url;
++        downloadLink.download = name;
++        
++        document.getElementById('image-modal').classList.replace('hidden', 'flex');
++        
++    } catch (e) {
++        Toast.show("Could not load image", "error");
++    } finally {
++        showLoader(false);
++    }
++}
++
++function closeImageViewer() {
++    const modal = document.getElementById('image-modal');
++    const img = document.getElementById('image-viewer-target');
++    modal.classList.replace('flex', 'hidden');
++    setTimeout(() => {
++        if (img.src) {
++            window.URL.revokeObjectURL(img.src);
++            img.src = '';
++        }
++    }, 300);
++}
++
++let currentEditingFile = null;
++
++function openEditorModal(name, content) {
++    currentEditingFile = name;
++    document.getElementById('editor-filename').innerText = name;
++    document.getElementById('editor-content').value = content;
++    document.getElementById('editor-modal').classList.replace('hidden', 'flex');
++}
++
++function closeEditor() {
++    document.getElementById('editor-modal').classList.replace('flex', 'hidden');
++    currentEditingFile = null;
++}
++
++async function saveEditorContent() {
++    if (!currentEditingFile) return;
++    
++    const content = document.getElementById('editor-content').value;
++    const path = currentPath === '/' ? `/${currentEditingFile}` : `${currentPath}/${currentEditingFile}`;
++    
++    const formData = new FormData();
++    formData.append('content', content);
++    formData.append('path', path);
++    
++    showLoader(true);
++    try {
++        const res = await fetch('/api/ftp/upload_file', {
++            method: 'POST',
++            body: formData
++        });
++        const json = await res.json();
++        if (json.success) {
++            Toast.show("File saved", "success");
++            closeEditor();
++            refreshDir();
++        } else {
++            Toast.show(json.error, "error");
++        }
++    } catch (e) {
++        Toast.show("Save failed", "error");
++    } finally {
++        showLoader(false);
++    }
++}
++
++function showLoader(show) {
++    const loader = document.getElementById('loader');
++    if(show) loader.classList.remove('hidden');
++    else loader.classList.add('hidden');
++}
++
++function formatBytes(bytes, decimals = 2) {
++    if (!+bytes) return '0 B';
++    const k = 1024;
++    const dm = decimals < 0 ? 0 : decimals;
++    const sizes = ['B', 'KB', 'MB', 'GB'];
++    const i = Math.floor(Math.log(bytes) / Math.log(k));
++    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
++}
+\ No newline at end of file
+diff --git a/static/style/ftp.css b/static/style/ftp.css
+new file mode 100644
+index 0000000..1c035c5
+--- /dev/null
++++ b/static/style/ftp.css
+@@ -0,0 +1,26 @@
++.btn-tool {
++    @apply p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all active:scale-95;
++}
++
++.custom-scroll::-webkit-scrollbar {
++    width: 6px;
++    height: 6px;
++}
++.custom-scroll::-webkit-scrollbar-track {
++    background: transparent;
++}
++.custom-scroll::-webkit-scrollbar-thumb {
++    background: #333;
++    border-radius: 3px;
++}
++.custom-scroll::-webkit-scrollbar-thumb:hover {
++    background: #555;
++}
++
++.scrollbar-hide::-webkit-scrollbar {
++    display: none;
++}
++.scrollbar-hide {
++    -ms-overflow-style: none;
++    scrollbar-width: none;
++}
+\ No newline at end of file
+diff --git a/templates/ftp.html b/templates/ftp.html
+new file mode 100644
+index 0000000..145bb45
+--- /dev/null
++++ b/templates/ftp.html
+@@ -0,0 +1,130 @@
++<!DOCTYPE html>
++<html lang="en" class="dark">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>FTP Manager - Y2JB</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++    
++    <script>
++        tailwind.config = {
++            darkMode: 'class',
++            theme: {
++                extend: {
++                    fontFamily: { sans: ['Inter', 'sans-serif'] },
++                    colors: {
++                        oled: { base: '#000000', surface: '#121212', border: '#2a2a2a' },
++                        brand: { blue: '#00439c', light: '#0070d1' }
++                    }
++                }
++            }
++        }
++    </script>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/ftp.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
++</head>
++
++<body class="font-sans antialiased min-h-screen flex flex-col bg-oled-base text-white">
++
++    <nav class="w-full border-b surface/90 backdrop-blur-md border-white/5 sticky top-0 z-30">
++        <div class="mx-auto px-4 h-16 flex items-center justify-between">
++            <div class="flex items-center gap-2">
++                <a href="/" class="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
++                    <i class="fa-solid fa-arrow-left"></i>
++                    <span class="font-bold text-lg">FTP Manager</span>
++                </a>
++            </div>
++            <div id="connection-status" class="text-xs uppercase tracking-wider opacity-50 font-mono">
++                Disconnected
++            </div>
++        </div>
++    </nav>
++
++    <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-6 space-y-4">
++        
++        <div class="flex flex-col md:flex-row gap-4 justify-between items-center surface border rounded-xl p-3">
++            <div class="flex items-center gap-2 w-full md:w-auto overflow-hidden">
++                <button onclick="navigateUp()" class="p-2 hover:bg-white/5 rounded-lg transition-colors">
++                    <i class="fa-solid fa-level-up-alt"></i>
++                </button>
++                <div id="breadcrumbs" class="flex-1 font-mono text-sm overflow-x-auto whitespace-nowrap scrollbar-hide px-2">
++                    /
++                </div>
++            </div>
++            
++            <div class="flex items-center gap-2 w-full md:w-auto">
++                <button onclick="refreshDir()" class="btn-tool" title="Refresh">
++                    <i class="fa-solid fa-rotate-right"></i>
++                </button>
++                <button onclick="createFolder()" class="btn-tool" title="New Folder">
++                    <i class="fa-solid fa-folder-plus"></i>
++                </button>
++                <button onclick="createFile()" class="btn-tool" title="New File">
++                    <i class="fa-solid fa-file-circle-plus"></i>
++                </button>
++                <button onclick="document.getElementById('upload-input').click()" class="btn-tool" title="Upload File">
++                    <i class="fa-solid fa-upload"></i>
++                </button>
++                <input type="file" id="upload-input" class="hidden" onchange="handleUpload(this)">
++            </div>
++        </div>
++
++        <div class="surface border rounded-xl overflow-hidden min-h-[500px] flex flex-col relative">
++            <div id="loader" class="absolute inset-0 bg-oled-surface/80 z-20 flex items-center justify-center hidden">
++                <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand-light"></i>
++            </div>
++
++            <div class="grid grid-cols-12 gap-4 p-3 border-b border-white/5 text-xs font-bold opacity-50 uppercase tracking-wider">
++                <div class="col-span-1">Type</div>
++                <div class="col-span-7 md:col-span-6">Name</div>
++                <div class="col-span-2 hidden md:block text-right">Size</div>
++                <div class="col-span-4 md:col-span-3 text-right">Actions</div>
++            </div>
++            
++            <div id="file-list" class="flex-1 overflow-y-auto custom-scroll">
++                </div>
++        </div>
++
++    </main>
++
++    <div id="editor-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm items-center justify-center p-4">
++        <div class="surface border rounded-xl w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl">
++            <div class="flex items-center justify-between p-4 border-b border-white/5">
++                <h3 class="font-bold flex items-center gap-2">
++                    <i class="fa-solid fa-pen-to-square text-brand-light"></i>
++                    <span id="editor-filename">filename.txt</span>
++                </h3>
++                <button onclick="closeEditor()" class="text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
++            </div>
++            <textarea id="editor-content" class="flex-1 bg-oled-base p-4 font-mono text-sm outline-none resize-none"></textarea>
++            <div class="p-4 border-t border-white/5 flex justify-end gap-3">
++                <button onclick="closeEditor()" class="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-sm">Cancel</button>
++                <button onclick="saveEditorContent()" class="px-4 py-2 rounded-lg bg-brand-blue hover:bg-brand-light text-white text-sm font-bold">Save Changes</button>
++            </div>
++        </div>
++    </div>
++
++    <div id="image-modal" class="fixed inset-0 z-50 hidden bg-black/95 backdrop-blur-md items-center justify-center p-4" onclick="closeImageViewer()">
++        <div class="relative flex flex-col items-center" onclick="event.stopPropagation()">
++            <img id="image-viewer-target" src="" class="max-w-[90vw] max-h-[80vh] rounded-lg shadow-2xl border border-white/10 object-contain">
++            <div class="mt-4 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/5 flex items-center gap-3">
++                <span id="image-viewer-filename" class="text-sm font-mono text-white/90">image.png</span>
++                <div class="w-px h-4 bg-white/20"></div>
++                <a id="image-viewer-download" href="#" download class="text-xs text-brand-light hover:text-white uppercase font-bold tracking-wider transition-colors">
++                    Download
++                </a>
++            </div>
++            <button onclick="closeImageViewer()" class="absolute -top-12 right-0 md:-right-12 text-white/50 hover:text-white transition-colors p-2">
++                <i class="fa-solid fa-xmark text-2xl"></i>
++            </button>
++        </div>
++    </div>
++
++    <script src="{{ url_for('static', filename='ftp.js') }}"></script>
++</body>
++</html>
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index 36c1d2d..9b48263 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -68,7 +68,10 @@
+                         <i class="fa-solid fa-heart"></i>
+                         <span>Credits</span>
+                     </a>
+-
++                    <a href="{{ url_for('ftp_page') }}" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                        <i class="fa-solid fa-folder-tree"></i>
++                        <span>FTP - Experimental</span>
++                    </a>
+                     <button onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center surface border transition-all hover:scale-105 active:scale-95 hover:border-brand-blue/30">
+                         <i id="theme-icon" class="fa-solid fa-moon"></i>
+                     </button>

@@ -1,0 +1,157 @@
+From 3675ebe11375dbacfef9d80d2adf934fc2cb8e7b Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 16:22:48 +0000
+Subject: [PATCH] ps5-gbe: add NAPI poll and ISR
+
+---
+ gbe.c | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 110 insertions(+), 2 deletions(-)
+
+diff --git a/gbe.c b/gbe.c
+index e6bc51a..09f1a0a 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -394,7 +394,100 @@ static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++/* napi: do tx, then rx, turn irqs back on once we drop under budget */
++static int gbe_poll(struct napi_struct *napi, int budget)
++{
++	struct gbe_priv *p = container_of(napi, struct gbe_priv, napi);
++	int rx_done;
++
++	spin_lock(&p->lock);
++	gbe_tx_complete(p);
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_KICK);
++	spin_unlock(&p->lock);
++
++	rx_done = gbe_rx_poll(p, budget);
++
++	if (rx_done < budget) {
++		napi_complete_done(napi, rx_done);
++		gbe_wr(p, GBE_REG_IER, GBE_IER_MASK);
++	}
++	return rx_done;
++}
++
++static irqreturn_t gbe_isr(int irq, void *data)
++{
++	struct gbe_priv *p = data;
++	u32 status;
++
++	status = gbe_rd(p, GBE_REG_ISR);
++	if (!status)
++		return IRQ_NONE;
++
++	/* ack everyhting we just read off */
++	gbe_wr(p, GBE_REG_ISR, status);
++
++	if (status & GBE_ISR_ERRORS) {
++		u32 err = status & GBE_ISR_ERRORS;
++
++		net_err_ratelimited("%s: HW error %#x%s%s%s%s%s%s%s\n",
++			netdev_name(p->netdev), err,
++			err & GBE_ERR_LSO_FIFO  ? " lso-fifo-empty" : "",
++			err & GBE_ERR_LSO_PROTO ? " lso-proto" : "",
++			err & GBE_ERR_RX_AXI    ? " rx-axi" : "",
++			err & GBE_ERR_IP_CKSUM  ? " ip-cksum" : "",
++			err & GBE_ERR_TCP_CKSUM ? " tcp-cksum" : "",
++			err & GBE_ERR_UDP_CKSUM ? " udp-cksum" : "",
++			err & GBE_ERR_RX_PCODE  ? " rx-pcode" : "");
++		p->netdev->stats.rx_errors++;
++	}
++
++	/* mask irqs and let napi do the ring work out of hardirq */
++	if (napi_schedule_prep(&p->napi)) {
++		gbe_wr(p, GBE_REG_IER, 0);
++		__napi_schedule(&p->napi);
++	}
++
++	return IRQ_HANDLED;
++}
++
++static int gbe_open(struct net_device *dev)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++	int ret;
++
++	ret = request_irq(p->irq, gbe_isr, IRQF_SHARED, dev->name, p);
++	if (ret)
++		return ret;
++
++	p->link_up = 0;
++	netif_carrier_off(dev);
++
++	gbe_init_hw(p);
++	gbe_rx_fill(p);
++	gbe_init_rings_hw(p);
++	napi_enable(&p->napi);
++	netif_start_queue(dev);
++
++	return 0;
++}
++
++static int gbe_stop(struct net_device *dev)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++
++	netif_stop_queue(dev);
++	netif_carrier_off(dev);
++
++	gbe_stop_dma(p);
++
++	free_irq(p->irq, p);
++	napi_disable(&p->napi);
++	return 0;
++}
++
+ static const struct net_device_ops gbe_netdev_ops = {
++	.ndo_open		= gbe_open,
++	.ndo_stop		= gbe_stop,
+ 	.ndo_start_xmit		= gbe_xmit,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+@@ -453,18 +546,31 @@ static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	netdev->netdev_ops = &gbe_netdev_ops;
+ 
++	netif_napi_add(netdev, &p->napi, gbe_poll);
++
++	/* device has no intx pin so msi is the only optoin here */
++	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSI | PCI_IRQ_INTX);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "probe: no IRQ vectors: %d\n", ret);
++		goto err_napi;
++	}
++	p->irq = pci_irq_vector(pdev, 0);
++
+ 	pci_set_drvdata(pdev, netdev);
+ 
+ 	ret = register_netdev(netdev);
+ 	if (ret)
+-		goto err_glue;
++		goto err_irq;
+ 
+ 	netif_carrier_off(netdev);
+ 
+ 	dev_info(&pdev->dev, "Salina GBE (chip %#x)\n", spcie_get_chip_id());
+ 	return 0;
+ 
+-err_glue:
++err_irq:
++	pci_free_irq_vectors(pdev);
++err_napi:
++	netif_napi_del(&p->napi);
+ 	gbe_glue_unmap(p);
+ err_rings:
+ 	gbe_free_rings(p);
+@@ -479,6 +585,8 @@ static void gbe_remove(struct pci_dev *pdev)
+ 	struct gbe_priv *p = netdev_priv(netdev);
+ 
+ 	unregister_netdev(netdev);
++	netif_napi_del(&p->napi);
++	pci_free_irq_vectors(pdev);
+ 	gbe_glue_unmap(p);
+ 	gbe_free_rings(p);
+ 	free_netdev(netdev);

@@ -1,0 +1,39 @@
+From 9b5ecad520fd4f745e6c50d17f5109b770dfab59 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 19:28:44 +0100
+Subject: [PATCH] repos: correction due to manager.
+
+---
+ static/config/repos.json | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/static/config/repos.json b/static/config/repos.json
+index 73ddd0b..8cf9eb7 100644
+--- a/static/config/repos.json
++++ b/static/config/repos.json
+@@ -10,12 +10,6 @@
+         "asset_pattern": "kstuff.elf",
+         "save_path": "payloads/kstuff.elf"
+     },
+-    "ftpsrv.elf": {
+-        "type": "release",
+-        "repo": "drakmor/ftpsrv",
+-        "asset_pattern": "ftpsrv-ps5.elf",
+-        "save_path": "payloads/ftpsrv-ps5.elf"
+-    },
+     "shadowmount.elf": {
+         "type": "release",
+         "repo": "adel-ailane/ShadowMount",
+@@ -27,5 +21,11 @@
+         "repo": "adel-ailane/ShadowMount",
+         "asset_pattern": "notify.elf",
+         "save_path": "payloads/notify.elf"
++    },
++    "ftpsrv.elf": {
++        "type": "release",
++        "save_path": "payloads/ftpsrv-ps5.elf",
++        "repo": "drakmor/ftpsrv",
++        "asset_pattern": "ftpsrv-ps5.elf"
+     }
+ }
+\ No newline at end of file

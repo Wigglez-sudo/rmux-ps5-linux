@@ -1,0 +1,78 @@
+From a2a534289ce1a4fc27b8267bb30c4cec733427d2 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Fri, 6 Nov 2026 18:09:13 +0100
+Subject: [PATCH] amdgpu: enable uvd and vce on liverpool 1002:9920 and
+ 1002:9922
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c | 11 ++++++++++-
+ drivers/gpu/drm/amd/amdgpu/cik.c        |  4 ++--
+ drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c   |  2 +-
+ 4 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+index ef6ad3ab4b7e..5ea9b24da6ee 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -210,7 +210,7 @@ int amdgpu_uvd_sw_init(struct amdgpu_device *adev)
+ #endif
+ #ifdef CONFIG_DRM_AMDGPU_CIK
+ 	case CHIP_LIVERPOOL:
+-		if (adev->pdev->device != 0x9923)
++		if (!amdgpu_vce_is_native(adev))
+ 			return -ENODEV;
+ 		fw_name = "amdgpu/liverpool_refresh_uvd.bin";
+ 		break;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+index 27c8b496af32..e1d9b8392183 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+@@ -98,7 +98,16 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
+ 
+ bool amdgpu_vce_is_native(struct amdgpu_device *adev)
+ {
+-	return adev->asic_type == CHIP_LIVERPOOL && adev->pdev->device == 0x9923;
++#ifdef CONFIG_X86_PS4
++	u32 revision = cpuid_eax(1) & 0xfffffff0;
++
++	return adev->asic_type == CHIP_LIVERPOOL &&
++	       (adev->pdev->device == 0x9920 || adev->pdev->device == 0x9922 ||
++		adev->pdev->device == 0x9923) &&
++	       (revision & 0xffffff00) == 0x710f00 && revision > 0x710f2f;
++#else
++	return false;
++#endif
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index afc618f08784..3fc9ae031f00 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -2772,9 +2772,9 @@ int cik_set_ip_blocks(struct amdgpu_device *adev)
+ 			amdgpu_device_ip_block_add(adev, &dce_v8_1_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &gfx_v7_1_ip_block);
+ 		amdgpu_device_ip_block_add(adev, &cik_sdma_ip_block);
+-		if (adev->pdev->device == 0x9923)
++		if (amdgpu_vce_is_native(adev))
+ 			amdgpu_device_ip_block_add(adev, &uvd_v5_0_ip_block);
+-		if (adev->pdev->device == 0x9923)
++		if (amdgpu_vce_is_native(adev))
+ 			amdgpu_device_ip_block_add(adev, &vce_liverpool_ip_block);
+ 		break;
+ 	case CHIP_GLADIUS:
+diff --git a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+index 8d2478314eab..14938c4a0c81 100644
+--- a/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/uvd_v5_0.c
+@@ -284,7 +284,7 @@ static int uvd_v5_0_resume(struct amdgpu_ip_block *ip_block)
+  */
+ static bool uvd_v5_0_liverpool(struct amdgpu_device *adev)
+ {
+-	return adev->asic_type == CHIP_LIVERPOOL && adev->pdev->device == 0x9923;
++	return amdgpu_vce_is_native(adev);
+ }
+ 
+ static int uvd_v5_0_liverpool_start(struct amdgpu_device *adev)

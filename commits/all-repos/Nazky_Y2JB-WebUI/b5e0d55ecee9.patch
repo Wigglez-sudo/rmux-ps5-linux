@@ -1,0 +1,695 @@
+From b5e0d55ecee9abc0dc9f612c36f7c603a82bf549 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 20 Jan 2026 17:13:07 +0100
+Subject: [PATCH] feat: DNS Manager
+
+---
+ server.py            |  79 +++++++++++++++++++++++-
+ src/dns_server.py    | 127 +++++++++++++++++++++++++++++++++++++++
+ static/dns.js        | 114 +++++++++++++++++++++++++++++++++++
+ static/style/dns.css | 123 +++++++++++++++++++++++++++++++++++++
+ templates/dns.html   | 140 +++++++++++++++++++++++++++++++++++++++++++
+ templates/index.html |  10 ++++
+ 6 files changed, 592 insertions(+), 1 deletion(-)
+ create mode 100644 src/dns_server.py
+ create mode 100644 static/dns.js
+ create mode 100644 static/style/dns.css
+ create mode 100644 templates/dns.html
+
+diff --git a/server.py b/server.py
+index 2942d39..6f7d83f 100644
+--- a/server.py
++++ b/server.py
+@@ -17,11 +17,15 @@
+ from src.ftp_manager import list_ftp_directory, delete_item, create_directory, rename_item, download_file_content, upload_file_content
+ import io
+ from flask import send_file
++import uuid
++from src.dns_server import DNSServer
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+ CORS(app)
+ 
++dns_service = None
++
+ PAYLOAD_DIR = "payloads"
+ DAT_DIR = "payloads/dat"
+ CONFIG_DIR = "static/config"
+@@ -30,6 +34,7 @@
+ PAYLOAD_ORDER_FILE = os.path.join(CONFIG_DIR, "payload_order.json")
+ PAYLOAD_DELAYS_FILE = os.path.join(CONFIG_DIR, "payload_delays.json")
+ PAYLOAD_DELAY_FLAGS_FILE = os.path.join(CONFIG_DIR, "payload_delay_flags.json")
++DNS_CONFIG_FILE = os.path.join(CONFIG_DIR, "dns_rules.json")
+ ALLOWED_EXTENSIONS = {'bin', 'elf', 'js', 'dat'}
+ url = "http://localhost:8000/send_payload"
+ 
+@@ -96,6 +101,21 @@ def update_config(key, value):
+     with open(CONFIG_FILE, 'w') as f:
+         json.dump(config, f, indent=4)
+ 
++def get_dns_rules():
++    if not os.path.exists(DNS_CONFIG_FILE):
++        return []
++    try:
++        with open(DNS_CONFIG_FILE, 'r') as f:
++            return json.load(f)
++    except:
++        return []
++
++def save_dns_rules(rules):
++    with open(DNS_CONFIG_FILE, 'w') as f:
++        json.dump(rules, f, indent=4)
++    if dns_service:
++        dns_service.load_rules()
++
+ def allowed_file(filename):
+     return '.' in filename and \
+            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@@ -641,6 +661,63 @@ def api_ftp_action():
+         
+     return jsonify({"success": False, "error": "Invalid action"}), 400
+ 
++@app.route('/dns')
++def dns_page():
++    return render_template('dns.html')
++
++@app.route('/api/dns/list')
++def api_dns_list():
++    return jsonify(get_dns_rules())
++
++@app.route('/api/dns/add', methods=['POST'])
++def api_dns_add():
++    try:
++        data = request.json
++        name = data.get('name')
++        domain = data.get('domain')
++        target = data.get('target', '0.0.0.0')
++
++        if not name or not domain:
++            return jsonify({"error": "Name and Domain are required"}), 400
++
++        rules = get_dns_rules()
++        new_rule = {
++            "id": str(uuid.uuid4()),
++            "name": name,
++            "domain": domain,
++            "target": target
++        }
++        rules.append(new_rule)
++        save_dns_rules(rules)
++        return jsonify({"success": True})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
++@app.route('/api/dns/delete', methods=['POST'])
++def api_dns_delete():
++    try:
++        rule_id = request.json.get('id')
++        rules = get_dns_rules()
++        rules = [r for r in rules if r.get('id') != rule_id]
++        save_dns_rules(rules)
++        return jsonify({"success": True})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
+ if __name__ == "__main__":
+     threading.Thread(target=check_ajb, daemon=True).start()
+-    app.run(host="0.0.0.0", port=8000 ,debug=False)
+\ No newline at end of file
++
++    try:
++        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++        s.connect(("1.1.1.1", 80))
++        local_ip = s.getsockname()[0]
++        s.close()
++    except:
++        local_ip = "127.0.0.1"
++
++    print(f"--- Initializing DNS Server on {local_ip} ---")
++    
++    dns_service = DNSServer(config_file=DNS_CONFIG_FILE, host_ip=local_ip)
++    threading.Thread(target=dns_service.start, daemon=True).start()
++
++    app.run(host="0.0.0.0", port=8000, debug=False)
+\ No newline at end of file
+diff --git a/src/dns_server.py b/src/dns_server.py
+new file mode 100644
+index 0000000..669aeac
+--- /dev/null
++++ b/src/dns_server.py
+@@ -0,0 +1,127 @@
++import socket
++import threading
++import os
++import json
++import struct
++
++class DNSServer:
++    def __init__(self, config_file, host_ip, forwarder=('1.1.1.1', 53)):
++        self.config_file = config_file
++        self.host_ip = host_ip
++        self.forwarder = forwarder
++        self.rules = []
++        self.running = False
++        self.lock = threading.Lock() 
++        self.load_rules()
++
++    def load_rules(self):
++        with self.lock:
++            self.rules.clear()
++            if not os.path.exists(self.config_file):
++                return
++
++            try:
++                with open(self.config_file, 'r') as f:
++                    data = json.load(f)
++                    if isinstance(data, list):
++                        self.rules = data
++                print(f"[DNS] Rules hot-reloaded. Total: {len(self.rules)}")
++            except Exception as e:
++                print(f"[DNS] Error reloading rules: {e}")
++
++    def find_target(self, query_domain):
++        query_domain = query_domain.lower().rstrip('.')
++        
++        with self.lock:
++            for rule in self.rules:
++                domain = rule.get('domain', '').lower().rstrip('.')
++                target = rule.get('target', '0.0.0.0')
++                
++                if query_domain == domain or query_domain.endswith('.' + domain):
++                    return target if target != 'SELF' else self.host_ip
++        return None
++
++    def parse_domain(self, data):
++        try:
++            state = 0
++            expected_length = 0
++            domain_parts = []
++            x = 0
++            y = 0
++            payload = data[12:]
++            for byte in payload:
++                if state == 0:
++                    if byte == 0: break
++                    expected_length = byte
++                    state = 1
++                elif state == 1:
++                    if y == 0: domain_parts.append(chr(byte))
++                    else: domain_parts[x] += chr(byte)
++                    y += 1
++                    if y == expected_length:
++                        state = 0
++                        x = x + 1
++                        y = 0
++            return ".".join(domain_parts)
++        except:
++            return ""
++
++    def start(self):
++        self.running = True
++        try:
++            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++            sock.bind(('0.0.0.0', 53))
++            print(f"[DNS] Server Active on Port 53. Forwarding to {self.forwarder}")
++        except PermissionError:
++            print("[DNS] CRITICAL: Permission denied. Run as Root/Sudo.")
++            return
++        except OSError as e:
++            print(f"[DNS] CRITICAL: Port 53 busy: {e}")
++            return
++
++        while self.running:
++            try:
++                data, addr = sock.recvfrom(512)
++                threading.Thread(target=self.handle_query, args=(sock, data, addr)).start()
++            except Exception as e:
++                print(f"[DNS] Loop Error: {e}")
++
++    def handle_query(self, sock, data, addr):
++        domain = self.parse_domain(data)
++        target_ip = self.find_target(domain)
++        trans_id = data[:2]
++
++        if target_ip:
++            if target_ip == '0.0.0.0':
++                print(f"[DNS] BLOCKED: {domain}")
++            elif target_ip == self.host_ip:
++                print(f"[DNS] SELF-REDIRECT: {domain} -> {target_ip}")
++            else:
++                print(f"[DNS] REDIRECT: {domain} -> {target_ip}")
++            
++            flags = b'\x81\x80'
++            counts = b'\x00\x01\x00\x01\x00\x00\x00\x00'
++            
++            answer = b'\xc0\x0c'
++            answer += b'\x00\x01'
++            answer += b'\x00\x01'
++            answer += b'\x00\x00\x01\x2c'
++            answer += b'\x00\x04'
++            
++            try:
++                ip_bytes = struct.pack("!BBBB", *map(int, target_ip.split('.')))
++            except:
++                ip_bytes = b'\x00\x00\x00\x00'
++
++            response = trans_id + flags + counts + data[12:] + answer + ip_bytes
++            sock.sendto(response, addr)
++        else:
++            try:
++                proxy = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++                proxy.settimeout(2)
++                proxy.sendto(data, self.forwarder)
++                response, _ = proxy.recvfrom(512)
++                sock.sendto(response, addr)
++                proxy.close()
++            except:
++                pass
+\ No newline at end of file
+diff --git a/static/dns.js b/static/dns.js
+new file mode 100644
+index 0000000..827e93e
+--- /dev/null
++++ b/static/dns.js
+@@ -0,0 +1,114 @@
++document.addEventListener('DOMContentLoaded', loadRules);
++
++async function loadRules() {
++    try {
++        const response = await fetch('/api/dns/list');
++        const rules = await response.json();
++        const container = document.getElementById('rulesList');
++        container.innerHTML = '';
++
++        if (!rules || rules.length === 0) {
++            container.innerHTML = `
++                <div class="flex flex-col items-center justify-center py-16 opacity-20 space-y-4">
++                    <i class="fa-solid fa-shield-slash text-6xl"></i>
++                    <p class="font-bold tracking-widest uppercase text-xs">No redirection rules active</p>
++                </div>`;
++            return;
++        }
++
++        rules.forEach(rule => {
++            const item = document.createElement('div');
++            item.className = 'group flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-brand-blue/40 transition-all hover:bg-white/[0.04] hover:shadow-xl hover:shadow-brand-blue/5';
++            
++            const displayTarget = rule.target === 'SELF' ? 'Host (Self)' : rule.target;
++            
++            item.innerHTML = `
++                <div class="flex items-center gap-5">
++                    <div class="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-light group-hover:scale-110 transition-transform">
++                        <i class="fa-solid fa-route"></i>
++                    </div>
++                    <div class="flex flex-col gap-0.5">
++                        <span class="font-bold text-sm text-gray-100">${escapeHtml(rule.name)}</span>
++                        <div class="flex items-center gap-2 font-mono text-[11px]">
++                            <span class="opacity-40">${escapeHtml(rule.domain)}</span>
++                            <i class="fa-solid fa-arrow-right-long opacity-20 text-[8px]"></i>
++                            <span class="text-brand-light/70">${escapeHtml(displayTarget)}</span>
++                        </div>
++                    </div>
++                </div>
++                <button onclick="deleteRule('${rule.id}')" class="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500/5 text-red-500/40 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
++                    <i class="fa-solid fa-trash-can text-sm"></i>
++                </button>
++            `;
++            container.appendChild(item);
++        });
++    } catch (error) {
++        console.error(error);
++        if (typeof showToast === 'function') showToast('Error loading rules', 'error');
++    }
++}
++
++async function addRule() {
++    const nameInput = document.getElementById('ruleName');
++    const domainInput = document.getElementById('ruleDomain');
++    const targetInput = document.getElementById('ruleTarget');
++
++    const name = nameInput.value.trim();
++    const domain = domainInput.value.trim();
++    const target = targetInput.value.trim() || '0.0.0.0';
++
++    if (!name || !domain) {
++        if (typeof showToast === 'function') showToast('Name and Domain are required', 'error');
++        return;
++    }
++
++    try {
++        const response = await fetch('/api/dns/add', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ name, domain, target })
++        });
++        
++        const result = await response.json();
++        if (result.success) {
++            if (typeof showToast === 'function') showToast('Rule added successfully');
++            nameInput.value = '';
++            domainInput.value = '';
++            targetInput.value = '0.0.0.0';
++            loadRules();
++        } else {
++            if (typeof showToast === 'function') showToast(result.error, 'error');
++        }
++    } catch (error) {
++        if (typeof showToast === 'function') showToast('Failed to add rule', 'error');
++    }
++}
++
++async function deleteRule(id) {
++    if(!confirm("Are you sure you want to delete this rule?")) return;
++
++    try {
++        const response = await fetch('/api/dns/delete', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ id })
++        });
++        
++        if (response.ok) {
++            loadRules();
++            if (typeof showToast === 'function') showToast('Rule deleted');
++        }
++    } catch (error) {
++        if (typeof showToast === 'function') showToast('Error deleting rule', 'error');
++    }
++}
++
++function escapeHtml(text) {
++    if (!text) return text;
++    return text
++        .replace(/&/g, "&amp;")
++        .replace(/</g, "&lt;")
++        .replace(/>/g, "&gt;")
++        .replace(/"/g, "&quot;")
++        .replace(/'/g, "&#039;");
++}
+\ No newline at end of file
+diff --git a/static/style/dns.css b/static/style/dns.css
+new file mode 100644
+index 0000000..9ed32d5
+--- /dev/null
++++ b/static/style/dns.css
+@@ -0,0 +1,123 @@
++.dns-controls {
++    background: #1e1e1e;
++    padding: 20px;
++    border-radius: 12px;
++    margin-bottom: 25px;
++    border: 1px solid #333;
++}
++
++.dns-controls h3 {
++    margin-top: 0;
++    margin-bottom: 15px;
++    color: #fff;
++}
++
++.input-group {
++    display: grid;
++    grid-template-columns: 1fr 1fr 1fr auto;
++    gap: 10px;
++}
++
++.input-group input {
++    padding: 12px;
++    border-radius: 8px;
++    border: 1px solid #444;
++    background: #252525;
++    color: white;
++    font-size: 14px;
++}
++
++.input-group input:focus {
++    outline: none;
++    border-color: #0070f3;
++}
++
++.hint {
++    color: #888;
++    font-size: 0.85em;
++    margin-top: 10px;
++}
++
++.btn-primary {
++    background: #0070f3;
++    color: white;
++    border: none;
++    padding: 0 20px;
++    border-radius: 8px;
++    cursor: pointer;
++    font-weight: bold;
++    transition: background 0.2s;
++}
++
++.btn-primary:hover {
++    background: #0051a2;
++}
++
++.rules-list {
++    animation: fadeIn 0.3s ease;
++}
++
++.rule-item {
++    background: #252525;
++    padding: 15px;
++    border-radius: 8px;
++    display: flex;
++    justify-content: space-between;
++    align-items: center;
++    border-left: 4px solid #0070f3;
++}
++
++.rule-info {
++    display: flex;
++    flex-direction: column;
++}
++
++.rule-name {
++    font-weight: bold;
++    font-size: 1.1em;
++    color: #fff;
++}
++
++.rule-detail {
++    color: #bbb;
++    font-size: 0.9em;
++    font-family: monospace;
++    margin-top: 4px;
++}
++
++.delete-btn {
++    background: #ff4444;
++    color: white;
++    border: none;
++    padding: 8px 15px;
++    border-radius: 6px;
++    cursor: pointer;
++    font-size: 0.9em;
++}
++
++.delete-btn:hover {
++    background: #cc0000;
++}
++
++.no-data {
++    text-align: center;
++    color: #666;
++    padding: 30px;
++    background: #1e1e1e;
++    border-radius: 8px;
++}
++
++@keyframes fadeIn {
++    from { opacity: 0; transform: translateY(5px); }
++    to { opacity: 1; transform: translateY(0); }
++}
++
++@media (max-width: 768px) {
++    .input-group {
++        grid-template-columns: 1fr;
++    }
++    
++    .btn-primary {
++        padding: 12px;
++    }
++}
+\ No newline at end of file
+diff --git a/templates/dns.html b/templates/dns.html
+new file mode 100644
+index 0000000..52fe848
+--- /dev/null
++++ b/templates/dns.html
+@@ -0,0 +1,140 @@
++<!DOCTYPE html>
++<html lang="en" class="dark">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Y2JB - DNS Manager</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++    <script>
++        tailwind.config = {
++            darkMode: 'class',
++            theme: {
++                extend: {
++                    fontFamily: { sans: ['Inter', 'sans-serif'] },
++                    colors: {
++                        oled: { base: '#000000', surface: '#121212', border: '#2a2a2a' },
++                        brand: { blue: '#00439c', light: '#0070d1' }
++                    }
++                }
++            }
++        }
++    </script>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
++</head>
++<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-oled-base text-gray-200">
++    <nav class="w-full border-b surface/90 backdrop-blur-md sticky top-0 z-30 border-white/5">
++        <div class="mx-auto px-4 h-16 flex items-center justify-between max-w-4xl">
++            <div class="flex items-center gap-3">
++                <i class="fa-brands fa-playstation text-2xl text-brand-light"></i>
++                <span class="font-bold tracking-tight text-xl">DNS Manager</span>
++            </div>
++            <a href="/" class="text-xs font-bold input-field px-4 py-2 rounded-xl border flex items-center gap-2 opacity-60 hover:opacity-100 transition-all hover:bg-white/5">
++                <i class="fa-solid fa-house-chimney"></i>
++                <span>Index</span>
++            </a>
++        </div>
++    </nav>
++
++    <main class="flex-1 w-full max-w-4xl mx-auto px-4 py-8 space-y-8">
++        <section class="surface border rounded-2xl p-6 md:p-8 shadow-2xl border-white/5 relative overflow-hidden group">
++            <div class="absolute -right-16 -top-16 w-32 h-32 bg-brand-blue/10 rounded-full blur-3xl group-hover:bg-brand-blue/20 transition-all"></div>
++            
++            <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
++                <i class="fa-brands fa-plus-circle text-brand-light"></i>
++                Configure New Rule
++            </h3>
++            
++            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
++                <div class="md:col-span-4 space-y-1.5">
++                    <label class="text-[10px] uppercase font-bold opacity-30 ml-1">Friendly Name</label>
++                    <input type="text" id="ruleName" placeholder="e.g. Block Sony" class="input-field w-full px-4 py-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-light bg-black/20 transition-all">
++                </div>
++                <div class="md:col-span-4 space-y-1.5">
++                    <label class="text-[10px] uppercase font-bold opacity-30 ml-1">Domain Pattern</label>
++                    <input type="text" id="ruleDomain" placeholder="e.g. playstation.net" class="input-field w-full px-4 py-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-light bg-black/20 transition-all">
++                </div>
++                <div class="md:col-span-4 space-y-1.5">
++                    <label class="text-[10px] uppercase font-bold opacity-30 ml-1">Target Address</label>
++                    <div class="flex gap-2">
++                        <input type="text" id="ruleTarget" placeholder="0.0.0.0 or SELF" value="0.0.0.0" class="input-field flex-1 px-4 py-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-light bg-black/20 transition-all font-mono text-center">
++                        <button onclick="addRule()" class="px-6 py-3 bg-gradient-to-br from-brand-blue to-brand-light hover:scale-105 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-blue/20">
++                            Add
++                        </button>
++                    </div>
++                </div>
++            </div>
++            
++            <div class="mt-6 flex items-center gap-2 text-[10px] font-bold opacity-40 uppercase tracking-widest bg-white/5 w-fit px-3 py-1.5 rounded-lg border border-white/5">
++                <i class="fa-solid fa-circle-info text-brand-light"></i>
++                <span>Use "SELF" to redirect traffic to this host IP</span>
++            </div>
++        </section>
++
++        <section class="surface border rounded-2xl p-6 md:p-8 shadow-sm border-white/5 bg-gradient-to-br from-white/[0.01] to-transparent">
++            <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
++                <i class="fa-solid fa-circle-question text-brand-light"></i>
++                How to Use
++            </h3>
++            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
++                <div class="space-y-4">
++                    <div class="flex gap-3">
++                        <span class="w-6 h-6 rounded-full bg-brand-blue/20 text-brand-light flex items-center justify-center font-bold text-xs shrink-0">1</span>
++                        <p class="opacity-70">On your console, go to <span class="text-gray-100 font-semibold">Network Settings</span> and set the <span class="text-gray-100 font-semibold">Primary DNS</span> to this server's IP address.</p>
++                    </div>
++                    <div class="flex gap-3">
++                        <span class="w-6 h-6 rounded-full bg-brand-blue/20 text-brand-light flex items-center justify-center font-bold text-xs shrink-0">2</span>
++                        <p class="opacity-70">Add a rule for the domain you want to control. Subdomains are automatically matched (e.g., <code class="bg-black/40 px-1 rounded text-brand-light">playstation.net</code> matches all its sub-urls).</p>
++                    </div>
++                </div>
++                <div class="space-y-4">
++                    <div class="space-y-3 bg-black/20 p-4 rounded-xl border border-white/5">
++                        <h4 class="text-[10px] uppercase font-bold opacity-30 tracking-widest mb-1">Target Options</h4>
++                        <ul class="space-y-3 text-xs">
++                            <li class="flex items-start gap-2">
++                                <code class="text-brand-light font-bold bg-brand-blue/10 px-1.5 py-0.5 rounded">0.0.0.0</code>
++                                <span class="opacity-60">Effectively blocks the domain, making it appear offline (Sinkhole). Used for blocking updates.</span>
++                            </li>
++                            <li class="flex items-start gap-2">
++                                <code class="text-brand-light font-bold bg-brand-blue/10 px-1.5 py-0.5 rounded">SELF</code>
++                                <span class="opacity-60">Points the domain to this WebUI. Useful for redirecting the User Guide to this dashboard.</span>
++                            </li>
++                            <li class="flex items-start gap-2">
++                                <code class="text-brand-light font-bold bg-brand-blue/10 px-1.5 py-0.5 rounded">[IP]</code>
++                                <span class="opacity-60">Redirects the domain to any specific IP address of your choice.</span>
++                            </li>
++                        </ul>
++                    </div>
++                    <div class="bg-brand-blue/5 p-4 rounded-xl border border-brand-blue/20">
++                        <h4 class="text-[10px] uppercase font-bold text-brand-light tracking-widest mb-2"><i class="fa-solid fa-mobile-screen-button mr-1"></i> Testing without a PS5</h4>
++                        <p class="text-[11px] opacity-60">You can test this with your phone! Just go to your phone's Wi-Fi settings and set the <span class="text-white">DNS Server</span> to this PC's IP. Then, try visiting a blocked domain in your browser.</p>
++                    </div>
++                </div>
++            </div>
++        </section>
++
++        <section class="surface border rounded-2xl p-6 md:p-8 shadow-sm border-white/5">
++            <div class="flex items-center justify-between mb-8">
++                <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] flex items-center gap-2">
++                    <i class="fa-solid fa-list-check text-brand-light"></i>
++                    Active Routing Rules
++                </h3>
++            </div>
++            
++            <div id="rulesList" class="grid grid-cols-1 gap-4">
++            </div>
++        </section>
++    </main>
++
++    <footer class="w-full border-t border-white/5 py-6 mt-auto opacity-30 text-[10px] font-bold uppercase tracking-[0.3em]">
++        <div class="max-w-4xl mx-auto px-4 text-center">DNS Server Active on Port 53</div>
++    </footer>
++
++    <div id="toast" class="toast"></div>
++    <script src="{{ url_for('static', filename='toast.js') }}"></script>
++    <script src="{{ url_for('static', filename='dns.js') }}"></script>
++</body>
++</html>
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index 53c606d..df8f58a 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -85,6 +85,11 @@
+                     <i class="fa-solid fa-folder-tree"></i>
+                     <span>FTP - Experimental</span>
+                 </a>
++                <a href="{{ url_for('dns_page') }}"
++                   class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                    <i class="fa-solid fa-globe"></i>
++                    <span>DNS</span>
++                </a>
+                 <button onclick="toggleTheme()"
+                         class="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+                     <i id="theme-icon" class="fa-solid fa-moon"></i>
+@@ -115,6 +120,11 @@
+                 <i class="fa-solid fa-folder-tree"></i>
+                 <span>FTP - Experimental</span>
+             </a>
++            <a href="{{ url_for('dns_page') }}"
++               class="text-sm input-field px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                <i class="fa-solid fa-globe"></i>
++                <span>DNS</span>
++            </a>
+         </div>
+     </div>
+ </nav>

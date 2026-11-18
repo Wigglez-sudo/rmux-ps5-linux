@@ -1,0 +1,41 @@
+======================================================================
+commit 2e96fb26fae516f10118782ea108450ed45eab0a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 25 Apr 2025 05:39:08 -0700
+
+Update setup.sh
+
+======================================================================
+commit 5d4baafc80d9f69458fb839c77a8786940ef15e7
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 14:45:09 +0100
+
+README - update packages list n shit
+
+======================================================================
+commit 770f7d33ee3c72b6efea82bdcbf44eb06a33e817
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 14:39:47 +0100
+
+Initial commit
+
+======================================================================
+commit 931ba0ba752e58b93cab5953a3a80b8eaab39254
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 14:46:08 +0100
+
+setup.sh - initial script creation
+
+======================================================================
+commit e6c3a27229849d84fe62051f43b55a76783f5eb9
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 14:47:08 +0100
+
+README - fix url
+
+======================================================================
+commit fd0ad4ceb785b33284115cfef0a8789d23136e8e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 25 Apr 2025 03:32:08 -0700
+
+Update setup.sh

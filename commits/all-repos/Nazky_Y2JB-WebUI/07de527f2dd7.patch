@@ -1,0 +1,44 @@
+From 07de527f2dd7e64995a5722fb48d258136ba4ca9 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 28 Feb 2026 19:17:20 +0100
+Subject: [PATCH] fix: update bundled lapse.js to v1.1 (#43)
+
+---
+ payloads/js/lapse.js | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/payloads/js/lapse.js b/payloads/js/lapse.js
+index 2dbea46..6473a78 100644
+--- a/payloads/js/lapse.js
++++ b/payloads/js/lapse.js
+@@ -25,7 +25,7 @@
+ 
+ (async function() {
+     try {
+-        const lapse_version = "Y2JB Lapse 1.0 by Gezine";
++        const lapse_version = "Y2JB Lapse 1.1 by Gezine";
+         
+         let failcheck_path;
+ 
+@@ -1731,12 +1731,6 @@
+                     sds_alt = null;
+                 }
+                 
+-                if (prev_core >= 0) {
+-                    await log("Restoring to previous core: " + prev_core);
+-                    pin_to_core(prev_core);
+-                    prev_core = -1;
+-                }
+-                
+                 set_rtprio(prev_rtprio);
+ 
+                 await log("Cleanup completed");
+@@ -1899,7 +1893,7 @@
+             await log("Lapse finished\nClosing Y2JB...");
+             send_notification("Lapse finished\nClosing Y2JB...");
+             
+-            kill_youtube();
++            await kill_youtube();
+             
+         } catch (e) {
+             await log("Lapse error: " + e.message);

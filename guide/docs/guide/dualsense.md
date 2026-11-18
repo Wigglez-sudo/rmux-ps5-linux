@@ -1,0 +1,49 @@
+# DualSense Controller
+
+Works via USB with the `hid-playstation` kernel driver (mainline since 5.12).
+
+```bash
+lsmod | grep hid_playstation
+```
+
+Rumble, touchpad, gyro, and buttons all functional over USB.
+
+::: info Wireless
+On Bazzite, pair the controller via Bluetooth in **gamemode only** - pairing in desktop mode will not work.
+:::
+
+# Dualsense Fix For Marvell
+
+## Step 1
+
+The developer cow recently released an updated Bluetooth driver supporting Marvell and MediaTek wireless chipsets. However, users attempting to connect a PlayStation 5 DualSense controller to a Linux environment may experience connectivity issues.
+
+The following procedure outlines the steps required to successfully resolve these connection failures specifically on systems utilizing Marvell hardware.
+
+::: info Warning
+After testing the workaround it does not resolve connectivity issues on MediaTek chipsets. This fix is strictly applicable to Marvell chips.
+:::
+
+This script automatically generates the required udev rules, modifies the TLP and Bluetooth configurations, and restarts the necessary services.
+
+```bash
+curl -sSL https://guide.rmux.eu/scripts/BLfix/blfix.sh | bash
+```
+
+## Step 2: Controller Pairing & Profile Configuration
+
+Put your DualSense controller into pairing mode (press and hold the PS Button and the Share/Create Button simultaneously until the lightbar flashes rapidly).
+
+Once the controller appears in the Blueman device list, select it and click Connect.
+
+Right-click the newly paired controller within the Blueman interface and ensure both the Audio Profile and Input Profile are explicitly enabled.
+
+## Step 3: Persistent Reconnection Workaround
+
+Due to current limitations within the early-stage Marvell Bluetooth driver, automatic re-connection profiles may fail on subsequent boot cycles. If the controller fails to reconnect automatically:
+
+Open Blueman.
+
+Right-click the existing DualSense entry and select Remove.
+
+Re-scan for devices, put the controller into pairing mode, and re-pair the device as outlined in Step 2.

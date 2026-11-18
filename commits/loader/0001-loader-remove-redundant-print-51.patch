@@ -1,0 +1,23 @@
+From ba1e507efc28a4491b0d2c6f44979b26be973797 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 19 Oct 2026 16:11:22 -0700
+Subject: [PATCH] loader: remove redundant print (#51)
+
+I WAS NOT THERE
+---
+ source/loader.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source/loader.c b/source/loader.c
+index f92d77f..53b63c8 100644
+--- a/source/loader.c
++++ b/source/loader.c
+@@ -69,7 +69,7 @@ long find_and_get_size_of_file(const char *filename, char *found_path) {
+     snprintf(full_path, sizeof(full_path), "%s%s", file_paths[i], filename);
+ 
+     if (stat(full_path, &st) == 0) {
+-      notify("File '%s' found in '%s' - rmux was here\n", filename,
++      notify("File '%s' found in '%s'\n", filename,
+              file_paths[i]);
+       strcpy(found_path, full_path);
+       return st.st_size;

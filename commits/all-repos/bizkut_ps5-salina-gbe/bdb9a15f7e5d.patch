@@ -1,0 +1,161 @@
+From bdb9a15f7e5dcecdbd675853c849984908123d3b Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 11:05:44 +0000
+Subject: [PATCH] ps5-gbe: add DMA ring alloc
+
+---
+ gbe.c | 62 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ gbe.h | 42 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 103 insertions(+), 1 deletion(-)
+
+diff --git a/gbe.c b/gbe.c
+index 54afb87..5deb924 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -111,6 +111,59 @@ static void gbe_reset(struct gbe_priv *p)
+ 	usleep_range(680, 1000);
+ }
+ 
++/* the two rings + tx bounce scratch + rx pool, all dma coherent */
++static int gbe_alloc_rings(struct gbe_priv *p)
++{
++	p->tx_ring = dma_alloc_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++					&p->tx_ring_dma, GFP_KERNEL);
++	if (!p->tx_ring)
++		return -ENOMEM;
++
++	p->rx_ring = dma_alloc_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++					&p->rx_ring_dma, GFP_KERNEL);
++	if (!p->rx_ring)
++		goto err_rx;
++
++	p->tx_scratch = dma_alloc_coherent(&p->pdev->dev, GBE_TX_SCRATCH_SIZE,
++					   &p->tx_scratch_dma, GFP_KERNEL);
++	if (!p->tx_scratch)
++		goto err_scratch;
++
++	p->rx_pool = dma_alloc_coherent(&p->pdev->dev, GBE_RX_POOL_SIZE,
++					&p->rx_pool_dma, GFP_KERNEL);
++	if (!p->rx_pool)
++		goto err_pool;
++
++	return 0;
++
++err_pool:
++	dma_free_coherent(&p->pdev->dev, GBE_TX_SCRATCH_SIZE,
++			  p->tx_scratch, p->tx_scratch_dma);
++err_scratch:
++	dma_free_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++			  p->rx_ring, p->rx_ring_dma);
++err_rx:
++	dma_free_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++			  p->tx_ring, p->tx_ring_dma);
++	return -ENOMEM;
++}
++
++static void gbe_free_rings(struct gbe_priv *p)
++{
++	if (p->tx_ring)
++		dma_free_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++				  p->tx_ring, p->tx_ring_dma);
++	if (p->rx_ring)
++		dma_free_coherent(&p->pdev->dev, GBE_DESC_RING_BYTES,
++				  p->rx_ring, p->rx_ring_dma);
++	if (p->tx_scratch)
++		dma_free_coherent(&p->pdev->dev, GBE_TX_SCRATCH_SIZE,
++				  p->tx_scratch, p->tx_scratch_dma);
++	if (p->rx_pool)
++		dma_free_coherent(&p->pdev->dev, GBE_RX_POOL_SIZE,
++				  p->rx_pool, p->rx_pool_dma);
++}
++
+ static const struct net_device_ops gbe_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+@@ -149,10 +202,14 @@ static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	p->base		= pcim_iomap_table(pdev)[0];
+ 	spin_lock_init(&p->lock);
+ 
++	ret = gbe_alloc_rings(p);
++	if (ret)
++		goto err_free;
++
+ 	ret = gbe_glue_map(p);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "probe: glue BAR4 map failed: %d\n", ret);
+-		goto err_free;
++		goto err_rings;
+ 	}
+ 
+ 	if (gbe_read_glue_mac(p, mac) == 0 && is_valid_ether_addr(mac)) {
+@@ -178,6 +235,8 @@ static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ err_glue:
+ 	gbe_glue_unmap(p);
++err_rings:
++	gbe_free_rings(p);
+ err_free:
+ 	free_netdev(netdev);
+ 	return ret;
+@@ -190,6 +249,7 @@ static void gbe_remove(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(netdev);
+ 	gbe_glue_unmap(p);
++	gbe_free_rings(p);
+ 	free_netdev(netdev);
+ }
+ 
+diff --git a/gbe.h b/gbe.h
+index 569aa49..32872b2 100644
+--- a/gbe.h
++++ b/gbe.h
+@@ -134,7 +134,49 @@ struct gbe_priv {
+ 	void __iomem		*glue_base;
+ 	struct pci_dev		*glue_pdev;
+ 
++	/* tx goes through a bounce scratch region, the chip wants contiguous buffers */
++	struct gbe_desc		*tx_ring;
++	dma_addr_t		tx_ring_dma;
++	void			*tx_scratch;
++	dma_addr_t		tx_scratch_dma;
++	unsigned int		tx_scratch_off;
++	unsigned int		tx_head;
++	unsigned int		tx_tail;
++
++	/* rx just has the chip dma straight into a slotted pool */
++	struct gbe_desc		*rx_ring;
++	dma_addr_t		rx_ring_dma;
++	void			*rx_pool;
++	dma_addr_t		rx_pool_dma;
++	unsigned int		rx_head;
++
++	struct napi_struct	napi;
++	int			irq;
++	int			link_up;
++	unsigned long		state;
++	struct delayed_work	link_poll;
+ 	spinlock_t		lock;
++
++	/* debug counters, dumped every now and then by the link poll work */
++	u32			cnt_irq;
++	u32			cnt_irq_link;
++	u32			cnt_irq_tx;
++	u32			cnt_irq_rx;
++	u32			cnt_irq_err;
++	u32			cnt_irq_lso;
++	u32			cnt_tx_pkts;
++	u32			cnt_tx_busy;
++	u32			cnt_tx_drop_big;
++	u32			cnt_tx_completed;
++	u32			cnt_rx_pkts;
++	u32			cnt_rx_bcast;
++	u32			cnt_rx_mcast;
++	u32			cnt_rx_bad_len;
++	u32			cnt_rx_nomem;
++	u32			cnt_lso_recover;
++	u32			cnt_link_up;
++	u32			cnt_link_down;
++	unsigned int		poll_tick;
+ };
+ 
+ static inline u32 gbe_rd(struct gbe_priv *p, u32 reg)

@@ -1,0 +1,39 @@
+From 975bbf851ae5bb6d7495d2c1bae3938e43543511 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 14 Jan 2026 09:30:40 +0100
+Subject: [PATCH] Move SendPayload.py to src and update import
+
+Move SendPayload.py to src/SendPayload.py and updated the import path in server.py.
+---
+ server.py                            | 2 +-
+ SendPayload.py => src/SendPayload.py | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+ rename SendPayload.py => src/SendPayload.py (98%)
+
+diff --git a/server.py b/server.py
+index 7c699c1..a83f34d 100644
+--- a/server.py
++++ b/server.py
+@@ -4,7 +4,7 @@
+ from flask_cors import CORS
+ from werkzeug.utils import secure_filename
+ import os
+-from SendPayload import send_payload
++from src.SendPayload import send_payload
+ from src.delete_payload import handle_delete_payload
+ from src.download_payload import handle_url_download
+ import time
+diff --git a/SendPayload.py b/src/SendPayload.py
+similarity index 98%
+rename from SendPayload.py
+rename to src/SendPayload.py
+index d24e4fa..dd32050 100644
+--- a/SendPayload.py
++++ b/src/SendPayload.py
+@@ -69,4 +69,4 @@ def send_payload(file_path, host, port=50000):
+         sys.exit(0)
+     else:
+         print("Transmission failed")
+-        sys.exit(1)
+\ No newline at end of file
++        sys.exit(1)

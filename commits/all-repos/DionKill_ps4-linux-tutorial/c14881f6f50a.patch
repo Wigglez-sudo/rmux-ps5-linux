@@ -1,0 +1,23 @@
+From c14881f6f50ae7563f95208831beeb31fcb64f07 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Wed, 11 Nov 2026 10:11:32 +0100
+Subject: [PATCH] docs: hardware video works on the pro too
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ docs/postinstall.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docs/postinstall.md b/docs/postinstall.md
+index b9fec47..3a3eff0 100644
+--- a/docs/postinstall.md
++++ b/docs/postinstall.md
+@@ -242,7 +242,7 @@ In the past there were overclocked kernels, but alas they don't make them anymor
+ 
+ Do not go and download an older kernel to try as they don't work anymore either!
+ ## Hardware video (decode, encode, streaming)
+-The Strawberry 7.3.3 kernel turns on the PS4 video engines: UVD for decode and VCE for encode. This works on Aeolia, Belize and Baikal consoles. It isn't available on the PS4 Pro yet.
++The Strawberry 7.3.3 kernel turns on the PS4 video engines: UVD for decode and VCE for encode. This works on every PS4: fat, slim and Pro, on Aeolia, Belize and Baikal.
+ 
+ This means video playback, screen recording and game streaming can use the hardware instead of the weak CPU.
+ 

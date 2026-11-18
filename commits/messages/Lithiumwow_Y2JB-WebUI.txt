@@ -1,0 +1,780 @@
+======================================================================
+commit 00be0089a296d881157b48961fb7ffc2a1a5c48a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 21:48:00 +0100
+
+info(readme): Include Bugs & Feature Requests
+
+======================================================================
+commit 022917f4bb02dab40e707840beeb802842a3438f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:42:26 +0100
+
+Update TODO to mark repo management as complete
+
+Marked the 'Add repo management' task as completed in the README TODO list to reflect recent progress.
+
+======================================================================
+commit 02f7e3aa2fcbb71408260b901a1c4a1cc17669ed
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 17:40:32 +0100
+
+feat(client): implement settings fetch and save logic
+
+- Add functionality to load current config on page load.
+- Implement saveAllSettings() to POST data to the new API.
+- Add toast notifications for success/error states.
+
+======================================================================
+commit 07bede52b8cc4a42d31c92d7c116f4ff9ac17bd1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 27 Jan 2026 22:08:42 +0100
+
+feat: Add support for private repos
+
+======================================================================
+commit 096515a3a1daa1c3ef630f5c3a26f0c09d9d22a8
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 22:35:04 +0100
+
+UI: Improve repo table UI
+
+fix up for phones. works fine on pc too. 👍
+
+======================================================================
+commit 09ba59cbf21069f1358edc45588f7bae5c5b0833
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:49:34 +0100
+
+repos: manager: add update option in the manager
+
+======================================================================
+commit 0f6353df514f05feda9f4d8c929888663a3355c3
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 19:05:39 +0100
+
+bump version to 1.3
+
+======================================================================
+commit 14dcbf20083e817c1876ce2e368a60cc90fe63ec
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:39:39 +0100
+
+Func: Add ps5_utils.py
+
+includes: Pushing Download0.dat from pc to the console , Update Blocking by pulling files, patching and pushing them using FTP
+
+======================================================================
+commit 24706f20073a98083b3e29dbf91f23e8e1025915
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 13 Jan 2026 18:19:57 +0100
+
+Add Y2JB core update feature via UI and backend
+
+Introduced a new button in the UI to update the Y2JB core (lapse.js) file. Added a corresponding backend endpoint (/update_y2jb) in server.py to fetch the latest lapse.js from GitHub and save it to the payload directory. Implemented frontend logic in index.js to handle the update process and provide user feedback.
+
+======================================================================
+commit 260826160cfb726fe81c60b41f35acb86a030f18
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 22:42:20 +0100
+
+feat(ui): Add Selectable Auto Payload Loading
+
+======================================================================
+commit 2b09f1f95441f5b932535207b3a8fac633f7c7f6
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:34:23 +0100
+
+UI: add redirect to Repo manager , move css to
+
+======================================================================
+commit 35272951b555ae8579587d2affe315352c2774d1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:31:15 +0100
+
+repos: manager: initial support
+
+======================================================================
+commit 3b088e2bae10efcd34c317aa04ec423b9c0035d2
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 17:39:56 +0100
+
+feat(ui): create settings dashboard template
+
+- Add layout for Connection, Automation, and Application settings.
+- Implement responsive "surface" design consistent with index.html.
+- Add toggle for Auto-Jailbreak with warning context.
+
+======================================================================
+commit 3d48dc887aa6de58632824bf78eec858661b2d1a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 16:36:53 +0100
+
+feat(UI): Add Animation Toggle Option in Settings
+
+======================================================================
+commit 478c640fb3dc873036727dea0386150c89e23358
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 27 Jan 2026 11:12:05 +0100
+
+resolve the Permission denied
+
+======================================================================
+commit 4800f2f84e3c98939bbf47e99389614d0d3a4ffa
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 17:39:23 +0100
+
+feat(backend): add /settings route and /api/settings endpoint
+
+- Register route for the new Settings UI.
+- Create unified API endpoint to GET and POST configuration (IP, Port, AJB).
+- Implement validation to protect config file integrity.
+
+======================================================================
+commit 4a4372b2188e47e5d7e190507e85069bb60b302a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:31:40 +0100
+
+Y2JB-WEBUI: Bump Version to 1.1.1
+
+Overall changes are Just UI, clean up, improvements, let's just call it ricing.
+
+======================================================================
+commit 4b46612b204249b33b71ae6d03ddebab07a4479a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 27 Jan 2026 22:47:49 +0100
+
+bump to 1.3.1
+
+======================================================================
+commit 4cfe77f46282dd7171416769ae3e73779f9651cb
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:20:45 +0100
+
+Repos: Add Y2JB .dat repo source
+
+meow
+
+======================================================================
+commit 543be1c9d23f130f9ed0ce140d77b6e8c394d980
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:42:23 +0100
+
+Func: Add Support For FTP Operations
+
+======================================================================
+commit 55b81b6768a017bb34ba1e5960cd3ed125605208
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 18 Jan 2026 15:13:07 +0100
+
+(.gitignore): add payload_order.json
+
+======================================================================
+commit 5a37d97a6a28f64e97c282fc13b2b753f8c96600
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:40:28 +0100
+
+Add settings.json to .gitignore
+
+Updated .gitignore to exclude static/config/settings.json from version control.
+
+======================================================================
+commit 61389c75b03b8331202a23b2c34768a91f8e2ad2
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 18 Jan 2026 15:14:16 +0100
+
+feat(UI & Backend): Integrate Firing Order Customization
+
+======================================================================
+commit 631880d7ded4517d459927c459325c25cf2fef7e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 14:12:13 +0100
+
+UI: Repo Manager:  Improve Layout
+
+- Convert the "Configuration Guide" in templates/repos.html to a collapsible <details> element.
+- Reduce visual clutter to prioritize the repository list view.
+- Improve vertical spacing for better usability on smaller screens.
+
+======================================================================
+commit 63c698c9662630311a762352eec8e3dbe8b1a8e7
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:41:44 +0100
+
+REDO: payload update to support multiple repos
+
+Replaces the single Y2JB payload update with a flexible repo-based updater. Adds src/repo_manager.py to handle updating payloads from multiple sources as defined in a config file. Updates the server endpoint and frontend logic to use the new update mechanism, and updates the UI to call the new function.
+
+======================================================================
+commit 6964cf4ce9eed9c7c84e77d59598aa6970aa7577
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 25 Jan 2026 15:11:10 +0100
+
+(.gitignore) add backpork cache
+
+======================================================================
+commit 6b2e38441ee7a314df145fb128dd94c043e561a3
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:28:27 +0100
+
+UI: Index: remove updater option, improve
+
+meow meow meowmeowemwmoeowmmoewomewmoewomwmoew
+
+======================================================================
+commit 6bd3a58968474f9a9604a25efa34a171eb95bdb0
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 22:33:59 +0100
+
+UI: Add web app manifest and icon
+
+Introduced manifest.json and icon.png.
+
+======================================================================
+commit 77cb56a3b374c4d583500507745fe67fe955b1fe
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 Jan 2026 09:22:04 +0100
+
+Remove index.css stylesheet
+
+Deleted the static/index.css file, removing all associated styles from the project.
+
+======================================================================
+commit 7a5bdc715bcf7fa237c82f1965613a8c6c4d14e1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 16:36:18 +0100
+
+fixup: Forgot the Global Delay
+
+======================================================================
+commit 7aa009b2a78c55e648cfedea32654f6375e35f6b
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:29:42 +0100
+
+UI: Repos: Improve
+
+makes it better, as original dev prefers it to not scroll the whole page, but just the "Repos" list. same as Payloads, we just fix the height. looks great on mobile
+
+======================================================================
+commit 7c632e615c3ac26306140a89b11e57a72f793299
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:52:19 +0100
+
+Y2JB-WEBUI: Bump Version to 1.1.2
+
+basically Allows users to patch system files to block updates, and upload download0.dat using the WEBUI *still FTP*
+
+======================================================================
+commit 7cb498416c048ec61039bd9445dc0f6ea2460208
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 Jan 2026 09:34:35 +0100
+
+Update README with new payload and auto-update features
+
+Added instructions for downloading payloads directly from a URL and for updating Y2JB core files via the 'Update Core' button. Marked Y2JB auto update as completed in the TODO section.
+
+======================================================================
+commit 7d8615419d0dc71701eb7aece7012614d4b29424
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:23:47 +0100
+
+func: update delete_payload.py
+
+basically adds the function this way we can delete stuff in folders like payloads/js , which used to be working only in payloads/
+
+======================================================================
+commit 7efeec426d0234ccacd1ccc5eb7f16bf0c2ce950
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 18 Jan 2026 15:51:45 +0100
+
+(.gitignore): Add payload_delay_flags.json
+
+======================================================================
+commit 7f3a159f05612cb8d9ec3904fc50632a7a47644e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 20 Jan 2026 17:13:23 +0100
+
+im sleepy
+
+======================================================================
+commit 829b5a91e7c852db3b38e7ff546be00b7b310c44
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:30:04 +0100
+
+README: Update Information
+
+======================================================================
+commit 852c9a58b7ef51f2c5506e349cba2ac9aa19c36c
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 17:47:17 +0100
+
+feat(UI): Improve Visual Feedback
+
++ Added Visual feedback for when delay is present and the Auto Load is enabled per Payload
+
+======================================================================
+commit 8a227b5a4e2bc0527b9a3d9cbe9331afffb78c74
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 26 Jan 2026 22:34:43 +0100
+
+add myself into credits.
+
+======================================================================
+commit 8e76b78a2cb32de2bcfc058666b1104e9d2d26bf
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:56:12 +0100
+
+Add support for .js payload files
+
+Extended allowed file types to include .js in both backend and frontend. Updated file upload, listing, and sending logic to handle .js files, using port 50000 for .js payloads. Adjusted UI to reflect new file type support.
+
+======================================================================
+commit 8e87456036a9d07845788e54b916e6d658c165c1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:25:35 +0100
+
+UI: update toasts
+
+make them smex, blurry.
+
+======================================================================
+commit 8fe29906cdee9c6474095955661c48699bdab656
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:01:56 +0100
+
+UI: revamp, switch to toasts
+
+works completely fine though
+
+======================================================================
+commit 90fc17d8929a43a28b911ee398e4241d164a9f09
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 25 Jan 2026 18:29:55 +0100
+
+fixup!
+
+======================================================================
+commit 9130f776faa8cef0b6f93cb78df95152ab29be24
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 6 Feb 2026 21:52:19 +0100
+
+UI: add shake effect. clock.
+
+======================================================================
+commit 91b66a539fc3090fb68b71fde381711b88926118
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 17:40:55 +0100
+
+refactor(nav): add link to new settings page
+
+- Insert "Settings" button in the top navigation bar.
+- Update navigation icons for better visual.
+
+======================================================================
+commit 93127bb1621fa0efb81ac85fc2dac8ebe64ef571
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 Jan 2026 09:22:48 +0100
+
+Update Jailbreak button with icon and gradient
+
+Updated the Jailbreak button to include a bolt icon, gradient background, and hover animation for improved visual appeal and user experience.
+
+======================================================================
+commit 975bbf851ae5bb6d7495d2c1bae3938e43543511
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 Jan 2026 09:30:40 +0100
+
+Move SendPayload.py to src and update import
+
+Move SendPayload.py to src/SendPayload.py and updated the import path in server.py.
+
+======================================================================
+commit 976386be99a29aeb2faf483cd31edf948b8fda41
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 Jan 2026 09:23:09 +0100
+
+Set fixed height for payloads section
+
+Changed the min-h-[500px] class to h-[500px] in the payloads section to enforce a fixed height instead of a minimum height.
+
+======================================================================
+commit 99e92cf54dd4beee64e3ec8d36c93267144d79a9
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 30 Jan 2026 11:45:45 +0100
+
+Fix drag-and-drop overlay interfering with sorting
+
+- Updated dropZone event listeners to only trigger highlight when dragging external files (checking for 'Files' in dataTransfer).
+- Prevents the file upload UI from activating when reordering payload list items.
+- Fixes #32
+
+======================================================================
+commit 9b5ecad520fd4f745e6c50d17f5109b770dfab59
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:28:44 +0100
+
+repos: correction due to manager.
+
+======================================================================
+commit 9b9d0dd1d68a94948add09bea534361785fe7c4f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:41:01 +0100
+
+Add repos.json with payload repository configurations
+
+Introduces static/config/repos.json to define sources and save paths for various payloads, supporting both direct and release-based downloads.
+
+======================================================================
+commit 9e5acf9c524f042d8b1a7827c22e85ec5dae6e1c
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:55:31 +0100
+
+Y2JB-WEBUI: add versioning
+
+======================================================================
+commit 9fee804cdb5ef5a6648dc117d939a2953a9c640b
+author rmxunet <armandas.kvietkus@proton.me>
+date   Thu, 5 Feb 2026 17:56:36 +0100
+
+fix: resolve double payload execution issue by preventing
+
+======================================================================
+commit a398c81b1dea080ac8cdfc09963a560d07a17370
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 22:41:19 +0100
+
+feat(backend) fix Toast Messages in Settings.js
+
+======================================================================
+commit a3aee2cd1f44646328da7d7bf9dc4a7a63a47b4f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 27 Jan 2026 22:40:47 +0100
+
+feat: organize elf payloads into dedicated subdirectory
+
+======================================================================
+commit a521681be132c6972bf4c9cbd82e390f0e0a9912
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:41:57 +0100
+
+Func: Update Repo Manager
+
+instead of picking latest release, it finds the release which is newest and checks if our file of interest exists, if not checks other releases and get the file from there. Cleaned UP
+
+======================================================================
+commit a847b6f27f4a922d94dd79ad7acd689556121cfc
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:24:56 +0100
+
+func: update SendPayload.py
+
+remove comments because i hate them. will write complete documentation later on.
+
+======================================================================
+commit a996edc48a41e2d279c7b2db8269650e830e879f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 13 Jan 2026 23:29:45 +0100
+
+Major Update: UI Redesign, Dark Mode, JSON Config, Direct
+
+======================================================================
+commit acebf698dcefcfc9563f82fcf8e564b98ab4c288
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 22:17:01 +0100
+
+UI: add credits section
+
+i'm really bored damn
+
+======================================================================
+commit ae393dc232100d7e9e8aacb5a712a66ef0a6e1f3
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 19:12:17 +0100
+
+Update Discord badge link in README
+
+ay i made a mistake
+
+======================================================================
+commit af3936adacfcc6ce66ebeec8527b67acd78b83bd
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 04:03:00 +0100
+
+Readme: Update Information, Add Screenshots
+
+i should sleep really
+
+======================================================================
+commit b5e0d55ecee9abc0dc9f612c36f7c603a82bf549
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 20 Jan 2026 17:13:07 +0100
+
+feat: DNS Manager
+
+======================================================================
+commit b7ee9eea115c1cec5f353bbdeb42cc6f50af2f2c
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 13:12:21 +0100
+
+Add selective payload update functionality
+
+Introduces the ability to select specific payloads to update via the UI. Adds a new /list_repos endpoint, updates the update_repos API to accept target payloads, and enhances the frontend to allow users to choose which payloads to update instead of always updating all.
+
+======================================================================
+commit c832e2db7d0d7b601e66404bc96f4aa901d6b057
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:40:16 +0100
+
+README: update information
+
+meow
+
+======================================================================
+commit ca33fed00b32605295c01bd3b7c77363a4292003
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 13:17:50 +0100
+
+Update README for js payload support and update process
+
+Added .js file support to the list of accepted payload types and updated instructions to reflect the new payload update process via GitHub. Clarified the update mechanism and file type compatibility for users.
+
+======================================================================
+commit ca8e7e51edcf306647fd491afda1cbc9ee71c299
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 17:40:11 +0100
+
+style(settings): add specific styles for settings inputs
+
+- Define dark/light mode variables for the settings page.
+- Add animation keyframes for page load (fadeIn).
+
+======================================================================
+commit cbb91ca0edf1564aeaeb6d694d7848061d2d2d2f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 12:56:41 +0100
+
+Update README: mark custom JS support as complete
+
+The README checklist now marks 'Add support to load custom js' as completed, reflecting recent progress in the project.
+
+======================================================================
+commit cbd2b15f15cf9395a18836b5862928c348a49a17
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 3 Feb 2026 10:56:43 +0100
+
+fix: #36
+
+======================================================================
+commit cbf90aeda1c9d1f3b00fb7a28d1c4ecd06a26666
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 18 Jan 2026 15:55:22 +0100
+
+feat(UI & Backend): Implement Payload Delay System & Visual
+
+- Backend: Add `payload_delay_flags.json` storage and API endpoints for delay toggles.
+- Backend: Update auto-jailbreak sequence to respect global delay time and per-payload flags.
+- UI (Settings): Add Global Delay configuration input (default 5s).
+- UI (Index/Settings): Add visual "Delay" toggle button to payload cards with immediate Toast feedback.
+- UI: Sync delay state (blue active/gray inactive) across all payload lists.
+
+======================================================================
+commit ce14905ffe76141b4ea02317ad00ea15924f453a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 19:33:29 +0100
+
+repos: manager: backend support
+
+======================================================================
+commit d0787b364876e06210ae5ba0951e1ac93e5aa23b
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:40:37 +0100
+
+Func: Update server.py
+
+Added Support for FTP *ps5_utils*
+
+======================================================================
+commit d5e9c0c8e2fe6446e51c52375c3f813fd2a2fa31
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 7 Feb 2026 23:04:23 +0100
+
+feat: add system control
+
+somebody force me to rewrite the damn server.py and idk yeah
+
+======================================================================
+commit d65e2337f8812776c17706aa7f0eb59c6e7c02a7
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 22:39:19 +0100
+
+(.gitignore): update
+
+======================================================================
+commit db6e24c870d646272cdcb41fa13d5adb8ba3b672
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 18 Jan 2026 12:57:59 +0100
+
+feat(ftp): Add Initial Support
+
+Tested on my pc with a fake python ftp server, worked well, hopefully Playstation will be happy too lmao.
+
+======================================================================
+commit dfae58217f25713bd123a51c00ccfa20adec947a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 22:58:17 +0100
+
+UI: move icon.png and manifests.json
+
+icon.png moved to static/img/icon.png
+
+======================================================================
+commit e1c6168203d3cd7d617b1ff74eb7278811e5e7e1
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 22:43:20 +0100
+
+feat(backend): Better Logging + Auto Payload Management
+
+======================================================================
+commit e2ec74a070b493c55bcb6861e53a99a3579d7768
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 27 Jan 2026 11:07:01 +0100
+
+fixup: add .dat file support.
+
+======================================================================
+commit e317fbd780d43f64c81a2706431b8ac15c4fbe5e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 22:47:43 +0100
+
+UI: switch to custom Toast Notifications
+
+honestly why not while we are at it. the UI gotta look good as usual. and it costs us nothing to do this.
+
+======================================================================
+commit e3e08e6ae6538e9c28a6130af9ce4ddd45550d28
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:43:00 +0100
+
+Func: Update Repos.js
+
+Adds Spinner + Toast for indicating download.
+
+======================================================================
+commit e5f57e834037cf88189eee62f8ead4324f81f2f7
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 14:18:31 +0100
+
+UI: Index: Redesign Jailbreak Button
+
+======================================================================
+commit e621621b0390c6194c15c1d39aca3e179c0768b4
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 17 Jan 2026 03:43:43 +0100
+
+UI: Index: Add PS5_UTILS Buttons
+
+Check commits before. im tired
+
+======================================================================
+commit e6bfb2cb5f35b113b0ad3c1ac6efcaaa985154dd
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 30 Jan 2026 11:49:24 +0100
+
+Fix auto-update saving ELF files to wrong directory
+
+- Updated src/repo_manager.py to enforce the 'payloads/elf/' directory structure when downloading updates.
+- Prevents updated payloads from being saved to the root folder, which caused duplicates and misalignment with the server configuration.
+- Fixes #31
+
+======================================================================
+commit e6dc2e4ea2f31672ac6cb08134c8027b73b180ab
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 18:42:01 +0100
+
+(.gitignore): Update
+
+======================================================================
+commit e7ea77c048e2ae8339ef97af250983c047242b2d
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 18:42:49 +0100
+
+feat(backend): Optional kstuff loading.
+
+@mihaiaka asked for it.
+
+======================================================================
+commit e86c298d32685dc75ac8715832738b73b46f7c56
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 25 Jan 2026 15:17:05 +0100
+
+feat(backend): add Auto-Backpork
+
+======================================================================
+commit e959eb07a8cbd5c5d7a3540bed508a3ab8e3571f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 18:42:16 +0100
+
+Add Default Settings Config
+
+======================================================================
+commit e9bc636c55014b1cf411353634e53f83e999815d
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 30 Jan 2026 11:42:37 +0100
+
+Fix payload auto-load logic mismatch
+
+- Updated server.py to check both basename and full path
+- Fixes #33
+
+======================================================================
+commit e9ef876da3a77ddddcc2c8879fc33c47ef4a06f5
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 3 Feb 2026 10:37:47 +0100
+
+fix: #35
+
+======================================================================
+commit ec8a945b0c10fe6f7f94caabc1c6004b6fd0c86f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 25 Jan 2026 22:17:37 +0100
+
+feat(backend&UI): Add Some New Features
+
+im really lazy to document everything. ill let clawbot do it.
+
+======================================================================
+commit eea16664971ba00f2236b132876017ad583a0bcb
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 7 Feb 2026 22:27:17 +0100
+
+UI: add logs page
+
+======================================================================
+commit f4f5aa4cf466c20f24af99ea1b6f62a9d4aeb131
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 18:36:15 +0100
+
+feat(UI): Add Drag and Drop.
+
+@Nazky Responsible for this mess
+
+======================================================================
+commit f86a07e1cef69e3411c5666683b267d33c1b4407
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Fri, 16 Jan 2026 23:25:53 +0100
+
+UI: Credits: improve looks
+
+======================================================================
+commit f97be0da36962843009f95dee2dbc970108fabb8
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 19:02:10 +0100
+
+readme: add ftp/dns info, discord server
+
+======================================================================
+commit fb32126cc03be40b0b63fdb99f84f7c31226fe9f
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 21 Jan 2026 22:17:41 +0100
+
+readme: little update

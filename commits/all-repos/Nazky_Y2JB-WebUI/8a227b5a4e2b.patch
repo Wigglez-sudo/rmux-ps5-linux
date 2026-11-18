@@ -1,0 +1,41 @@
+From 8a227b5a4e2bc0527b9a3d9cbe9331afffb78c74 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Mon, 26 Jan 2026 22:34:43 +0100
+Subject: [PATCH] add myself into credits.
+
+---
+ README.md         | 1 +
+ static/credits.js | 8 ++++++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/README.md b/README.md
+index 89194d0..ef475ff 100644
+--- a/README.md
++++ b/README.md
+@@ -101,6 +101,7 @@ If you did check the "Auto-Jailbreak" before pressing the "Start Jailbreak" butt
+ ## Credits
+ 
+ - [Gezine](https://github.com/Gezine) | [Y2JB](https://github.com/Gezine/Y2JB/)
++- [rmuxnet](https://github.com/rmuxnet) | [Features for the WebUI](https://github.com/rmuxnet/Y2JB-WebUI)
+ - [itsPLK ](https://github.com/itsPLK) | [ps5_y2jb_autoloader](https://github.com/itsPLK/ps5_y2jb_autoloader)
+ - [EchoStretch](https://github.com/EchoStretch) | [kstuff](https://github.com/EchoStretch/kstuff)
+ - [voidwhisper-ps](https://github.com/voidwhisper-ps) | [ShadowMount](https://github.com/adel-ailane/ShadowMount)
+diff --git a/static/credits.js b/static/credits.js
+index 1b078b8..ee3ec5b 100644
+--- a/static/credits.js
++++ b/static/credits.js
+@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
+             authorUrl: "https://github.com/Gezine",
+             avatar: "https://avatars.githubusercontent.com/u/30000519?v=4"
+         },
++        {
++            author: "rmuxnet",
++            project: "Y2JB-WebUI",
++            role: "Contributor",
++            url: "https://github.com/Nazky/Y2JB-WebUI",
++            authorUrl: "https://github.com/rmuxnet",
++            avatar: "https://avatars.githubusercontent.com/u/116457149?v=4"
++        },
+         {
+             author: "itsPLK",
+             project: "ps5_y2jb_autoloader",

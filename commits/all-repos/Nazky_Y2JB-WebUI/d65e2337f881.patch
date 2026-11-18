@@ -1,0 +1,18 @@
+From d65e2337f8812776c17706aa7f0eb59c6e7c02a7 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 22:39:19 +0100
+Subject: [PATCH] (.gitignore): update
+
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index d6d42d0..5179b67 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,3 +2,4 @@
+ /config
+ /src/__pycache__
+ static/config/settings.json
++static/config/payload_config.json

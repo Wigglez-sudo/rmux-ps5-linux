@@ -1,0 +1,111 @@
+From e317fbd780d43f64c81a2706431b8ac15c4fbe5e Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 22:47:43 +0100
+Subject: [PATCH] UI: switch to custom Toast Notifications
+
+honestly why not while we are at it. the UI gotta look good as usual. and it costs us nothing to do this.
+---
+ static/style/toast.css | 43 ++++++++++++++++++++++++++++++++++++++++++
+ static/toast.js        | 41 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 84 insertions(+)
+ create mode 100644 static/style/toast.css
+ create mode 100644 static/toast.js
+
+diff --git a/static/style/toast.css b/static/style/toast.css
+new file mode 100644
+index 0000000..19edc3b
+--- /dev/null
++++ b/static/style/toast.css
+@@ -0,0 +1,43 @@
++#toast-container {
++    position: fixed;
++    top: 1.5rem;
++    right: 1.5rem;
++    z-index: 100;
++    display: flex;
++    flex-direction: column;
++    gap: 0.75rem;
++    pointer-events: none;
++}
++
++.toast {
++    pointer-events: auto;
++    background: #121212;
++    color: white;
++    padding: 1rem 1.25rem;
++    border-radius: 0.75rem;
++    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
++    display: flex;
++    align-items: center;
++    gap: 1rem;
++    min-width: 320px;
++    border: 1px solid rgba(255, 255, 255, 0.1);
++    
++    opacity: 0;
++    transform: translateX(50px);
++    animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
++}
++
++.toast.success { border-left: 4px solid #4ade80; }
++.toast.error { border-left: 4px solid #f87171; }
++.toast.info { border-left: 4px solid #60a5fa; }
++.toast.warning { border-left: 4px solid #facc15; }
++
++@keyframes slideIn {
++    from { opacity: 0; transform: translateX(50px); }
++    to { opacity: 1; transform: translateX(0); }
++}
++
++@keyframes fadeOut {
++    from { opacity: 1; transform: translateX(0); }
++    to { opacity: 0; transform: translateX(50px); }
++}
+\ No newline at end of file
+diff --git a/static/toast.js b/static/toast.js
+new file mode 100644
+index 0000000..855d381
+--- /dev/null
++++ b/static/toast.js
+@@ -0,0 +1,41 @@
++const Toast = {
++    init() {
++        if (!document.getElementById('toast-container')) {
++            const container = document.createElement('div');
++            container.id = 'toast-container';
++            document.body.appendChild(container);
++        }
++    },
++
++    show(message, type = 'info') {
++        this.init();
++        const container = document.getElementById('toast-container');
++        
++        const toast = document.createElement('div');
++        toast.className = `toast ${type}`;
++        
++        let icon = 'fa-info-circle';
++        let colorClass = 'text-blue-400';
++        
++        if (type === 'success') { icon = 'fa-circle-check'; colorClass = 'text-green-400'; }
++        if (type === 'error') { icon = 'fa-circle-xmark'; colorClass = 'text-red-400'; }
++        if (type === 'warning') { icon = 'fa-triangle-exclamation'; colorClass = 'text-yellow-400'; }
++
++        toast.innerHTML = `
++            <i class="fa-solid ${icon} ${colorClass} text-xl"></i>
++            <div class="flex flex-col">
++                <span class="font-bold text-sm leading-tight">${type.charAt(0).toUpperCase() + type.slice(1)}</span>
++                <span class="text-xs opacity-70">${message}</span>
++            </div>
++        `;
++
++        container.appendChild(toast);
++
++        setTimeout(() => {
++            toast.style.animation = 'fadeOut 0.3s forwards';
++            toast.addEventListener('animationend', () => {
++                if(toast.parentElement) toast.remove();
++            });
++        }, 4000);
++    }
++};
+\ No newline at end of file

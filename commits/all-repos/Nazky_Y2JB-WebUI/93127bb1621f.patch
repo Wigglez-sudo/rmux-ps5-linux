@@ -1,0 +1,26 @@
+From 93127bb1621fa0efb81ac85fc2dac8ebe64ef571 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 14 Jan 2026 09:22:48 +0100
+Subject: [PATCH] Update Jailbreak button with icon and gradient
+
+Updated the Jailbreak button to include a bolt icon, gradient background, and hover animation for improved visual appeal and user experience.
+---
+ templates/index.html | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/templates/index.html b/templates/index.html
+index 57766c3..ee7f910 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -99,8 +99,9 @@ <h3 class="text-sm font-semibold opacity-50 uppercase tracking-wider mb-4">Conne
+             </div>
+ 
+             <div class="flex flex-col">
+-                <button id="SJB" class="flex-1 w-full bg-brand-blue hover:bg-brand-light text-white font-bold text-2xl rounded-2xl shadow-lg transition-all transform active:scale-[0.98] flex items-center justify-center tracking-widest uppercase">
+-                    Jailbreak
++                <button id="SJB" class="group flex-1 w-full bg-gradient-to-br from-brand-blue to-brand-light hover:to-blue-500 text-white font-bold text-2xl rounded-2xl shadow-lg transition-all transform active:scale-[0.98] flex items-center justify-center gap-4 tracking-widest uppercase">
++                    <i class="fa-solid fa-bolt text-3xl group-hover:animate-pulse"></i>
++                    <span>Jailbreak</span>
+                 </button>
+             </div>
+         </section>

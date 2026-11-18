@@ -1,0 +1,51 @@
+From c29656cfcad8c952e4b2e2818143b75b2b21ff3e Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 21 Feb 2026 22:20:02 +0100
+Subject: [PATCH] fix: modules something yeah
+
+---
+ setup_and_run.bat | 5 ++++-
+ setup_and_run.sh  | 4 ++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/setup_and_run.bat b/setup_and_run.bat
+index f3cfc7d..f11bbc7 100644
+--- a/setup_and_run.bat
++++ b/setup_and_run.bat
+@@ -1,6 +1,9 @@
+ @echo off
+ setlocal enabledelayedexpansion
+ 
++REM Ensure we run from the script's own directory
++cd /d "%~dp0"
++
+ REM Check if Python is installed
+ :check_python
+ echo Checking if Python is installed...
+@@ -76,7 +79,7 @@ python -m pip install --upgrade pip || (
+ 
+ REM Install required dependencies
+ echo Installing dependencies...
+-pip install flask flask-cors werkzeug requests || (
++pip install -r requirements.txt || (
+     echo Failed to install dependencies.
+     call venv\Scripts\deactivate.bat
+     pause
+diff --git a/setup_and_run.sh b/setup_and_run.sh
+index 668b607..be29047 100755
+--- a/setup_and_run.sh
++++ b/setup_and_run.sh
+@@ -100,11 +100,11 @@ pip install --upgrade pip -q
+ 
+ # Install required dependencies
+ echo "Installing dependencies..."
+-pip install -q flask flask-cors werkzeug requests
++pip install -q -r requirements.txt
+ 
+ # Verify critical dependencies
+ echo "Verifying critical dependencies..."
+-if ! python -c "import flask, flask_cors, requests" &> /dev/null; then
++if ! python -c "import flask, flask_cors, requests, psutil" &> /dev/null; then
+     echo "Error: Failed to import critical dependencies"
+     deactivate
+     exit 1

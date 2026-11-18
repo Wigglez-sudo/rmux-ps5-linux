@@ -1,0 +1,37 @@
+From 8e87456036a9d07845788e54b916e6d658c165c1 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 23:25:35 +0100
+Subject: [PATCH] UI: update toasts
+
+make them smex, blurry.
+---
+ static/style/toast.css | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/static/style/toast.css b/static/style/toast.css
+index 19edc3b..6e4b581 100644
+--- a/static/style/toast.css
++++ b/static/style/toast.css
+@@ -11,17 +11,18 @@
+ 
+ .toast {
+     pointer-events: auto;
+-    background: #121212;
++    background: rgba(18, 18, 18, 0.85);
++    backdrop-filter: blur(12px);
++    -webkit-backdrop-filter: blur(12px);
+     color: white;
+     padding: 1rem 1.25rem;
+     border-radius: 0.75rem;
+-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
++    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+     display: flex;
+     align-items: center;
+     gap: 1rem;
+     min-width: 320px;
+-    border: 1px solid rgba(255, 255, 255, 0.1);
+-    
++    border: 1px solid rgba(255, 255, 255, 0.08);
+     opacity: 0;
+     transform: translateX(50px);
+     animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;

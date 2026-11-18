@@ -1,0 +1,23 @@
+From 9350227d7ba39d2bd37838194bec56a27d5253c3 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Tue, 23 Jun 2026 19:47:13 +0200
+Subject: [PATCH] apply cmd-timeout-recover and kernel71-compat mwifiex patches
+ (#22)
+
+---
+ docker/kernel-builder/build.sh | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/docker/kernel-builder/build.sh b/docker/kernel-builder/build.sh
+index ea175c0..c8882b0 100644
+--- a/docker/kernel-builder/build.sh
++++ b/docker/kernel-builder/build.sh
+@@ -52,6 +52,8 @@ git clone "$MWIFIEX_REPO" "$PS5_MW"
+ git -C "$PS5_MW" checkout "$MWIFIEX_REF" 2>/dev/null || true
+ git clone --depth 1 --branch "$MWIFIEX_NXP_REF" "$MWIFIEX_NXP_REPO" "$NXP_MW"
+ git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620.patch"
++git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620-cmd-timeout-recover.patch"
++git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620-kernel71-compat.patch"
+ 
+ # Build against the kernel source we just built (out-of-tree build needs
+ # the in-tree build dir, not just headers; same as install-extmod-build).

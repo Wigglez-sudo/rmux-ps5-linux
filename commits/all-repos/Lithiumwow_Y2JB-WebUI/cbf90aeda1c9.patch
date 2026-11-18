@@ -1,0 +1,444 @@
+From cbf90aeda1c9d1f3b00fb7a28d1c4ecd06a26666 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 18 Jan 2026 15:55:22 +0100
+Subject: [PATCH] feat(UI & Backend): Implement Payload Delay System & Visual
+ Toggles
+
+- Backend: Add `payload_delay_flags.json` storage and API endpoints for delay toggles.
+- Backend: Update auto-jailbreak sequence to respect global delay time and per-payload flags.
+- UI (Settings): Add Global Delay configuration input (default 5s).
+- UI (Index/Settings): Add visual "Delay" toggle button to payload cards with immediate Toast feedback.
+- UI: Sync delay state (blue active/gray inactive) across all payload lists.
+---
+ server.py               | 90 ++++++++++++++++++++++++++++++++++++++++-
+ static/auto_payload.js  | 63 ++++++++++++++++++++++++++---
+ static/delays.js        | 24 +++++++++++
+ static/index.js         | 48 ++++++++++++++++++++--
+ static/settings.js      |  8 ++++
+ templates/settings.html |  8 +++-
+ 6 files changed, 230 insertions(+), 11 deletions(-)
+ create mode 100644 static/delays.js
+
+diff --git a/server.py b/server.py
+index 78e0d2a..2942d39 100644
+--- a/server.py
++++ b/server.py
+@@ -28,6 +28,8 @@
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+ PAYLOAD_CONFIG_FILE = os.path.join(CONFIG_DIR, "payload_config.json")
+ PAYLOAD_ORDER_FILE = os.path.join(CONFIG_DIR, "payload_order.json")
++PAYLOAD_DELAYS_FILE = os.path.join(CONFIG_DIR, "payload_delays.json")
++PAYLOAD_DELAY_FLAGS_FILE = os.path.join(CONFIG_DIR, "payload_delay_flags.json")
+ ALLOWED_EXTENSIONS = {'bin', 'elf', 'js', 'dat'}
+ url = "http://localhost:8000/send_payload"
+ 
+@@ -62,6 +64,19 @@ def save_payload_order(order):
+     with open(PAYLOAD_ORDER_FILE, 'w') as f:
+         json.dump(order, f, indent=4)
+ 
++def get_payload_delays():
++    if not os.path.exists(PAYLOAD_DELAYS_FILE):
++        return {}
++    try:
++        with open(PAYLOAD_DELAYS_FILE, 'r') as f:
++            return json.load(f)
++    except:
++        return {}
++
++def save_payload_delays(data):
++    with open(PAYLOAD_DELAYS_FILE, 'w') as f:
++        json.dump(data, f, indent=4)
++
+ def save_payload_config(config):
+     with open(PAYLOAD_CONFIG_FILE, 'w') as f:
+         json.dump(config, f, indent=4)
+@@ -158,6 +173,67 @@ def handle_payload_order():
+         except Exception as e:
+             return jsonify({"error": str(e)}), 500
+ 
++@app.route('/api/payload_delay', methods=['GET', 'POST'])
++def handle_payload_delay():
++    if request.method == 'GET':
++        return jsonify(get_payload_delays())
++    
++    if request.method == 'POST':
++        try:
++            data = request.json
++            filename = data.get('filename')
++            delay = data.get('delay')
++            
++            if not filename:
++                return jsonify({"error": "Missing filename"}), 400
++            
++            delays = get_payload_delays()
++            if delay is None or delay == "":
++                if filename in delays:
++                    del delays[filename]
++            else:
++                delays[filename] = int(delay)
++                
++            save_payload_delays(delays)
++            return jsonify({"success": True})
++        except Exception as e:
++            return jsonify({"error": str(e)}), 500
++
++def get_payload_delay_flags():
++    if not os.path.exists(PAYLOAD_DELAY_FLAGS_FILE):
++        return {}
++    try:
++        with open(PAYLOAD_DELAY_FLAGS_FILE, 'r') as f:
++            return json.load(f)
++    except:
++        return {}
++
++def save_payload_delay_flags(flags):
++    with open(PAYLOAD_DELAY_FLAGS_FILE, 'w') as f:
++        json.dump(flags, f, indent=4)
++
++@app.route('/api/payload_delays', methods=['GET'])
++def get_payload_delays_route():
++    return jsonify(get_payload_delay_flags())
++
++@app.route('/api/payload_delays/toggle', methods=['POST'])
++def toggle_payload_delay_flag():
++    try:
++        data = request.json
++        filename = data.get('filename')
++        enabled = data.get('enabled')
++        
++        if not filename:
++            return jsonify({"error": "Missing filename"}), 400
++            
++        flags = get_payload_delay_flags()
++        flags[filename] = enabled
++        save_payload_delay_flags(flags)
++        
++        return jsonify({"success": True})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
+ @app.route('/edit_ajb', methods=['POST'])
+ def edit_ajb():
+     new_content = request.json.get('content')
+@@ -267,6 +343,13 @@ def sending_payload():
+                     except Exception as e:
+                         print(f"[SORT] Error sorting payloads: {e}")
+ 
++                    delay_flags = get_payload_delay_flags()
++                    global_config = get_config()
++                    try:
++                        delay_time = float(global_config.get("global_delay", "5"))
++                    except:
++                        delay_time = 5.0
++
+                     for filename in files:
+                         if not config.get(filename, True):
+                             print(f"[SKIP] {filename} (Disabled in settings)")
+@@ -275,7 +358,12 @@ def sending_payload():
+                         if (fnmatch.fnmatch(filename, '*.bin') or fnmatch.fnmatch(filename, '*.elf')) and filename != 'kstuff.elf':
+                             print(f"[SEND] {filename} -> {host}:9021")
+                             result = send_payload(file_path=os.path.join(PAYLOAD_DIR,filename), host=host, port=9021)
+-                            time.sleep(5)
++                            
++                            if delay_flags.get(filename, False):
++                                print(f"[WAIT] Sleeping {delay_time}s for {filename}...")
++                                time.sleep(delay_time)
++                            else:
++                                time.sleep(0.5)
+                             
+                             if not result:
+                                 print(f"[FAIL] Could not send {filename}")
+diff --git a/static/auto_payload.js b/static/auto_payload.js
+index 79d504c..941c43c 100644
+--- a/static/auto_payload.js
++++ b/static/auto_payload.js
+@@ -9,15 +9,17 @@ async function loadPayloadManager() {
+     container.innerHTML = '<div class="text-center py-4 text-xs opacity-50"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+ 
+     try {
+-        const [filesRes, configRes, orderRes] = await Promise.all([
++        const [filesRes, configRes, orderRes, delaysRes] = await Promise.all([
+             fetch('/list_payloads'),
+             fetch('/api/payload_config'),
+-            fetch('/api/payload_order')
++            fetch('/api/payload_order'),
++            fetch('/api/payload_delays')
+         ]);
+         
+         let files = await filesRes.json();
+         const config = await configRes.json();
+         const order = await orderRes.json();
++        const delays = await delaysRes.json();
+ 
+         container.innerHTML = ''; 
+ 
+@@ -39,12 +41,17 @@ async function loadPayloadManager() {
+         files.forEach(file => {
+             const configKey = file.split('/').pop();
+             const checked = config[configKey] !== false && config[file] !== false; 
++            const delayEnabled = delays[configKey] === true;
+ 
+             const item = document.createElement('div');
+             item.className = "draggable-item flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-blue/30 transition-all cursor-grab active:cursor-grabbing mb-2";
+             item.draggable = true;
+             item.dataset.filename = configKey;
+             
++            const delayBtnClass = delayEnabled 
++                ? "bg-brand-blue/20 text-brand-light border-brand-blue/50" 
++                : "bg-transparent text-gray-500 hover:text-gray-300";
++
+             item.innerHTML = `
+                 <div class="flex items-center gap-3 overflow-hidden flex-1 pointer-events-none">
+                     <div class="text-white/20 group-hover:text-brand-light transition-colors px-1">
+@@ -59,10 +66,19 @@ async function loadPayloadManager() {
+                     </div>
+                 </div>
+                 
+-                <label class="relative inline-flex items-center cursor-pointer pointer-events-auto">
+-                    <input type="checkbox" class="sr-only peer" onchange="togglePayloadAutoload('${configKey}', this)" ${checked ? 'checked' : ''}>
+-                    <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
+-                </label>
++                <div class="flex items-center gap-4 pointer-events-auto mr-2">
++                    <button onclick="togglePayloadDelay('${configKey}', this)" 
++                            class="flex items-center gap-2 px-2 py-1 rounded-md transition-all border border-transparent ${delayBtnClass}"
++                            title="Toggle Delay">
++                        <i class="fa-solid fa-stopwatch text-xs"></i>
++                        <span class="text-[10px] font-bold uppercase">Delay</span>
++                    </button>
++
++                    <label class="relative inline-flex items-center cursor-pointer">
++                        <input type="checkbox" class="sr-only peer" onchange="togglePayloadAutoload('${configKey}', this)" ${checked ? 'checked' : ''}>
++                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
++                    </label>
++                </div>
+             `;
+             container.appendChild(item);
+         });
+@@ -76,6 +92,7 @@ async function loadPayloadManager() {
+     } catch (e) {
+         console.error(e);
+         container.innerHTML = '<p class="text-xs text-red-400 p-4 text-center">Failed to load payloads</p>';
++        Toast.show('Failed to load payloads', 'error');
+     }
+ }
+ 
+@@ -87,8 +104,42 @@ async function togglePayloadAutoload(filename, checkbox) {
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ filename, enabled })
+         });
++        Toast.show(`${filename} ${enabled ? 'enabled' : 'disabled'} for autoload`, 'info');
+     } catch (e) {
+         console.error(e);
+         checkbox.checked = !enabled; 
++        Toast.show('Failed to update autoload setting', 'error');
++    }
++}
++
++async function togglePayloadDelay(filename, btn) {
++    const isEnabled = btn.classList.contains('text-brand-light');
++    const newState = !isEnabled;
++
++    if (newState) {
++        btn.classList.add('bg-brand-blue/20', 'text-brand-light', 'border-brand-blue/50');
++        btn.classList.remove('bg-transparent', 'text-gray-500', 'hover:text-gray-300');
++    } else {
++        btn.classList.remove('bg-brand-blue/20', 'text-brand-light', 'border-brand-blue/50');
++        btn.classList.add('bg-transparent', 'text-gray-500', 'hover:text-gray-300');
++    }
++
++    try {
++        const response = await fetch('/api/payload_delays/toggle', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ filename, enabled: newState })
++        });
++        
++        if (response.ok) {
++            const status = newState ? "enabled" : "disabled";
++            Toast.show(`Delay ${status} for ${filename}`, 'info');
++        } else {
++            throw new Error("Server error");
++        }
++
++    } catch (e) {
++        console.error(e);
++        Toast.show('Failed to update delay', 'error');
+     }
+ }
+\ No newline at end of file
+diff --git a/static/delays.js b/static/delays.js
+new file mode 100644
+index 0000000..608f2e3
+--- /dev/null
++++ b/static/delays.js
+@@ -0,0 +1,24 @@
++async function setPayloadDelay(filename, currentVal) {
++    const input = prompt(`Set delay (seconds) for ${filename}.\nLeave empty to use Global Default.`, currentVal || "");
++    
++    if (input === null) return;
++    let payload = { filename: filename, delay: input };
++
++    try {
++        const response = await fetch('/api/payload_delay', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify(payload)
++        });
++
++        if (response.ok) {
++            if (typeof Toast !== 'undefined') Toast.show('Delay updated', 'success');
++            if (typeof loadpayloads === 'function') loadpayloads();
++        } else {
++            alert("Failed to save delay");
++        }
++    } catch (e) {
++        console.error(e);
++        alert("Connection error");
++    }
++}
+\ No newline at end of file
+diff --git a/static/index.js b/static/index.js
+index bca5088..7c5ddcb 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -284,7 +284,6 @@ async function loadsettings() {
+ 
+ async function togglePayloadIndex(filename, checkbox) {
+     const enabled = checkbox.checked;
+-    
+     const configKey = filename.split('/').pop(); 
+ 
+     try {
+@@ -305,17 +304,49 @@ async function togglePayloadIndex(filename, checkbox) {
+     }
+ }
+ 
++async function togglePayloadDelay(filename, btn) {
++    const isEnabled = btn.classList.contains('text-brand-light');
++    const newState = !isEnabled;
++
++    if (newState) {
++        btn.classList.add('bg-brand-blue/20', 'text-brand-light', 'border-brand-blue/50');
++        btn.classList.remove('opacity-40', 'hover:opacity-100');
++    } else {
++        btn.classList.remove('bg-brand-blue/20', 'text-brand-light', 'border-brand-blue/50');
++        btn.classList.add('opacity-40', 'hover:opacity-100');
++    }
++
++    try {
++        const response = await fetch('/api/payload_delays/toggle', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ filename, enabled: newState })
++        });
++
++        if(response.ok) {
++             Toast.show(`Delay ${newState ? 'enabled' : 'disabled'} for ${filename}`, 'info');
++        } else {
++            throw new Error("API Error");
++        }
++    } catch (e) {
++        console.error(e);
++        Toast.show('Failed to toggle delay', 'error');
++    }
++}
++
+ async function loadpayloads() {
+     try {
+-        const [filesRes, configRes, orderRes] = await Promise.all([
++        const [filesRes, configRes, orderRes, delaysRes] = await Promise.all([
+             fetch('/list_payloads'),
+             fetch('/api/payload_config'),
+-            fetch('/api/payload_order')
++            fetch('/api/payload_order'),
++            fetch('/api/payload_delays')
+         ]);
+         
+         let files = await filesRes.json();
+         const config = await configRes.json();
+         const order = await orderRes.json();
++        const delays = await delaysRes.json();
+ 
+         const listElement = document.getElementById('PL');
+         const countElement = document.getElementById('payload-count');
+@@ -346,12 +377,17 @@ async function loadpayloads() {
+         files.forEach(file => {
+             const configKey = file.split('/').pop();
+             const isEnabled = config[configKey] !== false && config[file] !== false;
++            const delayEnabled = delays[configKey] === true;
+ 
+             const card = document.createElement('li');
+             card.className = "draggable-item input-field border rounded-xl p-2 pr-4 flex items-center justify-between group transition-colors hover:border-brand-blue mb-3 bg-black/20";
+             card.draggable = true;
+             card.dataset.filename = configKey;
+             
++            const delayClass = delayEnabled 
++                ? "bg-brand-blue/20 text-brand-light border-brand-blue/50" 
++                : "opacity-40 hover:opacity-100 border-transparent";
++
+             card.innerHTML = `
+                 <div class="flex items-center gap-2 overflow-hidden flex-1">
+                     <div class="drag-handle touch-manipulation">
+@@ -368,6 +404,12 @@ async function loadpayloads() {
+                 </div>
+ 
+                 <div class="flex items-center gap-3 shrink-0 ml-4">
++                    <button onclick="togglePayloadDelay('${configKey}', this)" 
++                        class="px-2 py-1 rounded transition-all border ${delayClass}" 
++                        title="Toggle Delay">
++                        <i class="fa-solid fa-stopwatch text-xs"></i>
++                    </button>
++
+                     <div class="flex items-center gap-2 border-r pr-3 border-gray-300 dark:border-gray-700" title="Enable Autoload">
+                         <span class="text-[10px] opacity-40 font-bold uppercase hidden sm:inline">Auto</span>
+                         <label class="relative inline-flex items-center cursor-pointer">
+diff --git a/static/settings.js b/static/settings.js
+index 20c00a8..873276c 100644
+--- a/static/settings.js
++++ b/static/settings.js
+@@ -8,6 +8,12 @@ async function loadSettings() {
+         if (config.ip) document.getElementById('ip').value = config.ip;
+         if (config.ftp_port) document.getElementById('ftp_port').value = config.ftp_port;
+         
++        if (config.global_delay) {
++            document.getElementById('global_delay').value = config.global_delay;
++        } else {
++            document.getElementById('global_delay').value = "5";
++        }
++        
+         const ajbCheckbox = document.getElementById('ajb');
+         if (config.ajb && config.ajb.toLowerCase() === 'true') {
+             ajbCheckbox.checked = true;
+@@ -24,11 +30,13 @@ async function loadSettings() {
+ async function saveAllSettings() {
+     const ip = document.getElementById('ip').value;
+     const ftpPort = document.getElementById('ftp_port').value;
++    const globalDelay = document.getElementById('global_delay').value;
+     const ajb = document.getElementById('ajb').checked ? "true" : "false";
+ 
+     const payload = {
+         ip: ip,
+         ftp_port: ftpPort,
++        global_delay: globalDelay,
+         ajb: ajb
+     };
+ 
+diff --git a/templates/settings.html b/templates/settings.html
+index 8afd2fb..85117b5 100644
+--- a/templates/settings.html
++++ b/templates/settings.html
+@@ -82,7 +82,13 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                     <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
+                 </label>
+             </div>
+-            
++
++            <div class="mb-4">
++                <label for="global_delay" class="block text-xs uppercase opacity-70 mb-1.5 font-bold">Global Delay Sequence (Seconds)</label>
++                <input type="number" id="global_delay" placeholder="5" step="0.1" class="input-field block w-full px-4 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-brand-light focus:border-transparent outline-none transition-all font-mono shadow-sm bg-black/20">
++                <p class="text-[10px] opacity-40 mt-1">Duration to wait after sending a payload marked with "Delay".</p>
++            </div>
++
+             <div class="mt-4">
+                 <h3 class="text-xs font-bold uppercase opacity-60 mb-3 ml-1">Payload Sequence</h3>
+                 <div id="payload-autoload-list" class="space-y-2 max-h-60 overflow-y-auto custom-scroll pr-1">

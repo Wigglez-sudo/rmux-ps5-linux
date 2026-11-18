@@ -1,0 +1,82 @@
+From d0787b364876e06210ae5ba0951e1ac93e5aa23b Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 03:40:37 +0100
+Subject: [PATCH] Func: Update server.py
+
+Added Support for FTP *ps5_utils*
+---
+ server.py | 42 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/server.py b/server.py
+index 4ebaea0..f7a56c7 100644
+--- a/server.py
++++ b/server.py
+@@ -8,6 +8,7 @@
+ from src.delete_payload import handle_delete_payload
+ from src.download_payload import handle_url_download
+ from src.repo_manager import update_payloads, add_repo_entry, delete_repo_entry
++from src.ps5_utils import auto_replace_download0, patch_blocker
+ import time
+ import threading
+ import requests
+@@ -17,12 +18,14 @@
+ CORS(app)
+ 
+ PAYLOAD_DIR = "payloads"
++DAT_DIR = "payloads/dat"
+ CONFIG_DIR = "static/config"
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+-ALLOWED_EXTENSIONS = {'bin', 'elf', 'js'}
++ALLOWED_EXTENSIONS = {'bin', 'elf', 'js', 'dat'}
+ url = "http://localhost:8000/send_payload"
+ 
+ os.makedirs(PAYLOAD_DIR, exist_ok=True)
++os.makedirs(DAT_DIR, exist_ok=True)
+ os.makedirs(CONFIG_DIR, exist_ok=True)
+ os.makedirs('templates', exist_ok=True)
+ 
+@@ -280,6 +283,43 @@ def remove_repo():
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+ 
++@app.route('/edit_ftp_port', methods=['POST'])
++def edit_ftp_port():
++    new_content = request.json.get('content')
++    update_config("ftp_port", new_content)
++    return "Settings updated!"
++
++@app.route('/tools/update_download0', methods=['POST'])
++def run_update_download0():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    
++    if not ip:
++        return jsonify({"success": False, "message": "IP Address not set"}), 400
++
++    success, message = auto_replace_download0(ip, port)
++    
++    if success:
++        return jsonify({"success": True, "message": message})
++    else:
++        return jsonify({"success": False, "message": message}), 500
++
++@app.route('/tools/block_updates', methods=['POST'])
++def run_block_updates():
++    config = get_config()
++    ip = config.get("ip")
++    port = config.get("ftp_port", "1337")
++    
++    if not ip:
++        return jsonify({"success": False, "message": "IP Address not set"}), 400
++
++    success, message = patch_blocker(ip, port)
++    if success:
++        return jsonify({"success": True, "message": message})
++    else:
++        return jsonify({"success": False, "message": message}), 500
++
+ @app.route('/credits')
+ def credits_page():
+     return render_template('credits.html')

@@ -1,0 +1,27 @@
+======================================================================
+commit 689ef56ba0ca5b31168d05427566ceb7bcedc3b0
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:48 +0000
+
+Re: [PATCH v4 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit 700659425eb039720debbe33e3d1417fbb71ec8b
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Sat, 3 Oct 2026 08:27:50 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit 92acd1bec746b208762c118fcf1b56a761be63b4
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Thu, 1 Oct 2026 18:36:25 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit c95ce843180c2b0680a6b734c3ade55f8ce6370a
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 20:55:43 +0000
+
+Re: [PATCH v4 2/2] media: i2c: Add Samsung S5K3T2 image

@@ -1,0 +1,27 @@
+From 4cfe77f46282dd7171416769ae3e73779f9651cb Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 03:20:45 +0100
+Subject: [PATCH] Repos: Add Y2JB .dat repo source
+
+meow
+---
+ static/config/repos.json | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/static/config/repos.json b/static/config/repos.json
+index 8cf9eb7..73c5b76 100644
+--- a/static/config/repos.json
++++ b/static/config/repos.json
+@@ -27,5 +27,11 @@
+         "save_path": "payloads/ftpsrv-ps5.elf",
+         "repo": "drakmor/ftpsrv",
+         "asset_pattern": "ftpsrv-ps5.elf"
++    },
++    "download0.dat": {
++        "type": "release",
++        "repo": "itsPLK/ps5_y2jb_autoloader",
++        "asset_pattern": "download0.dat",
++        "save_path": "payloads/dat/download0.dat"
+     }
+ }
+\ No newline at end of file

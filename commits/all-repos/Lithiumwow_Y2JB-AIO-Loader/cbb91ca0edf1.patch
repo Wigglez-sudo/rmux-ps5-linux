@@ -1,0 +1,22 @@
+From cbb91ca0edf1564aeaeb6d694d7848061d2d2d2f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 12:56:41 +0100
+Subject: [PATCH] Update README: mark custom JS support as complete
+
+The README checklist now marks 'Add support to load custom js' as completed, reflecting recent progress in the project.
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index db8a187..119df26 100644
+--- a/README.md
++++ b/README.md
+@@ -88,5 +88,5 @@ If you did check the "Auto-Jailbreak" before pressing the "Start Jailbreak" butt
+ - [ ] Add Y2JB auto update (download0.dat)
+ - [ ] Add Y2JB update blocker option (appinfo.db, param.json, app.db)
+ - [X] Add repo management (to automaticlly update payloads)
+-- [ ] Add support to load custom js
++- [X] Add support to load custom js
+ - [ ] Make it compatible with [ps5_y2jb_autoloader](https://github.com/itsPLK/ps5_y2jb_autoloader) (not sure if it's possible)
+\ No newline at end of file

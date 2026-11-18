@@ -1,0 +1,423 @@
+From e1c6168203d3cd7d617b1ff74eb7278811e5e7e1 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 22:43:20 +0100
+Subject: [PATCH] feat(backend): Better Logging + Auto Payload Management
+
+---
+ server.py              | 90 +++++++++++++++++++++++++++++++++++++++---
+ static/auto_payload.js | 77 ++++++++++++++++++++++++++++++++++++
+ static/index.js        | 60 ++++++++++++++++++++++++++--
+ 3 files changed, 218 insertions(+), 9 deletions(-)
+ create mode 100644 static/auto_payload.js
+
+diff --git a/server.py b/server.py
+index 8204f55..4a31e79 100644
+--- a/server.py
++++ b/server.py
+@@ -1,5 +1,6 @@
+ import fnmatch
+ import json
++import logging
+ from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+ from flask_cors import CORS
+ from werkzeug.utils import secure_filename as werkzeug_secure_filename
+@@ -12,6 +13,7 @@
+ import time
+ import threading
+ import requests
++import socket
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -21,6 +23,7 @@
+ DAT_DIR = "payloads/dat"
+ CONFIG_DIR = "static/config"
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
++PAYLOAD_CONFIG_FILE = os.path.join(CONFIG_DIR, "payload_config.json")
+ ALLOWED_EXTENSIONS = {'bin', 'elf', 'js', 'dat'}
+ url = "http://localhost:8000/send_payload"
+ 
+@@ -33,6 +36,19 @@
+     with open(CONFIG_FILE, 'w') as f:
+         json.dump({"ajb": "false", "ip": ""}, f)
+ 
++def get_payload_config():
++    if not os.path.exists(PAYLOAD_CONFIG_FILE):
++        return {}
++    try:
++        with open(PAYLOAD_CONFIG_FILE, 'r') as f:
++            return json.load(f)
++    except:
++        return {}
++
++def save_payload_config(config):
++    with open(PAYLOAD_CONFIG_FILE, 'w') as f:
++        json.dump(config, f, indent=4)
++
+ def get_config():
+     if not os.path.exists(CONFIG_FILE):
+         return {"ajb": "false", "ip": ""}
+@@ -62,15 +78,13 @@ def check_ajb():
+             config = get_config()
+             ajb_content = config.get("ajb", "false").lower()
+ 
+-            print("Auto-Jailbreak:", ajb_content)
+ 
+             if ajb_content == "true":
+                 ip_address = config.get("ip", "").strip()
+ 
+                 if not ip_address:
+-                    print("Empty IP in settings")
++                    print("[AJB] Enabled but IP missing")
+                 else:
+-                    print("IP:", ip_address)
+ 
+                     response = requests.post(url, json={
+                         "IP": ip_address,
+@@ -78,12 +92,12 @@ def check_ajb():
+                     })
+ 
+                     if response.status_code == 200:
+-                        print("Payloads sent successfully")
++                        print("[AJB] Sequence completed successfully")
+                     else:
+-                        print("Error sending payload:", response.text)
++                        print(f"[AJB] Error: {response.text}")
+ 
+         except Exception as e:
+-            print("Error:", str(e))
++            print("[AJB] Error:", str(e))
+ 
+         finally:
+             time.sleep(5)
+@@ -92,6 +106,28 @@ def check_ajb():
+ def home():
+     return render_template('index.html')
+ 
++@app.route('/api/payload_config', methods=['GET'])
++def get_payload_config_route():
++    return jsonify(get_payload_config())
++
++@app.route('/api/payload_config/toggle', methods=['POST'])
++def toggle_payload_config():
++    try:
++        data = request.json
++        filename = data.get('filename')
++        enabled = data.get('enabled')
++        
++        if not filename:
++            return jsonify({"error": "Missing filename"}), 400
++            
++        config = get_payload_config()
++        config[filename] = enabled
++        save_payload_config(config)
++        
++        return jsonify({"success": True})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
+ @app.route('/edit_ajb', methods=['POST'])
+ def edit_ajb():
+     new_content = request.json.get('content')
+@@ -136,6 +172,7 @@ def upload_payload():
+ 
+         try:
+             file.save(save_path)
++            print(f"[UPLOAD] Saved {filename}")
+             return jsonify({
+                 'success': True,
+                 'filename': filename,
+@@ -151,6 +188,7 @@ def download_payload_url():
+     try:
+         data = request.get_json()
+         url = data.get('url')
++        print(f"[DOWNLOAD] Fetching from {url}...")
+         response, status_code = handle_url_download(url, PAYLOAD_DIR, ALLOWED_EXTENSIONS)
+         
+         if status_code == 200:
+@@ -177,18 +215,35 @@ def sending_payload():
+         if not host:
+             return jsonify({"error": "Missing IP parameter"}), 400
+         if not payload:
++            print("--- Starting Auto-Jailbreak Sequence ---")
++            
++            config = get_payload_config()
++
++            print(f"[SEND] lapse.js -> {host}:50000")
+             result = send_payload(file_path='payloads/js/lapse.js', host=host, port=50000)
+             time.sleep(10)
++            
+             if result:
++                print(f"[SEND] kstuff.elf -> {host}:9021")
+                 result = send_payload(file_path='payloads/kstuff.elf', host=host, port=9021)
+                 time.sleep(10)
++                
+                 if result:
+                     for filename in os.listdir(PAYLOAD_DIR):
++                        if not config.get(filename, True):
++                            print(f"[SKIP] {filename} (Disabled in settings)")
++                            continue
++
+                         if (fnmatch.fnmatch(filename, '*.bin') or fnmatch.fnmatch(filename, '*.elf')) and filename != 'kstuff.elf':
++                            print(f"[SEND] {filename} -> {host}:9021")
+                             result = send_payload(file_path=os.path.join(PAYLOAD_DIR,filename), host=host, port=9021)
+                             time.sleep(5)
++                            
+                             if not result:
++                                print(f"[FAIL] Could not send {filename}")
+                                 return jsonify({"error": f"Failed to send {filename}"}), 500
++                    
++                    print("--- Auto-Jailbreak Sequence Complete ---")
+                     return jsonify({"success": True, "message": "All payloads sent successfully"})
+                 else:
+                     return jsonify({"error": "Failed to send kstuff.elf"}), 500
+@@ -199,6 +254,7 @@ def sending_payload():
+             if payload.lower().endswith('.js'):
+                 port = 50000
+             
++            print(f"[MANUAL] Sending {payload} -> {host}:{port}")
+             result = send_payload(file_path=payload, host=host, port=port)
+             
+             if result:
+@@ -207,12 +263,14 @@ def sending_payload():
+                 return jsonify({"error": "Failed to send custom payload"}), 500
+ 
+     except Exception as e:
++        print(f"[ERROR] {str(e)}")
+         return jsonify({"error": str(e)}), 500
+     
+ @app.route('/delete_payload', methods=['POST'])
+ def delete_payload():
+     try:
+         data = request.get_json()
++        print(f"[DELETE] Request: {data}")
+         response, status_code = handle_delete_payload(data, PAYLOAD_DIR, ALLOWED_EXTENSIONS)
+         return jsonify(response), status_code
+ 
+@@ -237,6 +295,7 @@ def update_repos():
+     try:
+         data = request.get_json() or {}
+         targets = data.get('targets', ['all'])
++        print(f"[REPO] Updating targets: {targets}")
+         result = update_payloads(targets)
+         return jsonify(result)
+     except Exception as e:
+@@ -298,6 +357,7 @@ def run_update_download0():
+     if not ip:
+         return jsonify({"success": False, "message": "IP Address not set"}), 400
+ 
++    print(f"[TOOL] Installing download0.dat to {ip}...")
+     success, message = auto_replace_download0(ip, port)
+     
+     if success:
+@@ -314,6 +374,7 @@ def run_block_updates():
+     if not ip:
+         return jsonify({"success": False, "message": "IP Address not set"}), 400
+ 
++    print(f"[TOOL] Blocking updates on {ip}...")
+     success, message = patch_blocker(ip, port)
+     if success:
+         return jsonify({"success": True, "message": message})
+@@ -350,6 +411,23 @@ def handle_settings():
+         except Exception as e:
+             return jsonify({"success": False, "error": str(e)}), 500
+ 
++@app.route('/api/network_info')
++def network_info():
++    try:
++        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++        s.connect(("8.8.8.8", 80))
++        server_ip = s.getsockname()[0]
++        s.close()
++    except:
++        server_ip = "Unknown"
++    
++    client_ip = request.remote_addr
++    
++    return jsonify({
++        "server_ip": server_ip,
++        "client_ip": client_ip
++    })
++
+ if __name__ == "__main__":
+     threading.Thread(target=check_ajb, daemon=True).start()
+     app.run(host="0.0.0.0", port=8000 ,debug=False)
+\ No newline at end of file
+diff --git a/static/auto_payload.js b/static/auto_payload.js
+new file mode 100644
+index 0000000..0ab4956
+--- /dev/null
++++ b/static/auto_payload.js
+@@ -0,0 +1,77 @@
++document.addEventListener('DOMContentLoaded', () => {
++    loadPayloadManager();
++});
++
++async function loadPayloadManager() {
++    const container = document.getElementById('payload-autoload-list');
++    if (!container) return;
++
++    container.innerHTML = '<div class="text-center py-4 text-xs opacity-50"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
++
++    try {
++        const [filesRes, configRes] = await Promise.all([
++            fetch('/list_payloads'),
++            fetch('/api/payload_config')
++        ]);
++        
++        const files = await filesRes.json();
++        const config = await configRes.json();
++
++        container.innerHTML = ''; 
++
++        if (!files || files.length === 0) {
++            container.innerHTML = '<p class="text-xs opacity-50 p-4 text-center">No payloads found.</p>';
++            return;
++        }
++
++        files.forEach(file => {
++            const isEnabled = config[file.split('/').pop()] !== false && config[file] !== false; 
++            const configKey = file.split('/').pop(); 
++            const checked = config[configKey] !== false; 
++
++            const item = document.createElement('div');
++            item.className = "flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-blue/30 transition-colors";
++            
++            item.innerHTML = `
++                <div class="flex items-center gap-3 overflow-hidden">
++                    <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-brand-light">
++                        <i class="fa-solid fa-microchip text-xs"></i>
++                    </div>
++                    <div class="flex flex-col overflow-hidden">
++                        <span class="text-xs font-bold truncate" title="${file}">${file}</span>
++                        <span class="text-[10px] opacity-40">Payload</span>
++                    </div>
++                </div>
++                
++                <label class="relative inline-flex items-center cursor-pointer">
++                    <input type="checkbox" class="sr-only peer" onchange="togglePayloadAutoload('${configKey}', this)" ${checked ? 'checked' : ''}>
++                    <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
++                </label>
++            `;
++            container.appendChild(item);
++        });
++
++    } catch (e) {
++        console.error(e);
++        container.innerHTML = '<p class="text-xs text-red-400 p-4 text-center">Failed to load payloads</p>';
++    }
++}
++
++async function togglePayloadAutoload(filename, checkbox) {
++    const enabled = checkbox.checked;
++    
++    try {
++        const response = await fetch('/api/payload_config/toggle', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ filename, enabled })
++        });
++        
++        if (!response.ok) throw new Error("API Error");
++        
++    } catch (e) {
++        console.error(e);
++        showToast('Failed to save preference', 'error');
++        checkbox.checked = !enabled; 
++    }
++}
+\ No newline at end of file
+diff --git a/static/index.js b/static/index.js
+index e15a468..519fb19 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -1,6 +1,20 @@
+ document.addEventListener('DOMContentLoaded', () => {
+     loadsettings();
+     loadTheme(); 
++    fetch("/api/network_info")
++        .then(r => r.json())
++        .then(info => {
++            const serverIpEl = document.getElementById("server-ip");
++            const clientIpEl = document.getElementById("client-ip");
++            if (serverIpEl) serverIpEl.textContent = info.server_ip || "Unknown";
++            if (clientIpEl) clientIpEl.textContent = info.client_ip || "Unknown";
++        })
++        .catch(() => {
++            const serverIpEl = document.getElementById("server-ip");
++            const clientIpEl = document.getElementById("client-ip");
++            if (serverIpEl) serverIpEl.textContent = "Unknown";
++            if (clientIpEl) clientIpEl.textContent = "Unknown";
++        });
+ });
+ 
+ async function readJSON(filename) {
+@@ -269,10 +283,39 @@ async function loadsettings() {
+     await loadpayloads();
+ }
+ 
++async function togglePayloadIndex(filename, checkbox) {
++    const enabled = checkbox.checked;
++    
++    const configKey = filename.split('/').pop(); 
++
++    try {
++        const response = await fetch('/api/payload_config/toggle', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ filename: configKey, enabled })
++        });
++        
++        if(!response.ok) throw new Error("API Error");
++
++        Toast.show(`${configKey} ${enabled ? 'enabled' : 'disabled'} for autoload`, 'info');
++
++    } catch (e) {
++        console.error(e);
++        Toast.show('Failed to update setting', 'error');
++        checkbox.checked = !enabled;
++    }
++}
++
+ async function loadpayloads() {
+     try {
+-        const response = await fetch('/list_payloads');
+-        const files = await response.json();
++        const [filesRes, configRes] = await Promise.all([
++            fetch('/list_payloads'),
++            fetch('/api/payload_config')
++        ]);
++        
++        const files = await filesRes.json();
++        const config = await configRes.json();
++
+         const listElement = document.getElementById('PL');
+         const countElement = document.getElementById('payload-count');
+ 
+@@ -290,6 +333,9 @@ async function loadpayloads() {
+         document.getElementById('empty-state').classList.add('hidden');
+ 
+         files.forEach(file => {
++            const configKey = file.split('/').pop();
++            const isEnabled = config[configKey] !== false && config[file] !== false;
++
+             const card = document.createElement('li');
+             card.className = "input-field border rounded-xl p-4 flex items-center justify-between group transition-colors hover:border-brand-blue";
+             
+@@ -304,7 +350,15 @@ async function loadpayloads() {
+                     </div>
+                 </div>
+ 
+-                <div class="flex items-center gap-2">
++                <div class="flex items-center gap-3">
++                    <div class="flex items-center gap-2 border-r pr-3 border-gray-300 dark:border-gray-700" title="Enable Autoload">
++                        <span class="text-[10px] opacity-40 font-bold uppercase hidden sm:inline">Auto</span>
++                        <label class="relative inline-flex items-center cursor-pointer">
++                            <input type="checkbox" class="sr-only peer" onchange="togglePayloadIndex('${file}', this)" ${isEnabled ? 'checked' : ''}>
++                            <div class="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-blue"></div>
++                        </label>
++                    </div>
++
+                     <button onclick="SendPayload('payloads/${file}')" class="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-brand-blue hover:text-white rounded-lg text-xs font-bold transition-colors">
+                         LOAD
+                     </button>

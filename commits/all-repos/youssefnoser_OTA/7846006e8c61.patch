@@ -1,0 +1,29 @@
+From 7846006e8c619e0fc44070adbafcc3e2f1b68d85 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Thu, 14 Aug 2025 15:10:04 +0200
+Subject: [PATCH] a71: MeidyOS 1 release
+
+---
+ UI7/a71.json | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+ create mode 100644 UI7/a71.json
+
+diff --git a/UI7/a71.json b/UI7/a71.json
+new file mode 100644
+index 0000000..4bfa24c
+--- /dev/null
++++ b/UI7/a71.json
+@@ -0,0 +1,13 @@
++{
++  "response": [
++    {
++      "datetime": 1755176824,
++      "filename": "MeidyOS_1.0.0-20250814_a71.zip",
++      "id": "Meow:3",
++      "romtype": "OneUI7",
++      "size": 4664300390,
++      "url": "https://gofile.io/d/2GxKdy",
++      "version": "15"
++    }
++  ]
++}

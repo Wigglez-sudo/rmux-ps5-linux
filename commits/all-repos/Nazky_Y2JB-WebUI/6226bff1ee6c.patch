@@ -1,0 +1,48 @@
+From 6226bff1ee6c10435ebdf2aace27f864aca3c938 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 28 Feb 2026 19:19:35 +0100
+Subject: [PATCH] fix(docker): add DNS port binding permissions for containers
+ (#39)
+
+- Expose port 53/udp in docker-compose and Dockerfile
+- Add NET_BIND_SERVICE capability for DNS server
+- Remove non-root user constraint that blocked port 53
+---
+ Dockerfile         | 8 ++------
+ docker-compose.yml | 4 +++-
+ 2 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/Dockerfile b/Dockerfile
+index 68faad6..4294722 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -12,12 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
+ # Copy application code
+ COPY . .
+ 
+-# Security hardening: never run as root
+-RUN useradd -m appuser && chown -R appuser /app
+-USER appuser
+-
+-# Expose port 8000
+-EXPOSE 8000
++# Expose ports (8000 = WebUI, 53 = DNS)
++EXPOSE 8000 53/udp
+ 
+ # Start the application
+ CMD ["python", "server.py"]
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 653c7a4..c2c0db4 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -5,7 +5,9 @@ services:
+     build: .
+     ports:
+       - "8000:8000"
+-    user: "1000:1000"
++      - "53:53/udp"
++    cap_add:
++      - NET_BIND_SERVICE
+     volumes:
+       - .:/app
+     environment:

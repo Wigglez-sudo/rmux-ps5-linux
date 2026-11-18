@@ -1,0 +1,38 @@
+From 99e92cf54dd4beee64e3ec8d36c93267144d79a9 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 30 Jan 2026 11:45:45 +0100
+Subject: [PATCH] Fix drag-and-drop overlay interfering with sorting
+
+- Updated dropZone event listeners to only trigger highlight when dragging external files (checking for 'Files' in dataTransfer).
+- Prevents the file upload UI from activating when reordering payload list items.
+- Fixes #32
+---
+ static/index.js | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/static/index.js b/static/index.js
+index 8676ce2..f973002 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -35,13 +35,17 @@ document.addEventListener('DOMContentLoaded', () => {
+     });
+ 
+     dropZone.addEventListener('dragenter', (e) => {
+-        dropZone.classList.add('drag-highlight');
+-        clearTimeout(dragLeaveTimer);
++        if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
++            dropZone.classList.add('drag-highlight');
++            clearTimeout(dragLeaveTimer);
++        }
+     }, false);
+ 
+     dropZone.addEventListener('dragover', (e) => {
+-        dropZone.classList.add('drag-highlight');
+-        clearTimeout(dragLeaveTimer);
++        if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
++            dropZone.classList.add('drag-highlight');
++            clearTimeout(dragLeaveTimer);
++        }
+     }, false);
+ 
+     dropZone.addEventListener('dragleave', (e) => {

@@ -1,0 +1,8 @@
+======================================================================
+commit cecdc29706ea888015a6c72a99e09a66f3135b35
+author rmux <armandas.kvietkus@proton.me>
+date   Tue, 23 Jun 2026 19:46:48 +0200
+
+update for 7.1.x API changes (#6)
+
+* fix: strip duplicate hunks already present in ps5-iw620.patch

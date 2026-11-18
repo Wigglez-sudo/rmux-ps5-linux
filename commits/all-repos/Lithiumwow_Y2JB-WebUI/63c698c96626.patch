@@ -1,0 +1,218 @@
+From 63c698c9662630311a762352eec8e3dbe8b1a8e7 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 12:41:44 +0100
+Subject: [PATCH] REDO: payload update to support multiple repos
+
+Replaces the single Y2JB payload update with a flexible repo-based updater. Adds src/repo_manager.py to handle updating payloads from multiple sources as defined in a config file. Updates the server endpoint and frontend logic to use the new update mechanism, and updates the UI to call the new function.
+---
+ server.py            | 24 +++++---------
+ src/repo_manager.py  | 79 ++++++++++++++++++++++++++++++++++++++++++++
+ static/updater.js    | 41 ++++++++++++++---------
+ templates/index.html |  2 +-
+ 4 files changed, 114 insertions(+), 32 deletions(-)
+ create mode 100644 src/repo_manager.py
+
+diff --git a/server.py b/server.py
+index 18191c5..b751a29 100644
+--- a/server.py
++++ b/server.py
+@@ -7,6 +7,7 @@
+ from src.SendPayload import send_payload
+ from src.delete_payload import handle_delete_payload
+ from src.download_payload import handle_url_download
++from src.repo_manager import update_payloads
+ import time
+ import threading
+ import requests
+@@ -25,6 +26,10 @@
+ os.makedirs(CONFIG_DIR, exist_ok=True)
+ os.makedirs('templates', exist_ok=True)
+ 
++if not os.path.exists(CONFIG_FILE):
++    with open(CONFIG_FILE, 'w') as f:
++        json.dump({"ajb": "false", "ip": ""}, f)
++
+ def get_config():
+     if not os.path.exists(CONFIG_FILE):
+         return {"ajb": "false", "ip": ""}
+@@ -193,23 +198,12 @@ def delete_payload():
+             'message': 'Failed to delete file'
+         }), 500
+ 
+-@app.route('/update_y2jb', methods=['POST'])
+-def update_y2jb():
++@app.route('/update_repos', methods=['POST'])
++def update_repos():
+     try:
+-        url = "https://raw.githubusercontent.com/Gezine/Y2JB/main/payloads/lapse.js"
+-        print(f"Fetching update from: {url}")
+-        response = requests.get(url, timeout=10)
+-        if response.status_code == 200:
+-            target_dir = os.path.join(PAYLOAD_DIR, 'js')
+-            os.makedirs(target_dir, exist_ok=True)
+-            file_path = os.path.join(target_dir, 'lapse.js')
+-            with open(file_path, 'wb') as f:
+-                f.write(response.content)
+-            return jsonify({"success": True, "message": "Updated lapse.js successfully!"})
+-        else:
+-            return jsonify({"error": f"GitHub Error: {response.status_code}"}), 500
++        result = update_payloads()
++        return jsonify(result)
+     except Exception as e:
+-        print(f"Update Failed: {e}")
+         return jsonify({"error": str(e)}), 500
+ 
+ if __name__ == "__main__":
+diff --git a/src/repo_manager.py b/src/repo_manager.py
+new file mode 100644
+index 0000000..8603200
+--- /dev/null
++++ b/src/repo_manager.py
+@@ -0,0 +1,79 @@
++import os
++import json
++import requests
++import fnmatch
++
++CONFIG_FILE = os.path.join("static", "config", "repos.json")
++
++def download_file(url, save_path):
++    try:
++        os.makedirs(os.path.dirname(save_path), exist_ok=True)
++        print(f"    Downloading {url}...")
++        r = requests.get(url, stream=True, timeout=15)
++        r.raise_for_status()
++        with open(save_path, 'wb') as f:
++            for chunk in r.iter_content(chunk_size=8192):
++                f.write(chunk)
++        print(f"    Saved to {save_path}")
++        return True
++    except Exception as e:
++        print(f"    [!] Error downloading: {e}")
++        return False
++
++def get_latest_release_asset(repo, pattern):
++    api_url = f"https://api.github.com/repos/{repo}/releases/latest"
++    try:
++        response = requests.get(api_url, timeout=10)
++        response.raise_for_status()
++        data = response.json()
++        
++        for asset in data.get("assets", []):
++            if fnmatch.fnmatch(asset["name"], pattern):
++                return asset["browser_download_url"]
++        return None
++    except Exception as e:
++        print(f"    [!] GitHub API Error for {repo}: {e}")
++        return None
++
++def update_payloads():
++    if not os.path.exists(CONFIG_FILE):
++        return {"success": False, "message": "repos.json not found"}
++
++    with open(CONFIG_FILE, 'r') as f:
++        config = json.load(f)
++
++    updated_files = []
++    errors = []
++
++    for name, data in config.items():
++        print(f"[*] Processing {name}...")
++        download_url = None
++        save_path = data.get("save_path")
++        
++        if data.get("type") == "direct":
++            download_url = data.get("url")
++            
++        elif data.get("type") == "release":
++            repo = data.get("repo")
++            pattern = data.get("asset_pattern")
++            download_url = get_latest_release_asset(repo, pattern)
++            if not download_url:
++                errors.append(f"Could not find asset '{pattern}' in {repo} releases")
++                continue
++
++        if download_url:
++            if download_file(download_url, save_path):
++                updated_files.append(name)
++            else:
++                errors.append(f"Failed to download {name}")
++        else:
++            errors.append(f"Invalid configuration for {name}")
++
++    return {
++        "success": True,
++        "updated": updated_files,
++        "errors": errors
++    }
++
++if __name__ == "__main__":
++    update_payloads()
+diff --git a/static/updater.js b/static/updater.js
+index aae43c3..e87198d 100644
+--- a/static/updater.js
++++ b/static/updater.js
+@@ -1,25 +1,34 @@
+-async function UpdateY2JB() {
+-    const btn = document.getElementById('update-btn');
++function updatePayloads() {
++    if(!confirm("This will overwrite existing payloads with the latest versions from GitHub. Continue?")) return;
++    
++    const btn = document.getElementById('update-btn') || event.target.closest('button');
+     const originalText = btn.innerHTML;
+     
+-    try {
+-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Updating...';
+-        btn.disabled = true;
+-
+-        const response = await fetch('/update_y2jb', { method: 'POST' });
+-        if (!response.ok) throw new Error(`Status ${response.status}`);
++    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Updating...';
++    btn.disabled = true;
+ 
+-        const result = await response.json();
++    fetch('/update_repos', { method: 'POST' })
++    .then(response => response.json())
++    .then(data => {
++        btn.innerHTML = originalText;
++        btn.disabled = false;
+         
+-        if (result.success) {
+-            alert(result.message);
++        if (data.success) {
++            let msg = "Update Process Finished.\n\n";
++            if (data.updated.length > 0) msg += "Updated:\n" + data.updated.join("\n") + "\n\n";
++            else msg += "No files were updated (already latest).\n\n";
++            
++            if (data.errors.length > 0) msg += "Errors:\n" + data.errors.join("\n");
++            
++            alert(msg);
++            location.reload();
+         } else {
+-            throw new Error(result.error);
++            alert("Update Failed: " + (data.message || "Unknown error"));
+         }
+-    } catch (error) {
+-        alert(error.message);
+-    } finally {
++    })
++    .catch(error => {
+         btn.innerHTML = originalText;
+         btn.disabled = false;
+-    }
++        alert("Network Error: " + error);
++    });
+ }
+diff --git a/templates/index.html b/templates/index.html
+index 5123929..3b6e0ab 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -61,7 +61,7 @@
+                 </div>
+                 
+                 <div class="flex items-center gap-2">
+-                    <button id="update-btn" onclick="UpdateY2JB()" class="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2 px-3 py-1.5 rounded-full">
++                    <button id="update-btn" onclick="updatePayloads()" class="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2 px-3 py-1.5 rounded-full">
+                         <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                         <span>Update</span>
+                     </button>

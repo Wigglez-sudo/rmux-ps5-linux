@@ -1,0 +1,29 @@
+From 9603bc2f7a0bcb38a0226e95fc2ac1a99de92054 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 20:41:12 +0000
+Subject: [PATCH] ps5-gbe: re-check ISR after re-enabling IER to stop interrupt
+ stall
+
+---
+ gbe.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index 7998a23..a877311 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -567,6 +567,14 @@ static int gbe_poll(struct napi_struct *napi, int budget)
+ 	if (rx_done < budget) {
+ 		napi_complete_done(napi, rx_done);
+ 		gbe_wr(p, GBE_REG_IER, GBE_IER_MASK);
++		/* chip wont send a fresh msi for stuff that landed while ier was
++		   off, so re-check isr and re-kick or interrupts just freeze */
++		if (gbe_rd(p, GBE_REG_ISR) & GBE_IER_MASK) {
++			if (napi_schedule_prep(&p->napi)) {
++				gbe_wr(p, GBE_REG_IER, 0);
++				__napi_schedule(&p->napi);
++			}
++		}
+ 	}
+ 	return rx_done;
+ }

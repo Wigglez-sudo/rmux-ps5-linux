@@ -1,0 +1,971 @@
+======================================================================
+commit 00c58b46c71edb7cf5bee913db2d1b36caed7223
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:02:32 +0100
+
+amdgpu: ps4 bridge: log the mode, dp link and enable result
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 0474d9a8241cbf3eef722063f4de034d16b69ac0
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 6 May 2026 17:41:30 +0200
+
+x86: ps4: calibrate: bound the emc timer reads
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 0c6bf940613bacdb3a950040f14ee65916a9d354
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 00:05:35 +0100
+
+ps4: use identity mapping off baikal and fix the belize ahci
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 0ee6ab7dfbb29aa2b82bc7df365e177fa3eccc9b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+build: update the builder, the workflow, the readme and the
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 1077fbb8eb7012413acd6bcd547bf49a5b9fa0ec
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 13:50:23 +0100
+
+configs: enable the samu ccp and trng
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 14380c6c96483f749bd52eab8ae9f79c6d769936
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 17:57:47 +0100
+
+amdgpu: liverpool_clk: set sclk and vid from the fuses
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 151100481c39ca0464aed301d6d6641c3e4e7e3e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 20:56:20 +0100
+
+ps4: sflash: put the driver behind PS4_SFLASH, off by default
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 1817df6723768071a570b762646ea6f3df1fe614
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:50:54 +0100
+
+docs: agents must not write code here without a booted test
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 18355b13782df50d296912624176fcf9bae868c2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 12 Nov 2026 17:20:12 +0100
+
+firmware: mrvl: go back to the 15.68.19.p54 sd8897 firmware
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 187d6d0bb3f2e9b0a89dc0546366e170bf0bc08e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 12 Nov 2026 10:24:00 +0100
+
+docs: add the new kheops proof and screenshots
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 194bdf56b7376151c4fb185fde3c992488acb5a1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 15 May 2026 13:05:50 +0000
+
+amdgpu: skip asic_init on reset and set the vram type and
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 1ac7b40ed7c4d0dd69336a3a346d226f336bade3
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 6 May 2026 17:41:30 +0200
+
+amdgpu: irq: handle the ps4 msi interrupt
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 1ebe2dd0872be36fc3a6ad99e1e3ddb7f1b3c527
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 23:06:55 +0100
+
+amdgpu: gladius: embed both cp microcode tables and pick one
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 1f342e66a08e3a102a255c9dee0fb8c0ecf2357e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+ps4: harden the apcie, icc and msi paths and fix the xhci
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 201a759aa309427eb7fcc18e7541a8d98dec6b09
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 19:17:05 +0100
+
+docs: move the kheops part to its own file and fix the credit
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 20a783cef1d65481f897c5d668e9a8b0a1bece99
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 11:17:23 +0100
+
+ps4: port to linux 7.3
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 216b2c7bccb19e0b93b0ce39102c21e335737984
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 14:43:00 +0100
+
+bluetooth: l2cap: wait for encryption before accepting
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 221b16ae7b311d5946e3521d0bd8654235613c24
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 18 Mar 2026 19:14:36 +0100
+
+ps4: add the led and fan drivers
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 2487e824e6bee56e85390da0e84619639d9c94b0
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 00:31:57 +0100
+
+amdgpu: ps4 bridge: match the mn864729 colour setup to gameos
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 2c1c267a0442dccd94bc57e7c367a44bde5a522d
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 15 Nov 2026 22:24:57 +0100
+
+ps4: samu: sleep on the completion irq instead of spinning
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 2dcf27314ccd9ad9c1ff264fc8b3a1a359c29b23
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 10 May 2026 20:02:37 +0200
+
+amdgpu: fix the gem unpin and the display paths on ps4
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3315fc87c1ebbaef747c5ba345a65d3f20cdcdd3
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 13:50:23 +0100
+
+ps4: trng: register with the hwrng core 30 s after boot
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 338e58fb6cecc61d3479ba24acd1dde401a291ce
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:28:56 +0100
+
+ps4: icc: add the /dev/icc node option, reply checks and per
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 39a3f66a747b33a9a102f723cd2f0c45d80c85b8
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 4 Nov 2026 19:11:12 +0100
+
+net: add baikal mts gigabit ethernet driver
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 39bae92828e7ef04874f6efa807582994039c10a
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:35:15 +0100
+
+firmware: add the live liverpool gpu microcode
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3a431dca23e8bead8e6f543f3f9d7cda6f02baf4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 8 Nov 2026 11:16:06 +0100
+
+docs: note that the november 8 kheops article is the same
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3ae3d5d9fb2c30f329ca68b4a4ab270afc85dfe4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 21 Apr 2026 01:40:41 +0200
+
+build: add the strawberry builder
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3e7d047b64ef0ec6e5c90a597937e60da8bb15c1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 8 Nov 2026 16:06:41 +0100
+
+amdgpu: gladius: skip set_predication in the pfp microcode
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3fbb0a3cec2ec327a8904ea0f25c93c0e95a3f07
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 6 May 2026 17:41:30 +0200
+
+ps4: add the boot banner
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 4e190fc4b9105e1ed840ae1fa6ed2c061d9338e6
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 13:50:24 +0100
+
+docs: ccp and trng are on again
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 4f5c7b89a8f563af7eb5782ad0d035099a0e5626
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:40:46 +0100
+
+ps4: guard the uarts without serial 8250
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 4f63d57a91863506d0f288b0c0eadc6efdb7ce63
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+mwifiex: disable wifi power save on ps4
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 4fffacf552a81f96e1f3ec0b60a360c6fe0051d4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 23:31:25 +0100
+
+amdgpu: gladius: drop the pro mode switch, warn in base mode
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 5069824e8b3ba1bb6d377eeb41dbe4d6900c10ab
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 22:48:46 +0100
+
+amdgpu: ps4 bridge: fall back to 1080p when no edid mode is
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 5185269113f583b8ecf9c0154478b0af9a1ccd82
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 08:22:39 +0100
+
+ps4: rtc: read the time offset from the emc nvs
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 52c9435ce1ddc11c29fd8fa74bad3c85f157d4fa
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 8 Nov 2026 16:21:49 +0100
+
+docs: add the gladius firmware generator
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 53ad6dbdcf138b2c0b2d40dfd163e34c64b58110
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:09:53 +0100
+
+firmware: ps4-dmi: replace a bad loader bios version and date
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 55885dda80402d528803ca8ede3ab014f63a0170
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:16:59 +0100
+
+x86: ps4: name the cpu by its chip revision
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 568f5d64d094d428524df57bd50d1f9942fab210
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:31:14 +0100
+
+ps4: add ps4sb.h and merge the uart and icc drivers
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 5725e2b46be145ec98855e0b0ba8edaa09c74d93
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 23:28:50 +0100
+
+amdgpu: gladius: stop zeroing tcp_chan_steer_hi
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 58c4710f54be0a518a53b582d236eb736105fd6a
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:23:01 +0100
+
+ps4: pick the southbridge at runtime and drop X86_PS4_BAIKAL
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 58de10945f1f600f6967c5ced79e407d2ba43aac
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 15 May 2026 13:05:50 +0000
+
+ps4: add the buzzer driver
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 59bdfad918595e52d66ea1610466a8a1450a749e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 10 Apr 2026 18:13:03 +0200
+
+alsa: hda: atihdmi: fix hdmi audio on ps4
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 65b4decc959a9e1db17ffe7edde5a776a8617c68
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 5 Nov 2026 17:40:09 +0100
+
+ps4: bpcie: fix the uart and add the rtc
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 65d40e0447e6c18bcc1a26b75d53d0bb774db426
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 15 May 2026 13:05:50 +0000
+
+mt76x8: fix the proc write copy size
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6691e7398e51e582fba1e9662f2085bbaf1a6b0c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:27:31 +0100
+
+amdgpu: gladius: add uvd and vce
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6b4f0f8ac128afb7a3ce49b6523b40d9e1576cc5
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 01:36:36 +0100
+
+amdgpu: uvd: enable uvd 5.0 on baikal liverpool
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6d488edf511a0ed11a1e23ec49888f0689efd90f
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:20:26 +0100
+
+init: add the strawberry team to the boot banner
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6f18f8f3cce9b6bd8b87f449ab9b36d4b71fcdc7
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 11:07:28 +0100
+
+build: turn off the samu ccp and trng for now
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6f4386192c1709fe4889765aff73325d89b322e0
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 5 Nov 2026 10:46:03 +0100
+
+ps4: bpcie-icc: add power off, reboot and event delivery
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6f8cd83daf492b9a17ec99507ed6c1a5dc6fd4db
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:02:23 +0100
+
+amdgpu: ps4 bridge: drive 4k30 and 4k60 on pro like gameos
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 71f0da6ed7a7528e885e0c59393f4f08f6a0b86b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 00:31:58 +0100
+
+amdgpu: ps4 bridge: clear the bad first header byte in the
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 75c77e3f79fb7cd1fee6edd84d3e265e7e84cd17
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 01:36:37 +0100
+
+amdgpu: ps4_bridge: read the edid over icc and handle hotplug
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 7807464f6d4aedb4fa8be12e456e2bd032ca2581
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:34:10 +0100
+
+ps4: merge the southbridge headers and rename the drivers
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 7b9643c08b78b4be5fd4b60f84d868714d0b1579
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 00:31:58 +0100
+
+amdgpu: ps4 bridge: take the edid from the emc event on
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 80e21094c0b0c86b9390a5db4b1de1e5fd8d13c2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+mt76x8: fix the build warnings
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 831204866a6bf28ee7127c480d19a77c8092100c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 10 May 2026 20:02:51 +0200
+
+ps4: add the baikal southbridge glue and wire up ahci, xhci
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 844225345f5da5e056b35b7d84d50fef4bf733fa
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 5 Nov 2026 11:47:52 +0100
+
+amdgpu: gfx7: match the gameos config on liverpool
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 844ae8fe927babe94c557f892d41259ac9a4b803
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 19:20:47 +0100
+
+ps4: sflash: add the baikal read path
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8493456350ee2396c96249597d71e2a10b534a1b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 5 Nov 2026 21:04:11 +0100
+
+ps4: add the samu core, ccp, trng and ps4crypt
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8acd63e7634dae18174ea8d398bd21c573ec4016
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 22:50:19 +0100
+
+docs: update the credit names
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8d73db30c3ff35f53e5b9ef19a4a32d5549044ce
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:33:42 +0100
+
+ps4: merge the rtc drivers and add one status and irq entry
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8e779ddc1509a4a626e50d2628f8ab06655593d5
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 23:12:26 +0100
+
+amdgpu: gladius: use the gfx7 firmware header versions
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8ebf1d2089023d5069fa3c37ad5856d4128c50b4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 18:20:12 +0100
+
+docs: add the readme, contributing and agents files and the
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8ec7e53526f9ec23d5ee95d2c2eb5f5c18dcc9f0
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:21:41 +0100
+
+init: say why the kernel is called strawberry
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 8fd8f4b5338ff7cdcc15b8ef42714256481d1087
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:28:35 +0100
+
+docs: video works on pro, add the documentation todo
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 96da26accde88a5a28f423f48daed3951c888383
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 24 Mar 2026 11:28:15 +0100
+
+amdgpu: add the liverpool and gladius sclk force driver
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 96df3eb95ebb242f4fbe0bedeff5f50dd6ac88e2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+ps4: fix the led and fan drivers
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 974d4141ea30f59b452d275df1ab66d62bad9ffd
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 23:43:39 +0100
+
+x86: tsc: do not wait for a watchdog on baikal
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 977d5e258f16bacdd2315c0358c46f163daec079
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 4 Nov 2026 19:28:54 +0100
+
+ps4: switch the fan and led to the aeolia driver
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 97cfa272e712a8aca7a5d3761343b27628cec427
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:09:13 +0100
+
+cpufreq: add the ps4 p-state driver
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 9982cc70cb499513319e438be57e2b05ee459f9f
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 10 May 2026 20:02:37 +0200
+
+iommu: amd: fix the ps4 iommu setup
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 9dbe69e0433039c7a4bc5b1cb0f3c4d5085ad80c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 10 May 2026 20:02:46 +0200
+
+docs: add the baikal devlog
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 9e4e0c8086e73b1770a214aab3bcff67c02edddb
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 15 Mar 2026 18:37:19 +0100
+
+net: sky2: fix the interrupt storm and the device ids on ps4
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a2a534289ce1a4fc27b8267bb30c4cec733427d2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:09:13 +0100
+
+amdgpu: enable uvd and vce on liverpool 1002:9920 and
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a2e74904fd8c14ceb848d5b32fafa3155c56791e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:09:41 +0100
+
+firmware: ps4-dmi: use generic values that fit every ps4
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a5948067cb02f9e67da936bdf3f53109020212b2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 15:31:33 +0100
+
+amdgpu: ps4 bridge: clear the bad first header byte in the
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a90d8f6899139218c3485df42203249d346ebad2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:16:59 +0100
+
+x86: ps4: calibrate: wait on a tsc deadline for the emc timer
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a97e54a16cd7c8342c9d117b6a396b2ae50f6cdb
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 6 May 2026 17:41:30 +0200
+
+radeon: cik: keep going when the liverpool sdma ring test
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit aa002ce3c3f7b06bfc4d0671e1f84252abeb5d10
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 23:43:16 +0100
+
+amdgpu: gladius: stop setting cb_hw_control_2
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ab562449a082913232568bf4b067c23356d776ee
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 5 Nov 2026 12:03:55 +0100
+
+ps4: bpcie: fix baikal hdd interrupts and set the sata phy
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit b4d5fd93cf0699ef492092e720f34d70fe24ea40
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:02:28 +0100
+
+amdgpu: ps4 bridge: add the gameos waits and skip the dp
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit b4f28b2b3ae96085f3d6d6bb06b1baa1301f35b1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 22:48:46 +0100
+
+amdgpu: gladius: apply the 12.02 golden registers and turn
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit bc6621863050a409a43df1d72862978a944381ff
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 15 May 2026 13:05:50 +0000
+
+x86: amd: name the ps4 cpus
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit bda883bcbe516ba8b2445bf64b6cb9d81c6e314f
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sat, 7 Nov 2026 00:27:27 +0100
+
+amdgpu: dp: skip the link status checks on liverpool off
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit bdb10356cc0b4c0eea0185dd171119a771260088
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 00:31:58 +0100
+
+amdgpu: ps4 bridge: walk the whole edid fifo in the 8 byte
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c3d8738a57e6033af9ddec07f5e565f9bc7fc1fb
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 6 May 2026 17:41:30 +0200
+
+amdgpu: ps4_bridge: load the edid from firmware
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c42d91b6cb91bf386147598abebf1472cb30f5f4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 26 Apr 2026 21:54:45 +0200
+
+amdgpu: ps4_bridge: fix the bridge enable
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c48aa51f4544e081cf29964e660b6a67d3d254b5
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 20:48:56 +0100
+
+wlan: mtk: remove bullshit log spam
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c4a2c766dae637517edd98bb05e06ba6371782b1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:33:13 +0100
+
+build: port the configs based build system
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c5c45c1094cd388d749b450a1fa79262c50d725a
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 10 May 2026 20:02:37 +0200
+
+ps4: fix the probe and irq paths
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c6fbc39391210dc7e3558efcf09210bf30996a01
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:53:08 +0100
+
+x86: ps4: calibrate: measure the tsc against the baikal emc
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ca035fc28beba4b2e70c0941e5cdd7c0ecbc5818
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 21:59:28 +0100
+
+ps4: keep the aeolia irq lookup and limit the baikal acpi
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit cc64b4bf9652c6114117140e96037c0d1f86bb96
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 13 Apr 2026 21:48:31 +0200
+
+ps4: add the dmi fallback and the extra firmware blobs
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ccc114a4efa6543dc2959c2e9bea6236797130f8
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:35:14 +0100
+
+ps4: led: use white early and violet blue at boot on baikal
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit cdf672ce4081048091b148f45aded2bb8c1711a9
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:09:13 +0100
+
+firmware: ps4-dmi: fill only the missing dmi fields
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ce161e9bc02dad524160ae035e699bce5531c7c9
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 18:20:19 +0100
+
+ps4: add the aeolia and belize rtc and spi flash drivers
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit d41ca19956589d13c600c634e6e269f05eb52dd7
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 15 Mar 2026 18:37:19 +0100
+
+ps4: fix the bridge and mt76x8 builds
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit d5c5f9df75b092ff9d69c80f27a057131f613fde
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 10 Apr 2026 18:13:03 +0200
+
+amdgpu: ps4_bridge: fix hotplug, detect and the crtc paths
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit d84fcd9d0eb79e299935039b5a9ef61486197329
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 21:47:37 +0100
+
+docs: add the todo to document every engine
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit da9ffe28548be9e67f9d9c0e6ce9ac896089337c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 10:56:28 +0100
+
+amdgpu: vce: add the native vce1 block on baikal liverpool
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit daff32e31cb2351339c440a3060ac2e038a5595c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 8 Nov 2026 16:09:00 +0100
+
+docs: vulkan works on pro
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit db886c22dffa03bb95aa81ba973d5cd5ada9f6b2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 10 Apr 2026 18:13:03 +0200
+
+amdgpu: cik: program pcie aspm and drop the deep light sleep
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit dfeaa0015ef369103d434e11265af9ff55e78f75
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 8 Nov 2026 11:23:55 +0100
+
+docs: list what does not work yet
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit e91b40d1d140a288700224d7a57038c79f7b041a
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 16:26:42 +0100
+
+docs: update what works and known issues
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ef331d86b2fb9ab5622230a12513415f559374b6
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 10 Nov 2026 22:01:02 +0100
+
+docs: 4k60 works on pro
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit f8ce04ef8ea88c800482af10cb758cbd58049305
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Fri, 6 Nov 2026 17:09:57 +0100
+
+ps4: port to linux 7.1.7
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit fe666412d5817061fcc479439cd780b19b6f688b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 00:33:11 +0100
+
+amdgpu: gladius: switch the gpu to pro mode when it starts in
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>

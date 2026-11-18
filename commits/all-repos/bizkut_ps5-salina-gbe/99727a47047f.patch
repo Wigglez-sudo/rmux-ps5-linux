@@ -1,0 +1,65 @@
+From 99727a47047fd0c81fabfa32f8b266f30bc70253 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 21:23:55 +0000
+Subject: [PATCH] ps5-gbe: add missing credits
+
+---
+ gbe.c     | 5 ++++-
+ gbe.h     | 5 ++++-
+ gbe_phy.c | 5 ++++-
+ 3 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/gbe.c b/gbe.c
+index a877311..0f70d99 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -16,9 +16,12 @@
+  * credits:
+  * - slidybat for some info that helped early on
+  * - cow for bearing with me, testing my garbage code, correcting me
+- *   when i was going wrong, and just being a great guy <3
++ *   when i was going wrong, catching the upload-under-load issue, and
++ *   just being a great guy <3
+  * - the team for not pestering me about baikal while i was knee deep
+  *   in this mess lol
++ * - hassle403 for jumping in and stress testing when cow was away,
++ *   confirmed the same fix and helped me get this over the line. legend
+  *
+  * heads up to whoever reads this: most of the debug logging is left in
+  * for now until i'm sure it's stable enough, will rip it out later. meow.
+diff --git a/gbe.h b/gbe.h
+index 19136d0..c534b7f 100644
+--- a/gbe.h
++++ b/gbe.h
+@@ -16,9 +16,12 @@
+  * credits:
+  * - slidybat for some info that helped early on
+  * - cow for bearing with me, testing my garbage code, correcting me
+- *   when i was going wrong, and just being a great guy <3
++ *   when i was going wrong, catching the upload-under-load issue, and
++ *   just being a great guy <3
+  * - the team for not pestering me about baikal while i was knee deep
+  *   in this mess lol
++ * - hassle403 for jumping in and stress testing when cow was away,
++ *   confirmed the same fix and helped me get this over the line. legend
+  *
+  * heads up to whoever reads this: most of the debug logging is left in
+  * for now until i'm sure it's stable enough, will rip it out later. meow.
+diff --git a/gbe_phy.c b/gbe_phy.c
+index d00db20..9b86c20 100644
+--- a/gbe_phy.c
++++ b/gbe_phy.c
+@@ -16,9 +16,12 @@
+  * credits:
+  * - slidybat for some info that helped early on
+  * - cow for bearing with me, testing my garbage code, correcting me
+- *   when i was going wrong, and just being a great guy <3
++ *   when i was going wrong, catching the upload-under-load issue, and
++ *   just being a great guy <3
+  * - the team for not pestering me about baikal while i was knee deep
+  *   in this mess lol
++ * - hassle403 for jumping in and stress testing when cow was away,
++ *   confirmed the same fix and helped me get this over the line. legend
+  *
+  * heads up to whoever reads this: most of the debug logging is left in
+  * for now until i'm sure it's stable enough, will rip it out later. meow.

@@ -1,0 +1,68 @@
+From 8e76b78a2cb32de2bcfc058666b1104e9d2d26bf Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 12:56:12 +0100
+Subject: [PATCH] Add support for .js payload files
+
+Extended allowed file types to include .js in both backend and frontend. Updated file upload, listing, and sending logic to handle .js files, using port 50000 for .js payloads. Adjusted UI to reflect new file type support.
+---
+ server.py            | 11 ++++++++---
+ templates/index.html |  4 ++--
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/server.py b/server.py
+index b751a29..41acba2 100644
+--- a/server.py
++++ b/server.py
+@@ -19,7 +19,7 @@
+ PAYLOAD_DIR = "payloads"
+ CONFIG_DIR = "static/config"
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+-ALLOWED_EXTENSIONS = {'bin', 'elf'}
++ALLOWED_EXTENSIONS = {'bin', 'elf', 'js'}
+ url = "http://localhost:8000/send_payload"
+ 
+ os.makedirs(PAYLOAD_DIR, exist_ok=True)
+@@ -106,7 +106,7 @@ def list_files():
+     folder = "payloads"
+     try:
+         files = [f for f in os.listdir(folder)
+-                if f.lower().endswith(('.bin', '.elf'))]
++                if f.lower().endswith(('.bin', '.elf', '.js'))]
+         return jsonify(files)
+     except:
+         return jsonify({"error": "Folder not found"}), 404
+@@ -176,7 +176,12 @@ def sending_payload():
+             else:
+                 return jsonify({"error": "Failed to send lapse.js"}), 500
+         else:
+-            result = send_payload(file_path=payload, host=host, port=9021)
++            port = 9021
++            if payload.lower().endswith('.js'):
++                port = 50000
++            
++            result = send_payload(file_path=payload, host=host, port=port)
++            
+             if result:
+                 return jsonify({"success": True, "message": "Custom payload sent"})
+             else:
+diff --git a/templates/index.html b/templates/index.html
+index 3b6e0ab..54b617d 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -112,14 +112,14 @@ <h3 class="text-lg font-bold">Payloads</h3>
+                 
+                 <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                     <div class="flex gap-2 w-full sm:w-auto">
+-                         <input type="text" id="directUrlInput" placeholder="URL (.bin/.elf)" class="input-field flex-1 sm:w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-light outline-none transition-all">
++                         <input type="text" id="directUrlInput" placeholder="URL (.bin/.elf/.js)" class="input-field flex-1 sm:w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-brand-light outline-none transition-all">
+                          <button onclick="directDownload()" class="px-3 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-brand-blue hover:text-white rounded-lg text-xs font-bold transition-colors border border-transparent hover:border-brand-blue" title="Download from URL">
+                              <i class="fa-solid fa-cloud-arrow-down"></i>
+                          </button>
+                     </div>
+ 
+                     <div class="flex gap-2 w-full sm:w-auto">
+-                        <input type="file" id="fileInput" accept=".bin,.elf" class="hidden">
++                        <input type="file" id="fileInput" accept=".bin,.elf,.js" class="hidden">
+                         <button onclick="document.getElementById('fileInput').click()" class="flex-1 sm:flex-none px-4 py-2 input-field border rounded-lg text-sm font-medium hover:opacity-80 transition-opacity">
+                             Select File
+                         </button>

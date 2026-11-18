@@ -1,0 +1,166 @@
+======================================================================
+commit 0727b752d17bcb96dfe0f71db613c1e7ea76e8cf
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 23 Feb 2025 15:10:29 +0100
+
+Update axion.devices
+
+======================================================================
+commit 07d49a2dae40f8a76c6d79e609a4a159617dfd6d
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 7 May 2025 10:26:34 -0700
+
+pipa : 1.4 . help
+
+======================================================================
+commit 0d967cccfd36450d510ad8802ee5d942dbf28e53
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 14 May 2025 09:56:51 -0700
+
+pipa : update
+
+======================================================================
+commit 0f59851f9dc2955d3f989376c9a64ecfb822db54
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 27 Feb 2025 18:05:15 +0100
+
+Update device_images.json
+
+======================================================================
+commit 1a9559b60df3a3fa5953ae627e97dc116de22ff4
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 29 May 2025 18:31:48 +0200
+
+pipa : Update 2025/05/29
+
+======================================================================
+commit 4961ff75e900c19c56da3199ca967cad207ca8b9
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 3 Mar 2025 17:19:25 +0100
+
+a71 ; last pre-1.2 build.
+
+======================================================================
+commit 51d1c196a81e85aade464c489ccb7719182c2b05
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 10 May 2025 06:21:10 -0700
+
+pipa : fixup
+
+======================================================================
+commit 53fe2e503aeaebf825bb2e439e2ff37b43e6aaaa
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 27 Feb 2025 16:54:59 +0100
+
+added device_images.json
+
+======================================================================
+commit 5a9e09c440f122a994ebd0e1a77012d0cc821e65
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 23 Feb 2025 15:10:09 +0100
+
+Update axion.maintainers
+
+======================================================================
+commit 5b25aebdee57fa12b274a2a713a8cd251be2ddae
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 23 Feb 2025 15:02:11 +0100
+
+Update README.md
+
+Add a71 to Official list
+
+======================================================================
+commit 66dbc52b8b18a8a1f845f4edb4da2606841515b2
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 19:35:12 +0200
+
+update : updated pipa (xioami pad 6) image
+
+======================================================================
+commit 71d4cb40dc2ea0fed6503d6f249026d516f50907
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 18:35:02 +0100
+
+TelegramBOT: Add devices.json for comprehensive device
+
+This commit introduces the devices.json file into the repository. The file aggregates essential device metadata—including device names, maintainers, and support group URLs—thereby streamlining the process of dynamically fetching and displaying accurate device information via the TelegramBOT. This enhancement not only improves data accessibility for end users but also supports easier maintenance and future updates.
+
+======================================================================
+commit 85492341a11dd24a14f6197b019972cb53fc5c40
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 25 Feb 2025 15:46:45 +0100
+
+added a71 VANILLA build
+
+======================================================================
+commit 8d56b1d18048cca8df302cd9a171b134d8681f85
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 23 Feb 2025 17:39:39 +0100
+
+added a71.json
+
+======================================================================
+commit 9148474d833af0fa8e7d2d2c4a055632fa779fff
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 4 May 2025 14:36:44 -0700
+
+a71 : update :)
+
+======================================================================
+commit 9ea7a2f54c72e72d385368e5cbcc7e48967805ea
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sat, 12 Apr 2025 15:54:14 +0200
+
+OTA : update A71 builds
+
+======================================================================
+commit a0c144a03b6e5a959353de31e4cb74ed06945476
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 27 Feb 2025 17:57:55 +0100
+
+Update device_images.json
+
+======================================================================
+commit bfde955d14c98f26a08fe2702256ba8e6e433a12
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 31 Mar 2025 11:33:23 +0100
+
+update : unified json fetching
+
+for better automation for the website/bot
+
+======================================================================
+commit d50af9b524f0fe53305f67b12fc913b250939668
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Wed, 2 Apr 2025 21:01:07 +0100
+
+Update a71.json
+
+======================================================================
+commit d5bce287749f2ac75e20c51684741c16e22a4135
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 25 Feb 2025 15:43:53 +0100
+
+update a71 GMS build
+
+======================================================================
+commit eff35064a3f55482125737294f81ebe3fa93be12
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Mon, 5 May 2025 09:53:36 -0700
+
+pipa : we soo back
+
+======================================================================
+commit f12ed3be586f60a8b6ba7d911d819f37c2dfa61d
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 27 Feb 2025 18:11:06 +0100
+
+Update device_images.json
+
+======================================================================
+commit f5e893a96b2e9d788293cb6df1a00b85f09f729e
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Sun, 30 Mar 2025 19:30:24 +0200
+
+added devices info for better info fetching for the website

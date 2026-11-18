@@ -1,0 +1,27 @@
+From 91b66a539fc3090fb68b71fde381711b88926118 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 17:40:55 +0100
+Subject: [PATCH] refactor(nav): add link to new settings page
+
+- Insert "Settings" button in the top navigation bar.
+- Update navigation icons for better visual.
+---
+ templates/index.html | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/templates/index.html b/templates/index.html
+index 079d351..3d5a792 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -59,6 +59,11 @@
+                         <i class="fa-solid fa-gear"></i>
+                         <span>Repos</span>
+                     </a>
++                    
++                    <a href="{{ url_for('settings_page') }}" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                        <i class="fa-solid fa-sliders"></i>
++                        <span>Settings</span>
++                    </a>
+                     <a href="{{ url_for('credits_page') }}" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                         <i class="fa-solid fa-heart"></i>
+                         <span>Credits</span>

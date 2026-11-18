@@ -1,0 +1,18 @@
+From 6964cf4ce9eed9c7c84e77d59598aa6970aa7577 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 25 Jan 2026 15:11:10 +0100
+Subject: [PATCH] (.gitignore) add backpork cache
+
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index 236a348..07980f7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -5,3 +5,4 @@ static/config/payload_config.json
+ static/config/payload_order.json
+ static/config/payload_delay_flags.json
+ static/config/dns_rules.json
++/src/backpork/__pycache__

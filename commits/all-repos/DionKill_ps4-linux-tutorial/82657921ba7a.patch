@@ -1,0 +1,23 @@
+From 82657921ba7a74a25fee92dc18e648eabf3fcfe3 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Wed, 11 Nov 2026 10:12:22 +0100
+Subject: [PATCH] docs: monitor hotplug works on 7.3.3
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ docs/issues.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/docs/issues.md b/docs/issues.md
+index bf7befe..fb98b6e 100644
+--- a/docs/issues.md
++++ b/docs/issues.md
+@@ -27,7 +27,7 @@ If the installer can't find the USB device, you have two options:
+ There are a lot of undocumented issues. Or, if they are documented, I couldn't even find them because no search engine indexed those pages or they are in a foreign language.
+ 
+ ::: details Black/gray screen or "no signal"
+-Since the 6.18 kernels, display issues should mostly be fixed, so if you can use a newer 7.x one instead, please do. Note that monitor hotplugging is not supported anymore.
++Since the 6.18 kernels, display issues should mostly be fixed, so if you can use a newer 7.x one instead, please do. Monitor hotplugging works on 7.3.3.
+ 
+ If you get a black screen right after running the Linux payload, try another TV first. If that doesn't help, try this trick: boot back into the game OS (you'll have to, to run the Linux payload again anyways), run the payload and wait for it to go fully black, then turn your TV or monitor off and back on quickly. You should get a signal in the end.
+ 

@@ -1,0 +1,55 @@
+From 6eec36758cb9115660a7f4e5a1fcdadd4bea8242 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 10:06:14 +0000
+Subject: [PATCH] ps5-gbe: fix TX stall on ring wrap
+
+---
+ gbe.c | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/gbe.c b/gbe.c
+index e6b406f..de6c024 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -256,10 +256,19 @@ static void gbe_tx_complete(struct gbe_priv *p)
+ 
+ 	while (tail != p->tx_head) {
+ 		struct gbe_desc *d = &p->tx_ring[tail];
++		u32 flags = le32_to_cpu(d->flags);
++		u32 w2    = le32_to_cpu(d->word2);
+ 
+-		if (!(le32_to_cpu(d->flags) & GBE_DESC_DONE))
++		if (!(flags & GBE_DESC_DONE))
+ 			break;
+ 
++		/* chip reuses word2 < 0xffff0000 as ownership sentinel on ring wrap */
++		if (w2 >= 0xffff0000)
++			break;
++
++		/* re-arm it so the slot reads free next time round the ring */
++		d->word2 = cpu_to_le32(w2 | 0xffff0000);
++
+ 		p->cnt_tx_completed++;
+ 		tail = (tail + 1) % GBE_RING_SIZE;
+ 	}
+@@ -347,6 +356,9 @@ static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	spin_lock_irqsave(&p->lock, flags);
+ 
++	/* free up whatever the chip already finished before we go looking for room */
++	gbe_tx_complete(p);
++
+ 	head = p->tx_head;
+ 	if (((head + 1) % GBE_RING_SIZE) == p->tx_tail) {
+ 		p->cnt_tx_busy++;
+@@ -384,6 +396,10 @@ static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	p->tx_head = (head + 1) % GBE_RING_SIZE;
+ 
++	/* if the ring is filling up clean it again so we dont wedge under load :C */
++	if ((p->tx_head + GBE_RING_SIZE - p->tx_tail) % GBE_RING_SIZE > GBE_RING_SIZE / 2)
++		gbe_tx_complete(p);
++
+ 	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_KICK);
+ 
+ 	dev->stats.tx_packets++;

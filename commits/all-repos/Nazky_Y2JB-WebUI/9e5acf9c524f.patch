@@ -1,0 +1,22 @@
+From 9e5acf9c524f042d8b1a7827c22e85ec5dae6e1c Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 19:55:31 +0100
+Subject: [PATCH] Y2JB-WEBUI: add versioning
+
+---
+ version.json | 6 ++++++
+ 1 file changed, 6 insertions(+)
+ create mode 100644 version.json
+
+diff --git a/version.json b/version.json
+new file mode 100644
+index 0000000..2ab4cf0
+--- /dev/null
++++ b/version.json
+@@ -0,0 +1,6 @@
++{
++  "branch": "main",
++  "version": "1.1",
++  "date": "2026-01-16",
++  "description": "lil meow meow"
++}

@@ -1,0 +1,183 @@
+From b7ee9eea115c1cec5f353bbdeb42cc6f50af2f2c Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 13:12:21 +0100
+Subject: [PATCH] Add selective payload update functionality
+
+Introduces the ability to select specific payloads to update via the UI. Adds a new /list_repos endpoint, updates the update_repos API to accept target payloads, and enhances the frontend to allow users to choose which payloads to update instead of always updating all.
+---
+ server.py            | 14 ++++++++-
+ src/repo_manager.py  |  5 +++-
+ static/updater.js    | 69 +++++++++++++++++++++++++++++++++++++-------
+ templates/index.html | 15 ++++++++++
+ 4 files changed, 91 insertions(+), 12 deletions(-)
+
+diff --git a/server.py b/server.py
+index 41acba2..f9e76b2 100644
+--- a/server.py
++++ b/server.py
+@@ -203,10 +203,22 @@ def delete_payload():
+             'message': 'Failed to delete file'
+         }), 500
+ 
++@app.route('/list_repos')
++def list_repos():
++    try:
++        repo_file = os.path.join("static", "config", "repos.json")
++        with open(repo_file, 'r') as f:
++            repos = json.load(f)
++        return jsonify(list(repos.keys()))
++    except:
++        return jsonify([])
++
+ @app.route('/update_repos', methods=['POST'])
+ def update_repos():
+     try:
+-        result = update_payloads()
++        data = request.get_json() or {}
++        targets = data.get('targets', ['all'])
++        result = update_payloads(targets)
+         return jsonify(result)
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+diff --git a/src/repo_manager.py b/src/repo_manager.py
+index 8603200..6a7d4d4 100644
+--- a/src/repo_manager.py
++++ b/src/repo_manager.py
+@@ -35,7 +35,7 @@ def get_latest_release_asset(repo, pattern):
+         print(f"    [!] GitHub API Error for {repo}: {e}")
+         return None
+ 
+-def update_payloads():
++def update_payloads(targets=None):
+     if not os.path.exists(CONFIG_FILE):
+         return {"success": False, "message": "repos.json not found"}
+ 
+@@ -46,6 +46,9 @@ def update_payloads():
+     errors = []
+ 
+     for name, data in config.items():
++        if targets and "all" not in targets and name not in targets:
++            continue
++
+         print(f"[*] Processing {name}...")
+         download_url = None
+         save_path = data.get("save_path")
+diff --git a/static/updater.js b/static/updater.js
+index e87198d..a97face 100644
+--- a/static/updater.js
++++ b/static/updater.js
+@@ -1,29 +1,78 @@
++document.addEventListener('DOMContentLoaded', () => {
++    const allCheckbox = document.getElementById('update-all');
++
++    fetch('/list_repos')
++        .then(r => r.json())
++        .then(repos => {
++            const container = document.getElementById('repo-items');
++            repos.forEach(name => {
++                const label = document.createElement('label');
++                label.className = 'flex items-center px-4 py-2 hover:bg-white/5 cursor-pointer gap-3';
++                label.innerHTML = `
++                    <input type="checkbox" name="repo-target" value="${name}" class="rounded border-gray-700 bg-transparent text-brand-blue focus:ring-brand-blue" onchange="toggleIndividual(this)">
++                    <span class="text-xs">${name}</span>
++                `;
++                container.appendChild(label);
++            });
++        });
++
++    allCheckbox.addEventListener('change', () => {
++        document.querySelectorAll('input[name="repo-target"]').forEach(cb => {
++            cb.checked = allCheckbox.checked;
++        });
++    });
++});
++
++function toggleIndividual() {
++    const allCheckbox = document.getElementById('update-all');
++    const individuals = document.querySelectorAll('input[name="repo-target"]');
++    const allTicked = Array.from(individuals).every(cb => cb.checked);
++    allCheckbox.checked = allTicked;
++}
++
++function toggleRepoList(e) {
++    if (e) e.stopPropagation();
++    document.getElementById('repo-checklist').classList.toggle('hidden');
++}
++
++document.addEventListener('click', (e) => {
++    const list = document.getElementById('repo-checklist');
++    if (list && !list.classList.contains('hidden') && !list.contains(e.target)) {
++        list.classList.add('hidden');
++    }
++});
++
+ function updatePayloads() {
+-    if(!confirm("This will overwrite existing payloads with the latest versions from GitHub. Continue?")) return;
++    const allChecked = document.getElementById('update-all').checked;
++    const targets = allChecked ? ['all'] : Array.from(document.querySelectorAll('input[name="repo-target"]:checked')).map(cb => cb.value);
+     
+-    const btn = document.getElementById('update-btn') || event.target.closest('button');
++    if (targets.length === 0) return alert("Please select at least one payload.");
++    if (!confirm(`Update ${allChecked ? 'all payloads' : targets.length + ' selected payloads'}?`)) return;
++    
++    const btn = document.getElementById('update-btn');
+     const originalText = btn.innerHTML;
+     
+     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Updating...';
+     btn.disabled = true;
+ 
+-    fetch('/update_repos', { method: 'POST' })
++    fetch('/update_repos', { 
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ targets })
++    })
+     .then(response => response.json())
+     .then(data => {
+         btn.innerHTML = originalText;
+         btn.disabled = false;
+         
+         if (data.success) {
+-            let msg = "Update Process Finished.\n\n";
+-            if (data.updated.length > 0) msg += "Updated:\n" + data.updated.join("\n") + "\n\n";
+-            else msg += "No files were updated (already latest).\n\n";
+-            
+-            if (data.errors.length > 0) msg += "Errors:\n" + data.errors.join("\n");
+-            
++            let msg = "Update Finished.\n\n";
++            if (data.updated.length > 0) msg += "Updated: " + data.updated.join(", ");
++            else msg += "Already up to date.";
+             alert(msg);
+             location.reload();
+         } else {
+-            alert("Update Failed: " + (data.message || "Unknown error"));
++            alert("Update Failed: " + (data.message || "Error"));
+         }
+     })
+     .catch(error => {
+diff --git a/templates/index.html b/templates/index.html
+index 54b617d..cc2199e 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -61,6 +61,21 @@
+                 </div>
+                 
+                 <div class="flex items-center gap-2">
++                    <div class="relative">
++                        <button onclick="toggleRepoList(event)" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                            <span>Select Update</span>
++                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
++                        </button>
++                        <div id="repo-checklist" class="absolute right-0 mt-2 w-48 surface border rounded-xl shadow-xl py-2 z-50 hidden transition-all">
++                            <label class="flex items-center px-4 py-2 hover:bg-white/5 cursor-pointer gap-3">
++                                <input type="checkbox" id="update-all" value="all" checked class="rounded border-gray-700 bg-transparent text-brand-blue focus:ring-brand-blue">
++                                <span class="text-xs font-medium">All Payloads</span>
++                            </label>
++                            <div class="border-t border-oled-border my-1"></div>
++                            <div id="repo-items" class="max-h-48 overflow-y-auto custom-scroll"></div>
++                        </div>
++                    </div>
++
+                     <button id="update-btn" onclick="updatePayloads()" class="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2 px-3 py-1.5 rounded-full">
+                         <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                         <span>Update</span>

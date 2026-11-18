@@ -1,0 +1,218 @@
+From d70c7e01e6042ba5d3caf768ac3e08c86af33acb Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 22 Feb 2026 16:15:24 +0100
+Subject: [PATCH] fix: makes colors stand out
+
+---
+ static/style/repo.css     |  6 ++++++
+ static/style/settings.css | 21 ++++++++++++++++++++-
+ templates/repos.html      | 20 ++++++++++----------
+ templates/settings.html   | 18 +++++++++---------
+ 4 files changed, 45 insertions(+), 20 deletions(-)
+
+diff --git a/static/style/repo.css b/static/style/repo.css
+index 4207177..207249f 100644
+--- a/static/style/repo.css
++++ b/static/style/repo.css
+@@ -5,6 +5,12 @@ html.dark .input-field { background-color: #000000; border-color: #333; color: w
+ html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
+ html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+ html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++html:not(.dark) pre { color: #1f2937; }
++html:not(.dark) thead { background-color: #f9fafb; }
++html:not(.dark) tbody tr { border-color: #e5e7eb; }
++html:not(.dark) tbody tr:hover { background-color: rgba(0, 0, 0, 0.02); }
++
+ .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+ .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+ .custom-scroll::-webkit-scrollbar-thumb { background-color: #333; border-radius: 3px; }
+diff --git a/static/style/settings.css b/static/style/settings.css
+index b43dcaf..1ec6ac9 100644
+--- a/static/style/settings.css
++++ b/static/style/settings.css
+@@ -32,7 +32,9 @@ body {
+ }
+ 
+ .dark .input-field {
+-    background-color: rgba(0, 0, 0, 0.2);
++    background-color: #000000;
++    border-color: #333;
++    color: white;
+ }
+ 
+ .input-field:focus {
+@@ -91,3 +93,20 @@ section:hover {
+ .save-btn-active {
+     animation: pulse-subtle 2s infinite;
+ }
++
++html.dark body { background-color: #000000; color: #e5e5e5; }
++html.dark .surface { background-color: #121212; border-color: #2a2a2a; }
++html.dark .input-field { background-color: #000000; border-color: #333; color: white; }
++
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++html:not(.dark) .peer-checked\:bg-brand-blue:checked ~ div { background-color: #00439c; }
++
++html:not(.dark) input[type="number"],
++html:not(.dark) input[type="text"] {
++    background-color: #f9fafb;
++    border-color: #d1d5db;
++    color: #111827;
++}
+diff --git a/templates/repos.html b/templates/repos.html
+index 8f0dec2..8fdfa45 100644
+--- a/templates/repos.html
++++ b/templates/repos.html
+@@ -80,20 +80,20 @@ <h4 class="font-bold text-brand-light flex items-center gap-2 mb-2">
+                         you must use the <b>Asset Pattern</b> to tell the system which file to grab.
+                     </p>
+                     
+-                    <div class="bg-black/40 p-4 rounded-lg border border-oled-border">
++                    <div class="bg-gray-100 dark:bg-black/40 p-4 rounded-lg border border-gray-200 dark:border-oled-border">
+                         <p class="text-[10px] font-bold opacity-50 uppercase mb-2 tracking-wider">Asset Pattern Examples</p>
+                         <ul class="space-y-3 text-xs font-mono">
+                             <li class="flex flex-col gap-1">
+                                 <span class="opacity-60 font-sans">Exact Match:</span>
+-                                <span class="text-green-400">kstuff.elf</span>
++                                <span class="text-green-600 dark:text-green-400">kstuff.elf</span>
+                                 <span class="text-[10px] opacity-40 font-sans">Use when the filename is always static.</span>
+                             </li>
+-                            <li class="flex flex-col gap-1 border-t border-white/5 pt-2">
++                            <li class="flex flex-col gap-1 border-t border-gray-200 dark:border-white/5 pt-2">
+                                 <span class="opacity-60 font-sans">Wildcards (Dynamic):</span>
+                                 <span class="text-brand-light">download-*.zip</span>
+                                 <span class="text-[10px] opacity-40 font-sans">Matches "download-1.3.zip", "download-v2.zip", etc.</span>
+                             </li>
+-                            <li class="flex flex-col gap-1 border-t border-white/5 pt-2">
++                            <li class="flex flex-col gap-1 border-t border-gray-200 dark:border-white/5 pt-2">
+                                 <span class="opacity-60 font-sans">Complex Wildcards:</span>
+                                 <span class="text-brand-light">*-ps5.elf</span>
+                                 <span class="text-[10px] opacity-40 font-sans">Matches anything ending in "-ps5.elf" (e.g., ftpsrv-ps5.elf).</span>
+@@ -117,32 +117,32 @@ <h4 class="font-bold text-brand-light flex items-center gap-2 mb-2">
+                     <h4 class="font-bold opacity-80 text-xs uppercase tracking-wide">Example Configuration</h4>
+                     <span class="text-[10px] opacity-40">repos.json structure</span>
+                 </div>
+-                <div class="relative bg-black/40 rounded-xl border border-oled-border overflow-hidden">
+-                    <div class="flex items-center gap-1.5 px-4 py-2 border-b border-white/5 bg-white/5">
++                <div class="relative bg-gray-100 dark:bg-black/40 rounded-xl border border-gray-200 dark:border-oled-border overflow-hidden">
++                    <div class="flex items-center gap-1.5 px-4 py-2 border-b border-gray-200 dark:border-white/5 bg-gray-200 dark:bg-white/5">
+                         <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                         <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                         <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                     </div>
+                     <pre class="p-4 overflow-x-auto text-[10px] font-mono leading-relaxed opacity-90 custom-scroll shadow-inner h-full max-h-[300px]">
+ {
+-    <span class="text-green-400">"lapse.js"</span>: {
++    <span class="text-green-600 dark:text-green-400">"lapse.js"</span>: {
+         "type": "direct",
+         "url": "https://raw.github.../lapse.js",
+         "save_path": "payloads/js/lapse.js"
+     },
+-    <span class="text-purple-400">"kstuff.elf"</span>: {
++    <span class="text-purple-600 dark:text-purple-400">"kstuff.elf"</span>: {
+         "type": "release",
+         "repo": "EchoStretch/kstuff",
+         "asset_pattern": "kstuff.elf",
+         "save_path": "payloads/kstuff.elf"
+     },
+-    <span class="text-purple-400">"ftpsrv.elf"</span>: {
++    <span class="text-purple-600 dark:text-purple-400">"ftpsrv.elf"</span>: {
+         "type": "release",
+         "repo": "drakmor/ftpsrv",
+         "asset_pattern": "ftpsrv-*.elf",
+         "save_path": "payloads/ftpsrv-ps5.elf"
+     },
+-    <span class="text-purple-400">"notify.elf"</span>: {
++    <span class="text-purple-600 dark:text-purple-400">"notify.elf"</span>: {
+         "type": "release",
+         "repo": "adel-ailane/ShadowMount",
+         "asset_pattern": "notify.elf",
+diff --git a/templates/settings.html b/templates/settings.html
+index e950c15..e609494 100644
+--- a/templates/settings.html
++++ b/templates/settings.html
+@@ -75,7 +75,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 <i class="fa-solid fa-robot"></i> Automation
+             </h2>
+             
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5">
+                 <div>
+                     <span class="block text-sm font-bold">Auto-Jailbreak</span>
+                     <span class="text-xs opacity-50">Automatically send payload when console is detected.</span>
+@@ -86,7 +86,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 mt-3">
+                 <div>
+                     <span class="block text-sm font-bold">Load Kstuff</span>
+                     <span class="text-xs opacity-50">@mihaiaka asked for it.</span>
+@@ -97,7 +97,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 mt-3">
+                 <div>
+                     <span class="block text-sm font-bold">Auto-Update Repos</span>
+                     <span class="text-xs opacity-50">Check for payload updates on startup.</span>
+@@ -108,7 +108,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+     
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 mt-3">
+                 <div>
+                     <span class="block text-sm font-bold">DNS Server Auto-Start</span>
+                     <span class="text-xs opacity-50">Launch DNS service with the web server.</span>
+@@ -134,7 +134,7 @@ <h3 class="text-xs font-bold uppercase opacity-60 mb-3 ml-1">Payload Sequence</h
+ 
+             <div class="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex gap-3 items-start">
+                  <i class="fa-solid fa-triangle-exclamation text-yellow-500 mt-0.5 text-xs"></i>
+-                 <p class="text-[10px] opacity-80 leading-relaxed text-yellow-200">
++                 <p class="text-[10px] opacity-80 leading-relaxed text-yellow-800 dark:text-yellow-200">
+                      <strong>Warning:</strong> Ensure you have successfully performed a manual jailbreak at least once before enabling this feature. If the server loops, you may need to restart the container.
+                  </p>
+             </div>
+@@ -150,7 +150,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                     <i id="theme-icon" class="fa-solid fa-moon"></i>
+                 </button>
+             </div>
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5">
+                 <div>
+                     <span class="block text-sm font-bold">UI Animations</span>
+                     <span class="text-xs opacity-50">Enable smooth transitions for theme changes and UI elements.</span>
+@@ -161,7 +161,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 mt-3">
+                 <div>
+                     <span class="block text-sm font-bold">Debug Mode</span>
+                     <span class="text-xs opacity-50">Enable verbose logging in the console.</span>
+@@ -172,7 +172,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
+-            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++            <div class="flex items-center justify-between p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 mt-3">
+                 <div>
+                     <span class="block text-sm font-bold">Compact Layout</span>
+                     <span class="text-xs opacity-50">Reduce padding and use full width.</span>
+@@ -183,7 +183,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
+-            <div class="mt-4 p-4 bg-black/20 rounded-xl border border-white/5">
++            <div class="mt-4 p-4 bg-gray-100 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5">
+                 <div class="flex items-center justify-between">
+                     <div>
+                         <span class="block text-sm font-bold">Check for Updates</span>

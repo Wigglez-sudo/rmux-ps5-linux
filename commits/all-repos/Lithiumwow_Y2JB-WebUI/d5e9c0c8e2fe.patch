@@ -1,0 +1,407 @@
+From d5e9c0c8e2fe6446e51c52375c3f813fd2a2fa31 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 7 Feb 2026 23:04:23 +0100
+Subject: [PATCH] feat: add system control
+
+somebody force me to rewrite the damn server.py and idk yeah
+---
+ requirements.txt        |   3 +-
+ server.py               |  23 +++++++
+ src/system_manager.py   |  55 +++++++++++++++
+ static/style/system.css |  12 ++++
+ static/system.js        |  62 +++++++++++++++++
+ templates/index.html    |  10 +++
+ templates/system.html   | 148 ++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 312 insertions(+), 1 deletion(-)
+ create mode 100644 src/system_manager.py
+ create mode 100644 static/style/system.css
+ create mode 100644 static/system.js
+ create mode 100644 templates/system.html
+
+diff --git a/requirements.txt b/requirements.txt
+index 4727094..5c4610e 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,4 +1,5 @@
+ Flask
+ flask-cors
+ requests
+-werkzeug
+\ No newline at end of file
++werkzeug
++psutil
+\ No newline at end of file
+diff --git a/server.py b/server.py
+index b1a30df..8316bc2 100644
+--- a/server.py
++++ b/server.py
+@@ -21,6 +21,7 @@
+ from src.dns_server import DNSServer
+ from src.backpork.core import BackporkEngine
+ from src.features import setup_logging, run_startup_tasks, get_logs
++from src.system_manager import get_system_stats, power_control
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -800,6 +801,28 @@ def logs_page():
+ def api_logs():
+     return jsonify({"logs": get_logs()})
+ 
++@app.route('/system')
++def system_page():
++    return render_template('system.html')
++
++@app.route('/api/system/stats')
++def api_system_stats():
++    return jsonify(get_system_stats())
++
++@app.route('/api/system/power', methods=['POST'])
++def api_system_power():
++    data = request.json
++    action = data.get('action')
++    
++    if action not in ['reboot', 'shutdown']:
++        return jsonify({"success": False, "error": "Invalid action"}), 400
++        
++    success, message = power_control(action)
++    if success:
++        return jsonify({"success": True, "message": message})
++    else:
++        return jsonify({"success": False, "error": message}), 500
++
+ if __name__ == "__main__":
+     config = get_config()
+     
+diff --git a/src/system_manager.py b/src/system_manager.py
+new file mode 100644
+index 0000000..f731156
+--- /dev/null
++++ b/src/system_manager.py
+@@ -0,0 +1,55 @@
++import psutil
++import platform
++import subprocess
++import os
++import sys
++import datetime
++
++def get_system_stats():
++    try:
++        cpu_percent = psutil.cpu_percent(interval=1)
++        mem = psutil.virtual_memory()
++        ram_percent = mem.percent
++        ram_used = round(mem.used / (1024 ** 3), 2)
++        ram_total = round(mem.total / (1024 ** 3), 2)
++        disk = psutil.disk_usage('/')
++        disk_percent = disk.percent
++        boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
++        uptime = str(datetime.datetime.now() - boot_time).split('.')[0]
++        return {
++            "cpu": cpu_percent,
++            "ram": {
++                "percent": ram_percent,
++                "used": ram_used,
++                "total": ram_total
++            },
++            "disk": disk_percent,
++            "uptime": uptime,
++            "os": f"{platform.system()} {platform.release()}"
++        }
++    except Exception as e:
++        return {"error": str(e)}
++
++def power_control(action):
++    system_platform = platform.system().lower()
++    try:
++        if action == "reboot":
++            if "windows" in system_platform:
++                os.system("shutdown /r /t 0")
++            else:
++                os.system("sudo reboot" if not is_docker() else "kill 1")
++        elif action == "shutdown":
++            if "windows" in system_platform:
++                os.system("shutdown /s /t 0")
++            else:
++                os.system("sudo shutdown now" if not is_docker() else "kill 1")
++        return True, f"Initiating {action}..."
++    except Exception as e:
++        return False, str(e)
++
++def is_docker():
++    path = '/proc/self/cgroup'
++    return (
++        os.path.exists('/.dockerenv') or
++        os.path.isfile(path) and any('docker' in line for line in open(path))
++    )
+\ No newline at end of file
+diff --git a/static/style/system.css b/static/style/system.css
+new file mode 100644
+index 0000000..f6dc820
+--- /dev/null
++++ b/static/style/system.css
+@@ -0,0 +1,12 @@
++#cpu-bar, #ram-bar, #disk-bar {
++    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
++    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
++}
++
++.surface {
++    transition: border-color 0.2s;
++}
++
++.surface:hover {
++    border-color: rgba(255, 255, 255, 0.1);
++}
+\ No newline at end of file
+diff --git a/static/system.js b/static/system.js
+new file mode 100644
+index 0000000..402448a
+--- /dev/null
++++ b/static/system.js
+@@ -0,0 +1,62 @@
++document.addEventListener('DOMContentLoaded', () => {
++    fetchStats();
++    setInterval(fetchStats, 2000);
++});
++
++async function fetchStats() {
++    try {
++        const response = await fetch('/api/system/stats');
++        const data = await response.json();
++
++        if (data.error) throw new Error(data.error);
++
++        updateGauge('cpu', data.cpu);
++        updateGauge('disk', data.disk);
++        
++        document.getElementById('ram-val').textContent = Math.round(data.ram.percent) + '%';
++        document.getElementById('ram-bar').style.width = data.ram.percent + '%';
++        document.getElementById('ram-detail').textContent = `${data.ram.used} / ${data.ram.total} GB`;
++
++        document.getElementById('uptime-val').textContent = data.uptime;
++        document.getElementById('os-badge').textContent = data.os;
++
++    } catch (e) {
++        console.error("Stats error:", e);
++    }
++}
++
++function updateGauge(id, value) {
++    const valEl = document.getElementById(`${id}-val`);
++    const barEl = document.getElementById(`${id}-bar`);
++    
++    if (valEl) valEl.textContent = Math.round(value) + '%';
++    if (barEl) barEl.style.width = value + '%';
++}
++
++async function confirmPower(action) {
++    const msg = action === 'reboot' 
++        ? "Are you sure you want to REBOOT the host system?" 
++        : "Are you sure you want to SHUTDOWN the host system?";
++        
++    if (!confirm(msg)) return;
++
++    try {
++        Toast.show(`Initiating ${action}...`, 'info');
++        
++        const response = await fetch('/api/system/power', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'},
++            body: JSON.stringify({ action })
++        });
++        
++        const data = await response.json();
++        
++        if (data.success) {
++            Toast.show('Command sent successfully. See you on the other side!', 'success');
++        } else {
++            Toast.show('Error: ' + data.error, 'error');
++        }
++    } catch (e) {
++        Toast.show('Connection failed', 'error');
++    }
++}
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index 02c5a57..90e9475 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -80,6 +80,11 @@
+                     <i class="fa-solid fa-sliders"></i>
+                     <span>Settings</span>
+                 </a>
++                <a href="{{ url_for('system_page') }}"
++                   class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                    <i class="fa-solid fa-server"></i>
++                    <span>System</span>
++                </a>
+                 <a href="{{ url_for('logs_page') }}"
+                    class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                     <i class="fa-solid fa-terminal"></i>
+@@ -125,6 +130,11 @@
+                 <i class="fa-solid fa-sliders"></i>
+                 <span>Settings</span>
+             </a>
++            <a href="{{ url_for('system_page') }}"
++               class="text-sm input-field px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                <i class="fa-solid fa-server"></i>
++                <span>System</span>
++            </a>
+             <a href="{{ url_for('logs_page') }}"
+                class="text-sm input-field px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                 <i class="fa-solid fa-terminal"></i>
+diff --git a/templates/system.html b/templates/system.html
+new file mode 100644
+index 0000000..3f74fa6
+--- /dev/null
++++ b/templates/system.html
+@@ -0,0 +1,148 @@
++<!DOCTYPE html>
++<html lang="en" class="dark">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Y2JB - System</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++    <script>
++        tailwind.config = {
++            darkMode: 'class',
++            theme: {
++                extend: {
++                    fontFamily: { sans: ['Inter', 'sans-serif'] },
++                    colors: {
++                        oled: { base: '#000000', surface: '#121212', border: '#2a2a2a' },
++                        brand: { blue: '#00439c', light: '#0070d1', danger: '#ef4444' }
++                    }
++                }
++            }
++        }
++    </script>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/system.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
++    <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='system.js') }}" defer></script>
++</head>
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto bg-oled-base text-gray-200">
++
++    <header class="flex items-center justify-between mb-8">
++        <div class="flex items-center gap-4">
++            <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors hover:border-brand-light group">
++                <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
++            </a>
++            <div>
++                <h1 class="text-2xl font-bold tracking-tight">System Status</h1>
++                <p class="text-xs opacity-50 uppercase tracking-widest font-medium">Host Monitor & Controls</p>
++            </div>
++        </div>
++        <div class="flex items-center gap-2">
++            <span id="os-badge" class="px-3 py-1 bg-white/5 rounded-full text-xs font-mono border border-white/10">Loading OS...</span>
++        </div>
++    </header>
++
++    <main class="space-y-6">
++        
++        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
++            
++            <div class="surface border rounded-2xl p-6 relative overflow-hidden">
++                <div class="flex items-center justify-between mb-4">
++                    <h3 class="text-sm font-bold opacity-70">CPU Usage</h3>
++                    <i class="fa-solid fa-microchip text-brand-light"></i>
++                </div>
++                <div class="relative pt-2">
++                    <div class="flex items-end gap-2 mb-2">
++                        <span id="cpu-val" class="text-3xl font-bold">0%</span>
++                    </div>
++                    <div class="w-full bg-white/10 rounded-full h-2">
++                        <div id="cpu-bar" class="bg-brand-light h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
++                    </div>
++                </div>
++            </div>
++
++            <div class="surface border rounded-2xl p-6 relative overflow-hidden">
++                <div class="flex items-center justify-between mb-4">
++                    <h3 class="text-sm font-bold opacity-70">Memory</h3>
++                    <i class="fa-solid fa-memory text-purple-400"></i>
++                </div>
++                <div class="relative pt-2">
++                    <div class="flex items-end gap-2 mb-2">
++                        <span id="ram-val" class="text-3xl font-bold">0%</span>
++                        <span id="ram-detail" class="text-xs opacity-50 mb-1">0/0 GB</span>
++                    </div>
++                    <div class="w-full bg-white/10 rounded-full h-2">
++                        <div id="ram-bar" class="bg-purple-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
++                    </div>
++                </div>
++            </div>
++
++            <div class="surface border rounded-2xl p-6 relative overflow-hidden">
++                <div class="flex items-center justify-between mb-4">
++                    <h3 class="text-sm font-bold opacity-70">Disk Space</h3>
++                    <i class="fa-solid fa-hard-drive text-green-400"></i>
++                </div>
++                <div class="relative pt-2">
++                    <div class="flex items-end gap-2 mb-2">
++                        <span id="disk-val" class="text-3xl font-bold">0%</span>
++                    </div>
++                    <div class="w-full bg-white/10 rounded-full h-2">
++                        <div id="disk-bar" class="bg-green-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
++                    </div>
++                </div>
++            </div>
++        </section>
++
++        <section class="surface border rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
++            <div class="flex items-center gap-4">
++                <div class="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
++                    <i class="fa-solid fa-stopwatch text-xl"></i>
++                </div>
++                <div>
++                    <h3 class="text-xs font-bold uppercase opacity-50">System Uptime</h3>
++                    <p id="uptime-val" class="text-lg font-mono">Loading...</p>
++                </div>
++            </div>
++        </section>
++
++        <section class="surface border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
++            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500/50 to-transparent"></div>
++            
++            <h2 class="text-lg font-bold mb-6 flex items-center gap-2 text-red-400">
++                <i class="fa-solid fa-triangle-exclamation"></i> Power Controls
++            </h2>
++
++            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
++                <button onclick="confirmPower('reboot')" class="group relative overflow-hidden bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-4 transition-all">
++                    <div class="flex items-center gap-3 relative z-10">
++                        <i class="fa-solid fa-rotate-right text-xl group-hover:rotate-180 transition-transform duration-500"></i>
++                        <div class="text-left">
++                            <span class="block font-bold">Reboot Host</span>
++                            <span class="text-[10px] opacity-60">Restart the server machine</span>
++                        </div>
++                    </div>
++                </button>
++
++                <button onclick="confirmPower('shutdown')" class="group relative overflow-hidden bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 rounded-xl p-4 transition-all">
++                    <div class="flex items-center gap-3 relative z-10">
++                        <i class="fa-solid fa-power-off text-xl group-hover:scale-110 transition-transform"></i>
++                        <div class="text-left">
++                            <span class="block font-bold">Shutdown Host</span>
++                            <span class="text-[10px] opacity-60">Power off the server machine</span>
++                        </div>
++                    </div>
++                </button>
++            </div>
++            
++            <p class="text-[10px] text-center mt-4 opacity-40">
++                <i class="fa-solid fa-info-circle"></i> If running in Docker, these actions may only stop the container.
++            </p>
++        </section>
++
++    </main>
++
++</body>
++</html>
+\ No newline at end of file

@@ -1,0 +1,219 @@
+From ce143ffd06a38dd4d83e75d1675ddb0b109644c8 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 28 Feb 2026 19:12:47 +0100
+Subject: [PATCH] feat(dns): add bulk import blocklist and clear all rules
+ (#42)
+
+- Add POST /api/dns/import endpoint (text paste + file upload)
+- Add POST /api/dns/clear endpoint
+- Add bulk import UI section to DNS page with textarea, file picker
+- Skip # comments and duplicate domains during import
+---
+ server.py          | 56 ++++++++++++++++++++++++++++++++++++
+ static/dns.js      | 71 ++++++++++++++++++++++++++++++++++++++++++++++
+ templates/dns.html | 43 ++++++++++++++++++++++++++++
+ 3 files changed, 170 insertions(+)
+
+diff --git a/server.py b/server.py
+index c3e313c..1b2ae5a 100644
+--- a/server.py
++++ b/server.py
+@@ -776,6 +776,62 @@ def api_dns_delete():
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+ 
++@app.route('/api/dns/import', methods=['POST'])
++def api_dns_import():
++    try:
++        raw_text = None
++
++        if 'file' in request.files:
++            file = request.files['file']
++            if file and file.filename:
++                raw_text = file.read().decode('utf-8', errors='ignore')
++        
++        if not raw_text:
++            raw_text = request.form.get('text', '') or (request.json or {}).get('text', '')
++
++        if not raw_text or not raw_text.strip():
++            return jsonify({"error": "No data provided"}), 400
++
++        rules = get_dns_rules()
++        existing_domains = {r.get('domain', '').lower().rstrip('.') for r in rules}
++
++        imported = 0
++        skipped = 0
++
++        for line in raw_text.splitlines():
++            line = line.strip()
++            if not line or line.startswith('#'):
++                continue
++
++            domain = line.lower().rstrip('.')
++            if domain in existing_domains:
++                skipped += 1
++                continue
++
++            rules.append({
++                "id": str(uuid.uuid4()),
++                "name": f"Block {domain.split('.')[0]}",
++                "domain": domain,
++                "target": "0.0.0.0"
++            })
++            existing_domains.add(domain)
++            imported += 1
++
++        save_dns_rules(rules)
++        print(f"[DNS] Imported {imported} rules, skipped {skipped} duplicates")
++        return jsonify({"success": True, "imported": imported, "skipped": skipped})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
++@app.route('/api/dns/clear', methods=['POST'])
++def api_dns_clear():
++    try:
++        save_dns_rules([])
++        print("[DNS] All rules cleared")
++        return jsonify({"success": True})
++    except Exception as e:
++        return jsonify({"error": str(e)}), 500
++
+ @app.route('/backpork')
+ def backpork_page():
+     pairs = [{"id": i, "label": f"Pair {i}"} for i in range(1, 11)] 
+diff --git a/static/dns.js b/static/dns.js
+index 827e93e..1f40900 100644
+--- a/static/dns.js
++++ b/static/dns.js
+@@ -103,6 +103,77 @@ async function deleteRule(id) {
+     }
+ }
+ 
++function handleFileSelect(input) {
++    const label = document.getElementById('fileLabel');
++    if (input.files && input.files[0]) {
++        label.querySelector('span').textContent = input.files[0].name;
++        label.classList.add('opacity-100');
++        label.classList.remove('opacity-60');
++    }
++}
++
++async function importDomains() {
++    const textarea = document.getElementById('bulkImportText');
++    const fileInput = document.getElementById('bulkImportFile');
++    const text = textarea.value.trim();
++    const file = fileInput.files && fileInput.files[0];
++
++    if (!text && !file) {
++        if (typeof showToast === 'function') showToast('Paste a list or choose a file first', 'error');
++        return;
++    }
++
++    try {
++        const formData = new FormData();
++        if (file) {
++            formData.append('file', file);
++        }
++        if (text) {
++            formData.append('text', text);
++        }
++
++        const response = await fetch('/api/dns/import', {
++            method: 'POST',
++            body: formData
++        });
++        
++        const result = await response.json();
++        if (result.success) {
++            const msg = `Imported ${result.imported} rules` + (result.skipped > 0 ? `, ${result.skipped} duplicates skipped` : '');
++            if (typeof showToast === 'function') showToast(msg);
++            textarea.value = '';
++            fileInput.value = '';
++            const label = document.getElementById('fileLabel');
++            label.querySelector('span').textContent = 'Choose .txt file...';
++            label.classList.add('opacity-60');
++            label.classList.remove('opacity-100');
++            loadRules();
++        } else {
++            if (typeof showToast === 'function') showToast(result.error || 'Import failed', 'error');
++        }
++    } catch (error) {
++        if (typeof showToast === 'function') showToast('Failed to import', 'error');
++    }
++}
++
++async function clearAllRules() {
++    if (!confirm('Are you sure you want to delete ALL DNS rules? This cannot be undone.')) return;
++
++    try {
++        const response = await fetch('/api/dns/clear', {
++            method: 'POST',
++            headers: {'Content-Type': 'application/json'}
++        });
++        
++        if (response.ok) {
++            loadRules();
++            if (typeof showToast === 'function') showToast('All rules cleared');
++        }
++    } catch (error) {
++        if (typeof showToast === 'function') showToast('Error clearing rules', 'error');
++    }
++}
++
+ function escapeHtml(text) {
+     if (!text) return text;
+     return text
+diff --git a/templates/dns.html b/templates/dns.html
+index 64920da..42c0c49 100644
+--- a/templates/dns.html
++++ b/templates/dns.html
+@@ -76,6 +76,49 @@ <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mb-6 flex ite
+             </div>
+         </section>
+ 
++        <section class="surface border rounded-2xl p-6 md:p-8 shadow-2xl border-white/5 relative overflow-hidden group">
++            <div class="absolute -left-16 -bottom-16 w-32 h-32 bg-brand-blue/10 rounded-full blur-3xl group-hover:bg-brand-blue/20 transition-all"></div>
++            
++            <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
++                <i class="fa-solid fa-file-import text-brand-light"></i>
++                Bulk Import Blocklist
++            </h3>
++            
++            <div class="space-y-4">
++                <div class="space-y-1.5">
++                    <label class="text-[10px] uppercase font-bold opacity-30 ml-1">Paste Domain List (one per line, # comments ignored)</label>
++                    <textarea id="bulkImportText" rows="6" placeholder="# PSN Block List&#10;dau01.ps4.update.playstation.net&#10;playstation.sony.akadns.net&#10;..." class="input-field w-full px-4 py-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-light bg-black/20 transition-all font-mono resize-y"></textarea>
++                </div>
++                
++                <div class="flex flex-col md:flex-row gap-3">
++                    <div class="flex-1 flex items-center gap-3">
++                        <label class="flex-1 relative">
++                            <input type="file" id="bulkImportFile" accept=".txt,.text,.list,.conf" class="hidden" onchange="handleFileSelect(this)">
++                            <div id="fileLabel" class="input-field w-full px-4 py-3 border rounded-xl text-sm bg-black/20 cursor-pointer hover:bg-white/5 transition-all flex items-center gap-2 opacity-60 hover:opacity-100">
++                                <i class="fa-solid fa-folder-open text-brand-light"></i>
++                                <span>Choose .txt file...</span>
++                            </div>
++                        </label>
++                    </div>
++                    <div class="flex gap-2">
++                        <button onclick="importDomains()" class="px-6 py-3 bg-gradient-to-br from-brand-blue to-brand-light hover:scale-105 active:scale-95 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-blue/20 flex items-center gap-2">
++                            <i class="fa-solid fa-file-import"></i>
++                            Import
++                        </button>
++                        <button onclick="clearAllRules()" class="px-6 py-3 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white text-sm font-bold rounded-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
++                            <i class="fa-solid fa-trash-can"></i>
++                            Clear All
++                        </button>
++                    </div>
++                </div>
++            </div>
++
++            <div class="mt-6 flex items-center gap-2 text-[10px] font-bold opacity-40 uppercase tracking-widest bg-white/5 w-fit px-3 py-1.5 rounded-lg border border-white/5">
++                <i class="fa-solid fa-circle-info text-brand-light"></i>
++                <span>All imported domains are blocked (0.0.0.0). Duplicates are skipped.</span>
++            </div>
++        </section>
++
+         <section class="surface border rounded-2xl p-6 md:p-8 shadow-sm border-white/5 bg-gradient-to-br from-white/[0.01] to-transparent">
+             <h3 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                 <i class="fa-solid fa-circle-question text-brand-light"></i>

@@ -1,0 +1,25 @@
+From 1077fbb8eb7012413acd6bcd547bf49a5b9fa0ec Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 9 Nov 2026 13:50:23 +0100
+Subject: [PATCH] configs: enable the samu ccp and trng
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ configs/base.cfg | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/base.cfg b/configs/base.cfg
+index b448da8c081b..9c0ca5976da7 100644
+--- a/configs/base.cfg
++++ b/configs/base.cfg
+@@ -17,8 +17,8 @@ disable CONFIG_KVM_INTEL
+ 
+ enable CONFIG_PS4_DMI_SPOOF
+ 
+-disable CONFIG_PS4_CCP
+-disable CONFIG_PS4_TRNG
++enable CONFIG_PS4_CCP
++enable CONFIG_PS4_TRNG
+ enable CONFIG_PS4_CPUFREQ
+ enable CONFIG_NET_VENDOR_SONY
+ enable CONFIG_MTS

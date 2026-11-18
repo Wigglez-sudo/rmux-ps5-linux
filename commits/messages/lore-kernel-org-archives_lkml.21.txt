@@ -1,0 +1,6 @@
+======================================================================
+commit 8076f87ebd8d4a4131ed111d0b523ac75d1d2d4e
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 20:55:43 +0000
+
+Re: [PATCH v4 2/2] media: i2c: Add Samsung S5K3T2 image

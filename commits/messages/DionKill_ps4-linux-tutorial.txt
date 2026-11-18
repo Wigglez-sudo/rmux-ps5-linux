@@ -1,0 +1,62 @@
+======================================================================
+commit 274f9759bcb99260191559b64c972b1b26d38f60
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 11 Nov 2026 10:18:21 +0100
+
+docs: baikal is the most supported southbridge, drop dead
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 637731f4445cc18aa71b1a26bf1ee6f8d475ad10
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 20:50:03 +0100
+
+docs: fix commands, facts and typos, add hardware video and
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6e59276099fb7501f260f71ab440883140b047c7
+author rmux <armandas.kvietkus@proton.me>
+date   Tue, 21 Apr 2026 16:09:03 +0200
+
+docs: add rmux kernel guidance and update Pages workflow
+
+Modified the workflow for Actions, and updated some things
+
+======================================================================
+commit 82657921ba7a74a25fee92dc18e648eabf3fcfe3
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 11 Nov 2026 10:12:22 +0100
+
+docs: monitor hotplug works on 7.3.3
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a233df1fa84083f3c521c3d1acc2ff6f8961aba8
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 11 Nov 2026 10:10:26 +0100
+
+docs: name 7.3.3 as the kernel with hardware video
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit a99cd84317df912a3933a1b9e7669c5dc6c52a52
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 12 Nov 2026 11:21:30 +0100
+
+docs: internal install fixes, cachyos login, psvr warning
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit c14881f6f50ae7563f95208831beeb31fcb64f07
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 11 Nov 2026 10:11:32 +0100
+
+docs: hardware video works on the pro too
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>

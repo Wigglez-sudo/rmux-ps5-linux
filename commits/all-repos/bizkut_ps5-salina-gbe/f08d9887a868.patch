@@ -1,0 +1,92 @@
+From f08d9887a86875a3ea743000fd12220acb52abcc Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 12:11:39 +0000
+Subject: [PATCH] ps5-gbe: add TX timeout and IRQ watchdog
+
+---
+ gbe.c | 40 ++++++++++++++++++++++++++++++++++++++++
+ gbe.h |  2 ++
+ 2 files changed, 42 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index de6c024..7998a23 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -501,6 +501,17 @@ static void gbe_link_poll_work(struct work_struct *work)
+ 
+ 	gbe_link_change(p);
+ 
++	/*
++	 * on a cold boot the chip sometimes just never fires its first irq and
++	 * napi sits there doing nothing. if the irq count hasnt moved since last tick,
++	 * we kick it by hand and re-arm the mask.
++	 */
++	if (netif_running(p->netdev) && p->cnt_irq == p->irq_watchdog) {
++		napi_schedule(&p->napi);
++		gbe_wr(p, GBE_REG_IER, GBE_IER_MASK);
++	}
++	p->irq_watchdog = p->cnt_irq;
++
+ 	if (++p->poll_tick >= 10) {
+ 		gbe_dump_stats(p);
+ 		p->poll_tick = 0;
+@@ -654,10 +665,38 @@ static int gbe_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++/* stack gave up on us, stop tx dma and stand the ring back up */
++static void gbe_tx_timeout(struct net_device *dev, unsigned int txqueue)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++	int i;
++
++	spin_lock_bh(&p->lock);
++
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_STOP);
++	for (i = 0; i < 1000 && (gbe_rd(p, GBE_REG_TX_DMA_CTRL) & GBE_DMA_STOP); i++)
++		;
++
++	gbe_init_tx_ring(p);
++	dma_wmb();
++
++	gbe_wr(p, GBE_REG_TX_RING_BASE, p->tx_ring_dma);
++	gbe_wr(p, GBE_REG_TX_RING_CUR, p->tx_ring_dma);
++
++	gbe_clr(p, GBE_REG_TXKICK, BIT(6));
++	gbe_set(p, GBE_REG_TXKICK, BIT(6));
++
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, BIT(0) | GBE_DMA_KICK);
++
++	netif_wake_queue(dev);
++	spin_unlock_bh(&p->lock);
++}
++
+ static const struct net_device_ops gbe_netdev_ops = {
+ 	.ndo_open		= gbe_open,
+ 	.ndo_stop		= gbe_stop,
+ 	.ndo_start_xmit		= gbe_xmit,
++	.ndo_tx_timeout		= gbe_tx_timeout,
+ 	.ndo_set_mac_address	= gbe_set_mac_address,
+ 	.ndo_set_rx_mode	= gbe_set_rx_mode,
+ 	.ndo_validate_addr	= eth_validate_addr,
+@@ -717,6 +756,7 @@ static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	netdev->netdev_ops	= &gbe_netdev_ops;
+ 	netdev->ethtool_ops	= &gbe_ethtool_ops;
++	netdev->watchdog_timeo	= 5 * HZ;
+ 
+ 	netif_napi_add(netdev, &p->napi, gbe_poll);
+ 	INIT_DELAYED_WORK(&p->link_poll, gbe_link_poll_work);
+diff --git a/gbe.h b/gbe.h
+index 32872b2..19136d0 100644
+--- a/gbe.h
++++ b/gbe.h
+@@ -177,6 +177,8 @@ struct gbe_priv {
+ 	u32			cnt_link_up;
+ 	u32			cnt_link_down;
+ 	unsigned int		poll_tick;
++	/* used by link_poll_work to detect frozen IRQ delivery on cold boot */
++	u32			irq_watchdog;
+ };
+ 
+ static inline u32 gbe_rd(struct gbe_priv *p, u32 reg)

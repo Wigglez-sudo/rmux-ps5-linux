@@ -1,0 +1,141 @@
+From f4f5aa4cf466c20f24af99ea1b6f62a9d4aeb131 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 21 Jan 2026 18:36:15 +0100
+Subject: [PATCH] feat(UI): Add Drag and Drop.
+
+@Nazky Responsible for this mess
+---
+ static/index.js        | 54 +++++++++++++++++++++++++++++++++++++++---
+ static/style/index.css | 33 ++++++++++++++++++++++++++
+ 2 files changed, 84 insertions(+), 3 deletions(-)
+
+diff --git a/static/index.js b/static/index.js
+index d368e33..4fec97e 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -1,6 +1,7 @@
+ /**
+  * The Whole Thingymabob
+  * it does the thingy, will document later, have to because uhm, we havent documented anything yet
++ * + handles the drag and drop for payloads *ay im getting there with documentation*
+  */
+ document.addEventListener('DOMContentLoaded', () => {
+     loadsettings();
+@@ -19,6 +20,50 @@ document.addEventListener('DOMContentLoaded', () => {
+             if (serverIpEl) serverIpEl.textContent = "Unknown";
+             if (clientIpEl) clientIpEl.textContent = "Unknown";
+         });
++
++    const dropZone = document.body;
++    const fileInput = document.getElementById('fileInput');
++    let dragLeaveTimer;
++
++    function preventDefaults(e) {
++        e.preventDefault();
++        e.stopPropagation();
++    }
++
++    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
++        dropZone.addEventListener(eventName, preventDefaults, false);
++    });
++
++    dropZone.addEventListener('dragenter', (e) => {
++        dropZone.classList.add('drag-highlight');
++        clearTimeout(dragLeaveTimer);
++    }, false);
++
++    dropZone.addEventListener('dragover', (e) => {
++        dropZone.classList.add('drag-highlight');
++        clearTimeout(dragLeaveTimer);
++    }, false);
++
++    dropZone.addEventListener('dragleave', (e) => {
++        dragLeaveTimer = setTimeout(() => {
++            dropZone.classList.remove('drag-highlight');
++        }, 100);
++    }, false);
++
++    dropZone.addEventListener('drop', (e) => {
++        clearTimeout(dragLeaveTimer);
++        dropZone.classList.remove('drag-highlight');
++
++        const dt = e.dataTransfer;
++        const files = dt.files;
++        if (files.length > 0) uploadPayload(files[0]);
++    });
++
++    if (fileInput) {
++        fileInput.addEventListener('change', () => {
++            if (fileInput.files.length > 0) uploadPayload(fileInput.files[0]);
++        });
++    }
+ });
+ 
+ async function readJSON(filename) {
+@@ -44,11 +89,12 @@ async function getJSONValue(filename, property) {
+     }
+ }
+ 
+-async function uploadPayload() {
++async function uploadPayload(droppedFile = null) {
+     const fileInput = document.getElementById('fileInput');
+-    const file = fileInput.files[0];
+     const upBtn = document.getElementById('UPB');
+ 
++    const file = (droppedFile instanceof File) ? droppedFile : fileInput.files[0];
++
+     if (!file) {
+         Toast.show('Please select a file first', 'error');
+         return;
+@@ -70,7 +116,9 @@ async function uploadPayload() {
+         if (!response.ok) throw new Error(`Status ${response.status}`);
+ 
+         Toast.show(`Successfully uploaded ${file.name}`, 'success');
+-        fileInput.value = "";
++        
++        if (!droppedFile) fileInput.value = "";
++        
+         await loadpayloads();
+ 
+     } catch (error) {
+diff --git a/static/style/index.css b/static/style/index.css
+index b496d79..c3d483f 100644
+--- a/static/style/index.css
++++ b/static/style/index.css
+@@ -40,3 +40,36 @@ html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db;
+ .drag-handle:hover {
+     color: #fff;
+ }
++
++.drag-highlight {
++    background-color: transparent !important;
++}
++/* KURWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA*/
++body.drag-highlight::after {
++    content: "↑ DROP TO UPLOAD PAYLOAD";
++    position: fixed;
++    inset: 1.5rem;
++    background-color: rgba(0, 0, 0, 0.8);
++    border: 2px dashed rgba(255, 255, 255, 0.15);
++    border-radius: 2rem;
++    z-index: 10000;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    color: rgba(255, 255, 255, 0.7);
++    font-size: 1.1rem;
++    font-weight: 700;
++    letter-spacing: 0.2em;
++    backdrop-filter: blur(12px);
++    -webkit-backdrop-filter: blur(12px);
++    pointer-events: none;
++    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.8);
++    transition: all 0.3s ease;
++    animation: drag-pulse 2s infinite;
++}
++
++@keyframes drag-pulse {
++    0% { border-color: rgba(255, 255, 255, 0.1); transform: scale(1); }
++    50% { border-color: rgba(0, 112, 209, 0.3); transform: scale(1.005); }
++    100% { border-color: rgba(255, 255, 255, 0.1); transform: scale(1); }
++}

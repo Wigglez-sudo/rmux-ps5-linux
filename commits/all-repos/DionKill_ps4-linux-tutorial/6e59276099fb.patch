@@ -1,0 +1,115 @@
+From 6e59276099fb7501f260f71ab440883140b047c7 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Tue, 21 Apr 2026 16:09:03 +0200
+Subject: [PATCH] docs: add rmux kernel guidance and update Pages workflow
+ (#22)
+
+Modified the workflow for Actions, and updated some things
+---
+ .github/workflows/deploy.yml |  6 +++---
+ docs/_includes/payloads.md   |  8 ++++++--
+ docs/files.md                | 18 +++++++++++++++---
+ 3 files changed, 24 insertions(+), 8 deletions(-)
+
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 964a885..3567b40 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -36,18 +36,18 @@ jobs:
+       #     version: 9 # Not needed if you've set "packageManager" in package.json
+       # - uses: oven-sh/setup-bun@v1 # Uncomment this if you're using Bun
+       - name: Setup Node
+-        uses: actions/setup-node@v4
++        uses: actions/setup-node@v6
+         with:
+           node-version: 22
+           cache: npm # or pnpm / yarn
+       - name: Setup Pages
+-        uses: actions/configure-pages@v4
++        uses: actions/configure-pages@v6
+       - name: Install dependencies
+         run: npm ci # or pnpm install / yarn install / bun install
+       - name: Build with VitePress
+         run: npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
+       - name: Upload artifact
+-        uses: actions/upload-pages-artifact@v3
++        uses: actions/upload-pages-artifact@v5
+         with:
+           path: docs/.vitepress/dist
+ 
+diff --git a/docs/_includes/payloads.md b/docs/_includes/payloads.md
+index e4ed0d0..0fa2cf4 100644
+--- a/docs/_includes/payloads.md
++++ b/docs/_includes/payloads.md
+@@ -22,7 +22,7 @@ Follow these steps:
+ 	- Wait for the cache to finish installing!
+ - Load your desired payload
+ 	- Again, 1GB is necessary for first time installation!
+-	- If you use the PS4 as a server, you may want to have more RAM. In that case, select a lower VRAM amount like 128MB.
++	- If you use the PS4 as a server after installation, switch to one of the server payloads for more system RAM.
+ 
+ 
+ <img src="/screenshots/psfree-payloads.jpg" width="75%">
+@@ -40,6 +40,10 @@ Even though this website is probably not maintained anymore it'll stay here, as
+ - [ps4boot.free.nf](http://ps4boot.free.nfl) (5.05-12.02) (GoldHEN method, works only with HTTP not HTTPS)
+ :::
+ 
++> [!TIP]
++> Server payloads are available in `32MB`, `64MB`, and `128MB` VRAM variants.
++> Use `128MB` by default for server or general headless use, as `32MB` and `64MB` can cause display issues on some setups.
++
+ If the website doesn't work, use the Payload Guest local method below.
+ ### Local payloads
+ If you so desire, or you can't launch it from the web browser for some reason, it's possible to load these payloads locally.
+@@ -52,4 +56,4 @@ In order to do that, you need to download them [here](https://github.com/ArabPix
+ 	- Using the `.elf` seems to lead to a higher success rate when launching
+ 	- Enable "see file extensions" on Windows Explorer or what you're using
+ - Put the files in the `/data/payloads/` directory
+-- Remember to check here sometimes to see if there's any updates
+\ No newline at end of file
++- Remember to check here sometimes to see if there's any updates
+diff --git a/docs/files.md b/docs/files.md
+index 7a887e8..edfa312 100644
+--- a/docs/files.md
++++ b/docs/files.md
+@@ -13,25 +13,37 @@ This is the section for recommended kernels. There are both vanilla kernels and
+ ### Do kernel versions matter?
+ Yes, but only for Baikal, as it has been stuck on 5.4 for a while and can't use modern GPU drivers anymore. For the rest, it doesn't matter.
+ 
+-The community has been stuck with 6.15 for a while, and now the scene is ready to move to 6.18 and later to 7.0 kernels, for all southbridges including Baikal.
++The community has moved on from 6.15 to 6.18, and now there is also active 7.0 kernel work for Aeolia and Belize. Baikal is still catching up.
+ 
+ ### What about more performance?
+ If all you care about is squeezing as much performance as possible out of the PS4 (you do) try the performance kernel section. Those have patches to make the system more responsive.
+ :::
+ 
+ ### Kernel list
+-These are normal Linux kernels with additional patches to make them work properly on the PS4.
++These are normal general-use kernels with additional patches to make them work properly on the PS4.
+ 
+ > [!tip]
+ > Get the `bzImage_Clang_thinLTO`, if available. Some consoles may require the use of the `no-built-in-fw` variant.
+ 
+ | Kernel Download                                                                                           | Compatible Southbridges | Source Code                                         | Extra info                                                                            |
+ | --------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+-| [6.18.21](https://github.com/rmuxnet/ps4-linux-12xx/releases)<br>(Recommended)                            | Aeolia, Belize          | [GitHub](https://github.com/rmuxnet/ps4-linux-12xx) | Too many amazing things to list, just use this already.<br>Includes a server variant. |
++| [7.0-Clean](https://github.com/rmuxnet/ps4-linux-12xx)                                                     | Aeolia, Belize          | [GitHub](https://github.com/rmuxnet/ps4-linux-12xx) | 7.0 work by rmux lives here.<br>Pick the branch or release you need from the repo.   |
++| [6.18.21](https://github.com/rmuxnet/ps4-linux-12xx) <br> (Recommended)                                    | Aeolia, Belize          | [GitHub](https://github.com/rmuxnet/ps4-linux-12xx) | Prebuilts are in the repo releases even if they are not marked latest.                |
+ | [6.15.4](https://github.com/feeRnt/ps4-linux-12xx/releases/tag/v6.15.4__crashnt-4.7)                      | Aeolia, Belize          | [GitHub](https://github.com/feeRnt/ps4-linux-12xx/) | LTO and other improvements.<br>**ThinLTO** recommended.                               |
+ | [5.15.15](https://github.com/feeRnt/ps4-linux-12xx/releases/tag/v5.15.15__obsidianx-4.0) <br> Belize Ver. | Belize                  | [GitHub](https://github.com/feeRnt/ps4-linux-12xx/) | Same as above. Might provide better performance than 6.15.4.                          |
+ | [5.4.247](https://github.com/feeRnt/ps4-linux-12xx/releases/tag/v5.4.247__neocine-1.1)                    | Baikal                  | [GitHub](https://github.com/feeRnt/ps4-linux-12xx/) | Specific for Baikal systems. Don't use on any other console!                          |
+ 
++### Server kernels
++If you are using the PS4 as a server, use these instead of the normal desktop-oriented builds when available.
++
++> [!TIP]
++> Pair server kernels with the `128MB` server payload unless you have a specific reason not to.
++
++| Kernel Download                                                                                           | Compatible Southbridges | Source Code                                         | Extra info                                                                                                  |
++| --------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
++| [6.18.21](https://github.com/rmuxnet/ps4-linux-12xx) <br> (Recommended)                                  | Aeolia, Belize          | [GitHub](https://github.com/rmuxnet/ps4-linux-12xx) | Contains the Strawberry server prebuilts in the repo releases.                        |
++| [7.0-Clean](https://github.com/rmuxnet/ps4-linux-12xx)                                                    | Aeolia, Belize          | [GitHub](https://github.com/rmuxnet/ps4-linux-12xx) | Newer 7.0 server work by rmux.<br>Use the repo to pick the branch or release you want. |
++
+ ::: details More kernels
+ ### Other kernels
+ These are other kernels that you may want or need to use.

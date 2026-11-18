@@ -1,0 +1,27 @@
+From e6bfb2cb5f35b113b0ad3c1ac6efcaaa985154dd Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 30 Jan 2026 11:49:24 +0100
+Subject: [PATCH] Fix auto-update saving ELF files to wrong directory
+
+- Updated src/repo_manager.py to enforce the 'payloads/elf/' directory structure when downloading updates.
+- Prevents updated payloads from being saved to the root folder, which caused duplicates and misalignment with the server configuration.
+- Fixes #31
+---
+ src/repo_manager.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/repo_manager.py b/src/repo_manager.py
+index dac9766..05029ae 100644
+--- a/src/repo_manager.py
++++ b/src/repo_manager.py
+@@ -89,6 +89,10 @@ def update_payloads(targets=['all']):
+         save_path = config.get('save_path')
+         token = config.get('token')
+         
++        if save_path and save_path.lower().endswith('.elf'):
++            filename = os.path.basename(save_path)
++            save_path = os.path.join(PAYLOAD_DIR, 'elf', filename)
++
+         if config.get('type') == 'direct':
+             download_url = config.get('url')
+         elif config.get('type') == 'release':

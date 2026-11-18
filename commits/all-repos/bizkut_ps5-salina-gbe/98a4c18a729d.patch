@@ -1,0 +1,112 @@
+From 98a4c18a729ddd3e1379845d115c05f411f97092 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 20 May 2026 18:33:17 +0000
+Subject: [PATCH] ps5-gbe: add PHY SMI helpers and MII bringup
+
+---
+ gbe_phy.c | 91 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 91 insertions(+)
+
+diff --git a/gbe_phy.c b/gbe_phy.c
+index cffa3a5..ab1220e 100644
+--- a/gbe_phy.c
++++ b/gbe_phy.c
+@@ -40,7 +40,98 @@
+ #include <linux/ps5.h>
+ #include "gbe.h"
+ 
++/* bit 15 is write-arm on write and done-flag on read */
++#define SMI_ARM		BIT(15)
++#define SMI_DONE	BIT(15)
++#define SMI_BUSY	BIT(15)
++#define SMI_TIMEOUT	10000
++
++static int gbe_smi_wait(struct gbe_priv *p)
++{
++	int i;
++
++	for (i = 0; i < SMI_TIMEOUT; i++) {
++		if (gbe_rd(p, GBE_REG_SMI) & SMI_DONE)
++			return 0;
++		udelay(1);
++	}
++	return -ETIMEDOUT;
++}
++
++/* plain clause-22 mii read */
++static u16 gbe_cl22_read(struct gbe_priv *p, u8 reg)
++{
++	gbe_wr(p, GBE_REG_SMI, SMI_BUSY);
++	gbe_wr(p, GBE_REG_SMI, ((reg & 0x1f) << 8) | 0x4000);
++	if (gbe_smi_wait(p))
++		return 0;
++	return gbe_rd(p, GBE_REG_SMI) >> 16;
++}
++
++static void gbe_smi_write(struct gbe_priv *p, u8 reg, u16 val)
++{
++	gbe_wr(p, GBE_REG_SMI, SMI_BUSY);
++	gbe_wr(p, GBE_REG_SMI, ((u32)val << 16) | ((reg & 0x1f) << 8) | 0x2000);
++	gbe_smi_wait(p);
++}
++
+ int gbe_phy_init(struct gbe_priv *p)
+ {
++	u16 bmcr;
++
++	gbe_cl22_read(p, MII_PHYSID1);
++	gbe_cl22_read(p, MII_PHYSID2);
++
++	gbe_wr(p, GBE_REG_RESET, 9);
++	usleep_range(680, 1000);
++
++	{
++		u16 adv = gbe_cl22_read(p, MII_ADVERTISE);
++
++		gbe_smi_write(p, MII_ADVERTISE, adv & 0xf3ff);
++	}
++
++	/* clear bits 12-13 and bit 31 in LINK reg to let the link state machien settle */
++	{
++		u32 v = gbe_rd(p, GBE_REG_LINK);
++
++		gbe_wr(p, GBE_REG_LINK, v & 0x7fffcfff);
++	}
++
++	gbe_cl22_read(p, MII_ADVERTISE);
++	gbe_cl22_read(p, MII_CTRL1000);
++	gbe_smi_write(p, MII_BMCR, BMCR_PDOWN);
++
++	{
++		u16 adv = gbe_cl22_read(p, MII_ADVERTISE);
++
++		adv = (adv & 0xfe1f) | 0x01e0;
++		gbe_smi_write(p, MII_ADVERTISE, adv);
++	}
++	{
++		u16 c1000 = gbe_cl22_read(p, MII_CTRL1000);
++
++		c1000 = (c1000 & 0xfcff) | 0x0200;
++		gbe_smi_write(p, MII_CTRL1000, c1000);
++	}
++	gbe_smi_write(p, MII_BMCR, 0x1340);
++
++	bmcr = gbe_cl22_read(p, MII_BMCR);
++	gbe_smi_write(p, MII_BMCR, bmcr | (BMCR_ANENABLE | BMCR_ANRESTART));
++
++	{
++		u16 id1 = gbe_cl22_read(p, MII_PHYSID1);
++		u16 id2 = gbe_cl22_read(p, MII_PHYSID2);
++		u16 b_bmcr = gbe_cl22_read(p, MII_BMCR);
++		u16 b_bmsr = gbe_cl22_read(p, MII_BMSR);
++		u16 b_adv  = gbe_cl22_read(p, MII_ADVERTISE);
++		u16 b_c1k  = gbe_cl22_read(p, MII_CTRL1000);
++
++		netdev_info(p->netdev,
++			"phy id=%04x:%04x bmcr=%04x bmsr=%04x adv=%04x ctrl1000=%04x link_reg=%08x\n",
++			id1, id2, b_bmcr, b_bmsr, b_adv, b_c1k,
++			gbe_rd(p, GBE_REG_LINK));
++	}
++
+ 	return 0;
+ }

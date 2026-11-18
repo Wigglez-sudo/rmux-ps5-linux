@@ -1,0 +1,8 @@
+======================================================================
+commit fc5d00c670a93388b75290916ed9bc41a0f8948b
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Thu, 16 Jul 2026 12:42:29 +0000
+
+fs/open: fix addon.d hide memory leak in do_faccessat
+
+Signed-off-by: kvsnr113 <kvsnrprojkt113@gmail.com>

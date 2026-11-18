@@ -1,0 +1,22 @@
+From ae393dc232100d7e9e8aacb5a712a66ef0a6e1f3 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 21 Jan 2026 19:12:17 +0100
+Subject: [PATCH] Update Discord badge link in README
+
+ay i made a mistake
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 4c936a1..1c52a64 100644
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,6 @@
+ <center><h1>Y2JB-WebUI</h1></center>
+ <center><h2>Manage Y2JB using a WebUI</h2></center>
+-<center><a href="https://discord.gg/7CcBNJup2j"><img src="https://img.shields.io/discord/1071158580854292550?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"></a></center>
++<center><a href="https://discord.gg/7CcBNJup2j"><img src="https://img.shields.io/discord/1463591261461155935?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"></a></center>
+ 
+ ---
+ 

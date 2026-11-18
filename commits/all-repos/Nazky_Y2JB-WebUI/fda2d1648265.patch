@@ -1,0 +1,175 @@
+From fda2d1648265998b5b79090a10eb46c6473f054f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 22 Feb 2026 12:03:45 +0100
+Subject: [PATCH] feat: add version-based update checker using version.json
+
+- Add src/update_checker.py that compares local version.json with remote GitHub raw file
+- No git dependency required, uses semver comparison
+- Cached results with 5-minute TTL
+- Add /api/update_check endpoint in server.py
+- Run update check on startup via features.py
+---
+ server.py             |   6 +++
+ src/features.py       |   4 ++
+ src/update_checker.py | 105 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 115 insertions(+)
+ create mode 100644 src/update_checker.py
+
+diff --git a/server.py b/server.py
+index 8316bc2..c3e313c 100644
+--- a/server.py
++++ b/server.py
+@@ -22,6 +22,7 @@
+ from src.backpork.core import BackporkEngine
+ from src.features import setup_logging, run_startup_tasks, get_logs
+ from src.system_manager import get_system_stats, power_control
++from src.update_checker import check_for_updates
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -823,6 +824,11 @@ def api_system_power():
+     else:
+         return jsonify({"success": False, "error": message}), 500
+ 
++@app.route('/api/update_check')
++def api_update_check():
++    force = request.args.get('force', 'false').lower() == 'true'
++    return jsonify(check_for_updates(force=force))
++
+ if __name__ == "__main__":
+     config = get_config()
+     
+diff --git a/src/features.py b/src/features.py
+index a8eb5eb..36d102d 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -4,6 +4,7 @@
+ from collections import deque
+ from datetime import datetime
+ from src.repo_manager import update_payloads
++from src.update_checker import check_for_updates
+ 
+ LOG_BUFFER = deque(maxlen=2000)
+ 
+@@ -61,6 +62,9 @@ def run_startup_tasks(config):
+     if config.get("auto_update_repos", "true") == "true":
+         print("[STARTUP] Auto-updating repositories...")
+         threading.Thread(target=lambda: update_payloads(['all']), daemon=True).start()
++    
++    print("[STARTUP] Checking for codebase updates...")
++    threading.Thread(target=check_for_updates, daemon=True).start()
+ 
+ def get_logs():
+     return list(LOG_BUFFER)
+\ No newline at end of file
+diff --git a/src/update_checker.py b/src/update_checker.py
+new file mode 100644
+index 0000000..feae511
+--- /dev/null
++++ b/src/update_checker.py
+@@ -0,0 +1,105 @@
++import json
++import os
++import logging
++import time
++import requests
++
++logger = logging.getLogger("Y2JB.UpdateChecker")
++
++REPO_OWNER = "Nazky"
++REPO_NAME = "Y2JB-WebUI"
++BRANCH = "main"
++REMOTE_VERSION_URL = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{BRANCH}/version.json"
++REPO_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}"
++LOCAL_VERSION_FILE = "version.json"
++
++_cache = {
++    "last_check": 0,
++    "result": None,
++    "ttl": 300  # 5 minutes
++}
++
++
++def _read_local_version():
++    try:
++        with open(LOCAL_VERSION_FILE, 'r') as f:
++            return json.load(f)
++    except Exception as e:
++        logger.warning(f"Could not read local version.json: {e}")
++        return None
++
++
++def _fetch_remote_version():
++    try:
++        response = requests.get(REMOTE_VERSION_URL, timeout=10)
++        response.raise_for_status()
++        return response.json()
++    except Exception as e:
++        logger.warning(f"Could not fetch remote version.json: {e}")
++        return None
++
++
++def _compare_versions(local_ver, remote_ver):
++    try:
++        local_parts = [int(x) for x in local_ver.split('.')]
++        remote_parts = [int(x) for x in remote_ver.split('.')]
++        
++        for l, r in zip(local_parts, remote_parts):
++            if l < r:
++                return -1
++            if l > r:
++                return 1
++        
++        if len(local_parts) < len(remote_parts):
++            return -1
++        if len(local_parts) > len(remote_parts):
++            return 1
++        
++        return 0
++    except Exception:
++        return 0
++
++
++def check_for_updates(force=False):
++    now = time.time()
++
++    if not force and _cache["result"] is not None and (now - _cache["last_check"]) < _cache["ttl"]:
++        return _cache["result"]
++
++    local = _read_local_version()
++    remote = _fetch_remote_version()
++
++    result = {
++        "local_version": local.get("version") if local else None,
++        "local_branch": local.get("branch") if local else None,
++        "local_date": local.get("date") if local else None,
++        "local_description": local.get("description") if local else None,
++        "remote_version": remote.get("version") if remote else None,
++        "remote_branch": remote.get("branch") if remote else None,
++        "remote_date": remote.get("date") if remote else None,
++        "remote_description": remote.get("description") if remote else None,
++        "up_to_date": None,
++        "repo_url": REPO_URL,
++        "error": None
++    }
++
++    if not local or not local.get("version"):
++        result["error"] = "Local version.json not found or invalid"
++    elif not remote or not remote.get("version"):
++        result["error"] = "Could not reach GitHub to check for updates"
++    else:
++        cmp = _compare_versions(local["version"], remote["version"])
++        if cmp >= 0:
++            result["up_to_date"] = True
++        else:
++            result["up_to_date"] = False
++
++    _cache["result"] = result
++    _cache["last_check"] = now
++
++    if result["up_to_date"] is False:
++        logger.info(f"Update available! Local: v{result['local_version']} -> Remote: v{result['remote_version']}")
++    elif result["up_to_date"] is True:
++        logger.info(f"Codebase is up to date (v{result['local_version']})")
++
++    return result

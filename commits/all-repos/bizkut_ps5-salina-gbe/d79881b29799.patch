@@ -1,0 +1,107 @@
+From d79881b29799b7d1a963400a8b015d07c157138e Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 14:16:33 +0000
+Subject: [PATCH] ps5-gbe: add TX path
+
+---
+ gbe.c | 86 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index ca19369..172c73d 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -249,7 +249,93 @@ static void gbe_free_rings(struct gbe_priv *p)
+ 				  p->rx_pool, p->rx_pool_dma);
+ }
+ 
++/* clean up the tx descriptors the chip finished, wake the queue if we stopped it */
++static void gbe_tx_complete(struct gbe_priv *p)
++{
++	unsigned int tail = p->tx_tail;
++
++	while (tail != p->tx_head) {
++		struct gbe_desc *d = &p->tx_ring[tail];
++
++		if (!(le32_to_cpu(d->flags) & GBE_DESC_DONE))
++			break;
++
++		p->cnt_tx_completed++;
++		tail = (tail + 1) % GBE_RING_SIZE;
++	}
++	p->tx_tail = tail;
++
++	if (netif_queue_stopped(p->netdev))
++		netif_wake_queue(p->netdev);
++}
++
++static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++	unsigned int head, off, aligned;
++	unsigned int len = skb->len;
++	unsigned long flags;
++
++	if (len < ETH_ZLEN)
++		len = ETH_ZLEN;
++	if (len > GBE_RX_BUF_LEN) {
++		p->cnt_tx_drop_big++;
++		dev->stats.tx_dropped++;
++		dev_kfree_skb_any(skb);
++		return NETDEV_TX_OK;
++	}
++
++	spin_lock_irqsave(&p->lock, flags);
++
++	head = p->tx_head;
++	if (((head + 1) % GBE_RING_SIZE) == p->tx_tail) {
++		p->cnt_tx_busy++;
++		netif_stop_queue(dev);
++		spin_unlock_irqrestore(&p->lock, flags);
++		return NETDEV_TX_BUSY;
++	}
++
++	p->cnt_tx_pkts++;
++
++	/* wrap scratch offset if packet doesn't fit at the end */
++	aligned = (len + 0x7f) & ~0x7fu;
++	off = p->tx_scratch_off;
++	if (off + aligned > GBE_TX_SCRATCH_SIZE)
++		off = 0;
++	p->tx_scratch_off = off + aligned;
++	if (p->tx_scratch_off >= GBE_TX_SCRATCH_SIZE)
++		p->tx_scratch_off = 0;
++
++	/* copy into the bounce region and zero-pad shrot frames */
++	skb_copy_bits(skb, 0, (u8 *)p->tx_scratch + off, skb->len);
++	if (len > skb->len)
++		memset((u8 *)p->tx_scratch + off + skb->len, 0, len - skb->len);
++
++	p->tx_ring[head].buf_addr = cpu_to_le32(p->tx_scratch_dma + off);
++	p->tx_ring[head].word2 = cpu_to_le32(GBE_DESC_W2_TX);
++	p->tx_ring[head].word3 = 0;
++	dma_wmb();
++	p->tx_ring[head].flags = cpu_to_le32((len & GBE_DESC_LEN_MASK) |
++			GBE_DESC_SOP | GBE_DESC_EOP |
++			(head == GBE_RING_SIZE - 1 ? GBE_DESC_WRAP : 0));
++
++	netdev_dbg(dev, "tx[%u] len=%u off=%#x flags=%#x\n", head, len,
++		   off, le32_to_cpu(p->tx_ring[head].flags));
++
++	p->tx_head = (head + 1) % GBE_RING_SIZE;
++
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_KICK);
++
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += len;
++
++	spin_unlock_irqrestore(&p->lock, flags);
++	dev_consume_skb_any(skb);
++	return NETDEV_TX_OK;
++}
++
+ static const struct net_device_ops gbe_netdev_ops = {
++	.ndo_start_xmit		= gbe_xmit,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 

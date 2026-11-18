@@ -1,0 +1,3678 @@
+From cf4adb418a2d5b76ba4330c3e55f2e8c09965a41 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 10 Apr 2026 08:14:21 +0200
+Subject: [PATCH] Initial commit
+
+---
+ .gitignore                  |   1 +
+ README.md                   | 289 ++++++++++++++++++
+ data/theme.css              | 239 +++++++++++++++
+ include/skm-service.h       | 106 +++++++
+ include/skm-sysfs.h         |  27 ++
+ include/skm-ui.h            |   9 +
+ meson.build                 |  44 +++
+ src/main.c                  |  64 ++++
+ src/service-fan.c           |  86 ++++++
+ src/service-gpu.c           | 263 +++++++++++++++++
+ src/service-led.c           | 298 +++++++++++++++++++
+ src/service-system.c        | 189 ++++++++++++
+ src/service.c               | 193 +++++++++++++
+ src/skm-service-private.h   |  55 ++++
+ src/skm-ui-private.h        | 129 +++++++++
+ src/sysfs.c                 | 242 ++++++++++++++++
+ src/ui-actions.c            | 562 ++++++++++++++++++++++++++++++++++++
+ src/ui-common.c             | 165 +++++++++++
+ src/ui-update.c             | 257 +++++++++++++++++
+ src/ui.c                    | 273 ++++++++++++++++++
+ udev/99-strawberry-km.rules |  11 +
+ 21 files changed, 3502 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 README.md
+ create mode 100644 data/theme.css
+ create mode 100644 include/skm-service.h
+ create mode 100644 include/skm-sysfs.h
+ create mode 100644 include/skm-ui.h
+ create mode 100644 meson.build
+ create mode 100644 src/main.c
+ create mode 100644 src/service-fan.c
+ create mode 100644 src/service-gpu.c
+ create mode 100644 src/service-led.c
+ create mode 100644 src/service-system.c
+ create mode 100644 src/service.c
+ create mode 100644 src/skm-service-private.h
+ create mode 100644 src/skm-ui-private.h
+ create mode 100644 src/sysfs.c
+ create mode 100644 src/ui-actions.c
+ create mode 100644 src/ui-common.c
+ create mode 100644 src/ui-update.c
+ create mode 100644 src/ui.c
+ create mode 100644 udev/99-strawberry-km.rules
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..e2be6ae
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1 @@
++builddir/
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..549b007
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,289 @@
++# Strawberry Kernel Manager
++
++Strawberry Kernel Manager is a native C11 + GTK4 desktop application for Strawberry PS4 Linux systems. It provides a lightweight control panel for hardware features exposed by Strawberry kernel builds, including fan threshold control, front LED control, GPU SCLK control, HDMI reprobe, and live system status.
++
++Current version: `0.2.0`
++
++## Table of Contents
++
++- [Overview](#overview)
++- [Features](#features)
++- [Supported Hardware and Kernel Interfaces](#supported-hardware-and-kernel-interfaces)
++- [Requirements](#requirements)
++- [Build Dependencies](#build-dependencies)
++- [Build and Run](#build-and-run)
++- [Permissions](#permissions)
++- [Runtime Interfaces](#runtime-interfaces)
++- [Troubleshooting](#troubleshooting)
++- [Project Layout](#project-layout)
++- [Development Notes](#development-notes)
++- [License](#license)
++
++## Overview
++
++This project aims to give Strawberry PS4 Linux users a simple desktop UI for common runtime controls without dragging in a large framework stack. The application is written in C with GTK4, uses GLib/GIO for async work and utility APIs, and keeps hardware I/O off the main UI thread so the window stays responsive while reading or writing sysfs nodes.
++
++The application is also deliberately defensive:
++
++- Missing kernel nodes disable only the affected section instead of crashing the entire app.
++- Polling keeps displayed values fresh without manual refreshes.
++- Writes surface permission-aware error messages instead of generic failures.
++- Unsupported GPU hardware stays visible but read-only where force operations would be unsafe or meaningless.
++
++## Features
++
++### System Overview
++
++- Displays kernel release from `uname`
++- Detects PS4 GPU variant when known
++- Shows current CPU governor
++- Shows human-readable uptime
++
++### Fan Control
++
++- Detects `ps4_fan` dynamically through hwmon name lookup
++- Displays current temperature and RPM
++- Writes fan threshold through `temp1_crit`
++- Enforces threshold range `20` to `85` degrees C
++- Uses `79` degrees C as reset/default value
++- Debounces slider writes by `500 ms`
++
++### Front LED Control
++
++- Discovers available LED effects from exposed Strawberry sysfs nodes
++- Supports static effect selection plus `off`
++- Supports thermal mode when kernel exposes LED mode controls
++- Supports thermal interval control when kernel exposes interval node
++- Restores captured runtime defaults through reset
++
++### GPU SCLK Control
++
++- Reads vendor and device IDs from DRM sysfs
++- Detects exposed SCLK levels from `pp_dpm_sclk`
++- Allows manual or auto performance mode switching
++- Restricts forced SCLK writes to supported PS4 GPU variants
++- Confirms level writes after a `500 ms` verification poll
++
++### HDMI Reprobe
++
++- Resolves preferred connector `card0-HDMI-A-1`
++- Falls back to first DRM connector that exposes a status node
++- Displays current connector name and status
++- Triggers reprobe by writing `detect` to connector status
++- Tracks last reprobe timestamp in the UI
++
++### UX and Reliability
++
++- Worker-thread sysfs I/O keeps UI responsive
++- Automatic polling every `2` seconds
++- Section-level availability handling
++- Clear success and failure notifications for operations
++
++## Supported Hardware and Kernel Interfaces
++
++This application is intended for Strawberry PS4 Linux systems. It is not a generic Linux hardware control panel.
++
++Feature availability depends entirely on what your current kernel build exposes:
++
++- Fan section requires Strawberry `ps4_fan` hwmon nodes
++- LED section requires Strawberry PS4 LED nodes
++- GPU force controls require exposed AMDGPU SCLK interfaces
++- HDMI reprobe requires DRM connector status node access
++
++GPU force support is currently gated to:
++
++- Vendor ID `0x1002`
++- Device ID `0x9920` (`Liverpool`)
++- Device ID `0x9923` (`Gladius`)
++
++If a node is missing, that section stays disabled and the rest of the app continues to work.
++
++## Requirements
++
++- Linux desktop session with GTK4 available
++- Strawberry PS4 kernel build exposing relevant sysfs and procfs interfaces
++- C compiler with C11 support
++- Meson
++- Ninja
++- `pkg-config`
++
++## Build Dependencies
++
++### Debian / Ubuntu
++
++```bash
++sudo apt update
++sudo apt install build-essential pkg-config meson ninja-build libgtk-4-dev
++```
++
++### Fedora
++
++```bash
++sudo dnf install gcc pkgconf-pkg-config meson ninja-build gtk4-devel
++```
++
++### Arch Linux
++
++```bash
++sudo pacman -S base-devel pkgconf meson ninja gtk4
++```
++
++## Build and Run
++
++### Build with Meson
++
++```bash
++meson setup builddir
++meson compile -C builddir
++./builddir/strawberry-kernel-manager
++```
++
++### Optional Install
++
++```bash
++meson install -C builddir
++```
++
++### Direct Compile
++
++If you want quick local build without Meson:
++
++```bash
++cc -Iinclude src/*.c -o strawberry-kernel-manager $(pkg-config --cflags --libs gtk4 gio-2.0 glib-2.0) -lm
++./strawberry-kernel-manager
++```
++
++## Permissions
++
++Most useful actions in this app require write access to sysfs nodes. Repository includes udev rule intended to grant `video` group access to common Strawberry PS4 control paths.
++
++Recommended setup:
++
++```bash
++sudo cp udev/99-strawberry-km.rules /etc/udev/rules.d/99-strawberry-km.rules
++sudo udevadm control --reload-rules
++sudo udevadm trigger
++sudo usermod -aG video "$USER"
++```
++
++After changing group membership, log out and back in.
++
++Notes:
++
++- Included rule is good starting point, but some Strawberry kernel builds may expose slightly different node names.
++- If writes still fail, verify actual node paths on your system.
++- If you are testing before finalizing udev permissions, run application with elevated privileges.
++
++## Runtime Interfaces
++
++These are primary interfaces used by application.
++
++### System
++
++- `/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`
++- `/proc/uptime`
++- `uname(2)` for kernel release
++
++### Fan
++
++- `/sys/class/hwmon/hwmonX/name`
++- `/sys/class/hwmon/hwmonX/temp1_input`
++- `/sys/class/hwmon/hwmonX/fan1_input`
++- `/sys/class/hwmon/hwmonX/temp1_crit`
++
++### Front LED
++
++- `/sys/class/leds/ps4:*:status/brightness`
++- `/sys/bus/platform/devices/ps4-led/mode`
++- `/sys/bus/platform/devices/ps4-led/thermal_interval_ms`
++
++### GPU
++
++- `/sys/class/drm/card0/device/vendor`
++- `/sys/class/drm/card0/device/device`
++- `/sys/class/drm/card0/device/power_dpm_force_performance_level`
++- `/sys/class/drm/card0/device/pp_dpm_sclk`
++
++### Display
++
++- `/sys/class/drm/card0-HDMI-A-1/status` as preferred connector
++- `/sys/class/drm/card*-*/status` as fallback connector scan
++
++## Troubleshooting
++
++### A section is disabled or says feature is not exposed
++
++Your current kernel build probably does not expose required node for that feature. This is expected behavior. App disables only affected section and keeps remaining controls available.
++
++### Writes fail with permission errors
++
++Check three things:
++
++1. Udev rules are installed and reloaded
++2. Your user is in `video` group
++3. Kernel exposed paths match what your system actually provides
++
++If needed, test with elevated privileges to confirm problem is permissions rather than missing interfaces.
++
++### Fan control is visible but values look incomplete
++
++Fan section expects temperature, RPM, and threshold nodes. If only some nodes exist, app will display what it can and leave unavailable values blank.
++
++### GPU controls are read-only
++
++This usually means one of these:
++
++- Required GPU sysfs nodes are missing
++- Hardware is not recognized as supported forcing target
++- Kernel rejected manual control path
++
++Only Liverpool and Gladius PS4 variants are treated as supported SCLK force targets.
++
++### HDMI status does not update after reconnecting display
++
++Use `Reprobe` button. Strawberry kernels may not poll hotplug state automatically, so manual reprobe is expected workflow.
++
++### Theme does not load when running from unusual directory
++
++Application looks for CSS in:
++
++- `data/theme.css`
++- `./data/theme.css`
++- `../data/theme.css`
++
++If you launch binary from custom location, make sure stylesheet is reachable through one of those paths or install project through Meson.
++
++## Project Layout
++
++- `src/main.c` - application bootstrap and CSS loading
++- `src/ui.c` - top-level window creation and section assembly
++- `src/ui-common.c` - shared GTK widget helpers and notices
++- `src/ui-update.c` - snapshot-to-widget update logic
++- `src/ui-actions.c` - async task dispatch and signal handlers
++- `src/service.c` - shared service lifetime and snapshot orchestration
++- `src/service-system.c` - system summary and HDMI service logic
++- `src/service-fan.c` - fan read and write operations
++- `src/service-led.c` - LED discovery, defaults, and apply logic
++- `src/service-gpu.c` - GPU detection, SCLK parsing, and force logic
++- `src/sysfs.c` - low-level sysfs and procfs helpers
++- `include/skm-service.h` - public service data model and API
++- `include/skm-sysfs.h` - low-level sysfs helper API
++- `include/skm-ui.h` - public UI entry point
++- `data/theme.css` - application styling
++- `udev/99-strawberry-km.rules` - example udev permissions rule
++
++## Development Notes
++
++- Language: C11
++- UI toolkit: GTK4
++- Utility/runtime libraries: GLib and GIO
++- Build system: Meson + Ninja
++- Poll interval: `2` seconds
++- Fan threshold debounce: `500 ms`
++- GPU/HDMI confirmation waits: `500 ms`
++
++Project is structured so UI and hardware service logic stay separate. Public interfaces remain in `include/`, while internal module boundaries are split into smaller source files under `src/`.
++
++## License
++
++No license file is currently included in this repository.
+diff --git a/data/theme.css b/data/theme.css
+new file mode 100644
+index 0000000..0fa0ab3
+--- /dev/null
++++ b/data/theme.css
+@@ -0,0 +1,239 @@
++/*
++Required palette, mapped into GTK named colors.
++:root {
++  --strawberry:        #ff4d78;
++  --strawberry-bright: #ff7096;
++  --strawberry-glow:   rgba(255, 77, 120, 0.28);
++  --strawberry-subtle: rgba(255, 77, 120, 0.12);
++  --glass-bg:          rgba(20, 3, 10, 0.80);
++  --glass-border:      rgba(255, 77, 120, 0.18);
++  --bg:                #0d0106;
++  --bg-off:            #160310;
++  --text-main:         #e8b0c0;
++  --text-dim:          #804060;
++  --text-hi:           #ffd6e3;
++  --border-c:          #350a1e;
++  --border-dim-c:      #804060;
++}
++*/
++
++@define-color strawberry #ff4d78;
++@define-color strawberry_bright #ff7096;
++@define-color strawberry_glow rgba(255, 77, 120, 0.28);
++@define-color strawberry_subtle rgba(255, 77, 120, 0.12);
++@define-color glass_bg rgba(20, 3, 10, 0.80);
++@define-color glass_border rgba(255, 77, 120, 0.18);
++@define-color bg #0d0106;
++@define-color bg_off #160310;
++@define-color text_main #e8b0c0;
++@define-color text_dim #804060;
++@define-color text_hi #ffd6e3;
++@define-color border_c #350a1e;
++@define-color border_dim_c #804060;
++
++window,
++.app-root,
++scrolledwindow,
++scrolledwindow > viewport {
++  background-color: @bg;
++  color: @text_main;
++}
++
++label {
++  color: @text_main;
++}
++
++.glass-card {
++  background-image:
++    linear-gradient(180deg, rgba(255, 112, 150, 0.04), rgba(20, 3, 10, 0.02)),
++    linear-gradient(90deg, rgba(255, 77, 120, 0.04), rgba(20, 3, 10, 0.02));
++  background-color: @glass_bg;
++  border: 1px solid @glass_border;
++  border-radius: 10px;
++  box-shadow: 0 10px 32px rgba(255, 77, 120, 0.10);
++  padding: 18px;
++}
++
++.hero-card {
++  box-shadow: 0 14px 38px rgba(255, 77, 120, 0.16);
++}
++
++.aurora-header {
++  background-image:
++    radial-gradient(circle at 10% 10%, rgba(255, 77, 120, 0.14), transparent 42%),
++    radial-gradient(circle at 82% 18%, rgba(200, 40, 100, 0.10), transparent 38%),
++    radial-gradient(circle at 48% 62%, rgba(255, 120, 180, 0.10), transparent 46%);
++  border-radius: 10px;
++  padding: 10px 12px;
++}
++
++.hero-logo {
++  font-size: 42px;
++}
++
++.hero-title {
++  color: @text_hi;
++  font-size: 26px;
++  font-weight: 700;
++  letter-spacing: 0.08em;
++}
++
++.hero-subtitle,
++.card-subtitle,
++.dim-label {
++  color: @text_dim;
++}
++
++.card-title {
++  color: @text_hi;
++  font-size: 18px;
++  font-weight: 700;
++  letter-spacing: 0.06em;
++}
++
++.value-label,
++.metric-value {
++  color: @text_hi;
++  font-weight: 700;
++}
++
++.metric-card {
++  background-color: rgba(255, 77, 120, 0.05);
++  border: 1px solid rgba(255, 77, 120, 0.12);
++  border-radius: 8px;
++  min-height: 64px;
++  padding: 12px;
++}
++
++.metric-title {
++  color: @text_dim;
++  font-size: 12px;
++  letter-spacing: 0.06em;
++}
++
++.section-unavailable,
++.warning-banner,
++.notice-banner {
++  border-radius: 8px;
++  padding: 10px 12px;
++}
++
++.section-unavailable {
++  background-color: rgba(128, 64, 96, 0.12);
++  border: 1px solid rgba(128, 64, 96, 0.22);
++}
++
++.warning-banner {
++  background-color: rgba(255, 112, 150, 0.10);
++  border: 1px solid rgba(255, 77, 120, 0.20);
++  color: @text_hi;
++}
++
++.notice-banner {
++  background-color: @bg_off;
++  border: 1px solid @glass_border;
++}
++
++.notice-label {
++  color: @text_hi;
++}
++
++.notice-success {
++  box-shadow: 0 0 18px @strawberry_glow;
++}
++
++.notice-error {
++  border-color: rgba(255, 120, 120, 0.45);
++}
++
++button {
++  border-radius: 5px;
++  padding: 8px 12px;
++  min-height: 34px;
++  border: 1px solid @glass_border;
++  background-color: rgba(255, 77, 120, 0.08);
++  color: @text_hi;
++}
++
++button:hover {
++  box-shadow: 0 0 12px @strawberry_glow;
++}
++
++button.accent-button {
++  background-image: linear-gradient(180deg, @strawberry_bright, @strawberry);
++  color: @bg;
++  border-color: @strawberry_bright;
++  box-shadow: 0 0 16px @strawberry_glow;
++}
++
++button.secondary-button {
++  background-color: rgba(255, 77, 120, 0.06);
++  color: @text_main;
++}
++
++button.button-success {
++  box-shadow: 0 0 18px @strawberry_glow;
++}
++
++button.button-error {
++  background-color: rgba(180, 32, 48, 0.35);
++  border-color: rgba(255, 120, 120, 0.48);
++}
++
++scale trough {
++  min-height: 6px;
++  border-radius: 4px;
++  border: 1px solid @border_c;
++  background-color: rgba(53, 10, 30, 0.92);
++}
++
++scale highlight {
++  background-color: @strawberry;
++}
++
++scale slider {
++  min-width: 16px;
++  min-height: 16px;
++  border-radius: 6px;
++  border: 1px solid @strawberry_bright;
++  background-color: @strawberry;
++  box-shadow: 0 0 12px @strawberry_glow;
++}
++
++switch slider {
++  background-color: @text_dim;
++}
++
++switch:checked slider {
++  background-color: @strawberry;
++  box-shadow: 0 0 10px @strawberry_glow;
++}
++
++dropdown,
++checkbutton,
++switch {
++  color: @text_main;
++}
++
++.level-list {
++  background-color: rgba(255, 77, 120, 0.03);
++  border: 1px solid rgba(255, 77, 120, 0.10);
++  border-radius: 8px;
++  padding: 10px;
++}
++
++.glow-dot {
++  background-image: radial-gradient(circle at center, rgba(255, 214, 227, 0.95), rgba(255, 77, 120, 0.85) 50%, rgba(255, 77, 120, 0.25) 76%, transparent 82%);
++  background-color: @strawberry;
++  border-radius: 999px;
++  box-shadow: 0 0 14px @strawberry_glow;
++}
++
++scrollbar {
++  background-color: @bg;
++}
++
++scrollbar slider {
++  background-color: #5a1530;
++  border-radius: 6px;
++}
+diff --git a/include/skm-service.h b/include/skm-service.h
+new file mode 100644
+index 0000000..e1316da
+--- /dev/null
++++ b/include/skm-service.h
+@@ -0,0 +1,106 @@
++#pragma once
++
++#include <glib.h>
++
++G_BEGIN_DECLS
++
++typedef struct _SkmService SkmService;
++
++typedef struct {
++  gboolean success;
++  gboolean permission_denied;
++  gchar *message;
++} SkmOperationResult;
++
++typedef struct {
++  gboolean available;
++  gboolean has_temperature_c;
++  gboolean has_rpm;
++  gboolean has_threshold_c;
++  gchar *message;
++  gdouble temperature_c;
++  gint rpm;
++  gint threshold_c;
++} SkmFanState;
++
++typedef struct {
++  gboolean available;
++  gboolean has_active_effect;
++  gboolean thermal_mode_supported;
++  gboolean has_thermal_mode;
++  gboolean has_thermal_interval_ms;
++  gchar *message;
++  gchar *active_effect;
++  GPtrArray *effect_options;
++  gboolean thermal_mode;
++  gint thermal_interval_ms;
++} SkmLedState;
++
++typedef struct {
++  gint index;
++  gchar *label;
++  gint mhz;
++  gboolean has_mhz;
++  gboolean active;
++} SkmGpuLevel;
++
++typedef struct {
++  gboolean available;
++  gboolean supported_hardware;
++  gboolean has_active_level;
++  gchar *message;
++  gchar *variant;
++  gchar *vendor_id;
++  gchar *device_id;
++  gchar *performance_level;
++  gchar *warning;
++  GPtrArray *levels;
++  gint active_level;
++} SkmGpuState;
++
++typedef struct {
++  gboolean available;
++  gchar *message;
++  gchar *connector_name;
++  gchar *status;
++} SkmHdmiState;
++
++typedef struct {
++  gchar *kernel_version;
++  gchar *hardware_variant;
++  gchar *cpu_governor;
++  gchar *uptime;
++} SkmSystemInfoState;
++
++typedef struct {
++  SkmSystemInfoState system;
++  SkmFanState fan;
++  SkmLedState led;
++  SkmGpuState gpu;
++  SkmHdmiState hdmi;
++} SkmSnapshot;
++
++enum {
++  SKM_FAN_THRESHOLD_MIN = 20,
++  SKM_FAN_THRESHOLD_MAX = 85,
++  SKM_FAN_THRESHOLD_DEFAULT = 79,
++};
++
++SkmService *skm_service_new(const gchar *sys_root, const gchar *proc_root);
++void skm_service_free(SkmService *self);
++
++SkmSnapshot *skm_service_read_snapshot(SkmService *self);
++SkmOperationResult *skm_service_apply_fan(SkmService *self, gint threshold_c);
++SkmOperationResult *skm_service_reset_fan_defaults(SkmService *self);
++SkmOperationResult *skm_service_apply_led(SkmService *self, const gchar *effect, gboolean thermal_mode, gint thermal_interval_ms);
++SkmOperationResult *skm_service_reset_led_defaults(SkmService *self);
++SkmOperationResult *skm_service_set_gpu_manual(SkmService *self, gboolean enabled);
++SkmOperationResult *skm_service_apply_gpu_level(SkmService *self, gint index);
++SkmOperationResult *skm_service_reset_gpu_defaults(SkmService *self);
++SkmOperationResult *skm_service_reprobe_display(SkmService *self);
++
++void skm_operation_result_free(SkmOperationResult *result);
++void skm_snapshot_free(SkmSnapshot *snapshot);
++void skm_gpu_level_free(SkmGpuLevel *level);
++
++G_END_DECLS
+diff --git a/include/skm-sysfs.h b/include/skm-sysfs.h
+new file mode 100644
+index 0000000..3f3c243
+--- /dev/null
++++ b/include/skm-sysfs.h
+@@ -0,0 +1,27 @@
++#pragma once
++
++#include <glib.h>
++
++G_BEGIN_DECLS
++
++typedef enum {
++  SKM_SYSFS_ERROR_NOT_FOUND,
++  SKM_SYSFS_ERROR_PERMISSION,
++  SKM_SYSFS_ERROR_IO,
++  SKM_SYSFS_ERROR_VALIDATION,
++} SkmSysfsError;
++
++#define SKM_SYSFS_ERROR skm_sysfs_error_quark()
++
++GQuark skm_sysfs_error_quark(void);
++
++gboolean skm_node_exists(const gchar *path);
++gboolean skm_sysfs_read_text(const gchar *path, const gchar *label, gchar **out_text, GError **error);
++gboolean skm_sysfs_read_int(const gchar *path, const gchar *label, gint *out_value, GError **error);
++gboolean skm_sysfs_write_text(const gchar *path, const gchar *label, const gchar *value, GError **error);
++gboolean skm_sysfs_write_int(const gchar *path, const gchar *label, gint value, GError **error);
++
++gchar *skm_find_hwmon_by_name(const gchar *base_path, const gchar *name);
++gchar *skm_find_drm_connector(const gchar *base_path, const gchar *preferred_name);
++
++G_END_DECLS
+diff --git a/include/skm-ui.h b/include/skm-ui.h
+new file mode 100644
+index 0000000..65c64a2
+--- /dev/null
++++ b/include/skm-ui.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++#include <gtk/gtk.h>
++
++G_BEGIN_DECLS
++
++GtkWindow *skm_app_window_new(GtkApplication *application);
++
++G_END_DECLS
+diff --git a/meson.build b/meson.build
+new file mode 100644
+index 0000000..89a46eb
+--- /dev/null
++++ b/meson.build
+@@ -0,0 +1,44 @@
++project(
++  'strawberry-kernel-manager',
++  'c',
++  version: '0.2.0',
++  default_options: [
++    'c_std=c11',
++    'warning_level=2',
++  ],
++)
++
++cc = meson.get_compiler('c')
++gtk_dep = dependency('gtk4')
++gio_dep = dependency('gio-2.0')
++glib_dep = dependency('glib-2.0')
++m_dep = cc.find_library('m', required: true)
++
++inc = include_directories('include')
++
++sources = files(
++  'src/main.c',
++  'src/ui.c',
++  'src/ui-common.c',
++  'src/ui-update.c',
++  'src/ui-actions.c',
++  'src/service.c',
++  'src/service-system.c',
++  'src/service-fan.c',
++  'src/service-led.c',
++  'src/service-gpu.c',
++  'src/sysfs.c',
++)
++
++executable(
++  'strawberry-kernel-manager',
++  sources,
++  include_directories: inc,
++  dependencies: [gtk_dep, gio_dep, glib_dep, m_dep],
++  install: true,
++)
++
++install_data(
++  'data/theme.css',
++  install_dir: join_paths(get_option('datadir'), meson.project_name()),
++)
+diff --git a/src/main.c b/src/main.c
+new file mode 100644
+index 0000000..0e04ae3
+--- /dev/null
++++ b/src/main.c
+@@ -0,0 +1,64 @@
++#include "skm-ui.h"
++
++#include <gtk/gtk.h>
++
++static void
++skm_load_css(void)
++{
++  GtkCssProvider *provider = NULL;
++  GdkDisplay *display = NULL;
++  const gchar *candidates[] = {
++    "data/theme.css",
++    "./data/theme.css",
++    "../data/theme.css",
++    NULL,
++  };
++  guint i = 0;
++
++  provider = gtk_css_provider_new();
++  for (i = 0; candidates[i] != NULL; i++) {
++    if (g_file_test(candidates[i], G_FILE_TEST_EXISTS)) {
++      gtk_css_provider_load_from_path(provider, candidates[i]);
++      break;
++    }
++  }
++
++  display = gdk_display_get_default();
++  if (display != NULL) {
++    gtk_style_context_add_provider_for_display(
++      display,
++      GTK_STYLE_PROVIDER(provider),
++      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
++  }
++
++  g_object_unref(provider);
++}
++
++static void
++skm_on_activate(GtkApplication *application, gpointer user_data)
++{
++  GtkWindow *window = NULL;
++  (void) user_data;
++
++  skm_load_css();
++  window = gtk_application_get_active_window(application);
++  if (window == NULL) {
++    window = skm_app_window_new(application);
++  }
++  gtk_window_present(window);
++}
++
++int
++main(int argc, char **argv)
++{
++  GtkApplication *application = NULL;
++  int status = 0;
++
++  application = gtk_application_new(
++    "io.strawberry.kernelmanager",
++    G_APPLICATION_DEFAULT_FLAGS);
++  g_signal_connect(application, "activate", G_CALLBACK(skm_on_activate), NULL);
++  status = g_application_run(G_APPLICATION(application), argc, argv);
++  g_object_unref(application);
++  return status;
++}
+diff --git a/src/service-fan.c b/src/service-fan.c
+new file mode 100644
+index 0000000..0681d01
+--- /dev/null
++++ b/src/service-fan.c
+@@ -0,0 +1,86 @@
++#include "skm-service-private.h"
++
++#include "skm-sysfs.h"
++
++SkmFanState
++skm_service_read_fan(SkmService *self)
++{
++  SkmFanState state = { 0 };
++  g_autofree gchar *temp_path = NULL;
++  g_autofree gchar *rpm_path = NULL;
++  g_autofree gchar *threshold_path = NULL;
++  gint temp_raw = 0;
++  gint threshold_raw = 0;
++
++  if (self->fan_root == NULL) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  temp_path = skm_path_join(self->fan_root, "temp1_input");
++  rpm_path = skm_path_join(self->fan_root, "fan1_input");
++  threshold_path = skm_path_join(self->fan_root, "temp1_crit");
++
++  if (!skm_node_exists(temp_path) || !skm_node_exists(rpm_path) || !skm_node_exists(threshold_path)) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  state.available = TRUE;
++  state.message = g_strdup("PS4 fan hwmon loaded (`temp1_input`, `temp1_crit`, `fan1_input`).");
++
++  if (skm_sysfs_read_int(temp_path, "fan temperature", &temp_raw, NULL)) {
++    state.has_temperature_c = TRUE;
++    state.temperature_c = temp_raw / 1000.0;
++  }
++
++  if (skm_sysfs_read_int(rpm_path, "fan RPM", &state.rpm, NULL)) {
++    state.has_rpm = TRUE;
++  }
++
++  if (skm_sysfs_read_int(threshold_path, "fan threshold", &threshold_raw, NULL)) {
++    state.has_threshold_c = TRUE;
++    state.threshold_c = threshold_raw / 1000;
++  }
++
++  return state;
++}
++
++SkmOperationResult *
++skm_service_apply_fan(SkmService *self, gint threshold_c)
++{
++  g_autofree gchar *threshold_path = NULL;
++  g_autoptr(GError) error = NULL;
++
++  g_return_val_if_fail(self != NULL, skm_operation_result_new(FALSE, FALSE, "Service unavailable."));
++
++  skm_service_refresh_paths(self);
++  if (self->fan_root == NULL) {
++    return skm_operation_result_new(FALSE, FALSE, "PS4 fan hwmon not available.");
++  }
++
++  if (threshold_c < SKM_FAN_THRESHOLD_MIN || threshold_c > SKM_FAN_THRESHOLD_MAX) {
++    return skm_operation_result_new(FALSE, FALSE, "Fan threshold must be 20-85 C.");
++  }
++
++  threshold_path = skm_path_join(self->fan_root, "temp1_crit");
++
++  if (!skm_sysfs_write_int(threshold_path, "fan threshold", threshold_c * 1000, &error)) {
++    if (error != NULL && error->domain == SKM_SYSFS_ERROR && error->code == SKM_SYSFS_ERROR_PERMISSION) {
++      g_autofree gchar *hint = skm_permission_hint("fan settings");
++      return skm_operation_result_new(FALSE, TRUE, hint);
++    }
++
++    return skm_operation_result_new(FALSE, FALSE, error != NULL ? error->message : "Failed applying fan settings.");
++  }
++
++  return skm_operation_result_new(TRUE, FALSE, "Fan settings applied.");
++}
++
++SkmOperationResult *
++skm_service_reset_fan_defaults(SkmService *self)
++{
++  return skm_service_apply_fan(self, SKM_FAN_THRESHOLD_DEFAULT);
++}
+diff --git a/src/service-gpu.c b/src/service-gpu.c
+new file mode 100644
+index 0000000..e04f4e2
+--- /dev/null
++++ b/src/service-gpu.c
+@@ -0,0 +1,263 @@
++#include "skm-service-private.h"
++
++#include "skm-sysfs.h"
++
++#include <string.h>
++
++static gint
++skm_extract_mhz(const gchar *label, gboolean *has_mhz)
++{
++  g_autofree gchar *lower = NULL;
++  gchar *mhz_ptr = NULL;
++  gint start = 0;
++  gint end = 0;
++
++  *has_mhz = FALSE;
++  if (label == NULL) {
++    return 0;
++  }
++
++  lower = g_ascii_strdown(label, -1);
++  mhz_ptr = g_strstr_len(lower, -1, "mhz");
++  if (mhz_ptr == NULL) {
++    return 0;
++  }
++
++  end = (gint) (mhz_ptr - lower);
++  start = end - 1;
++  while (start >= 0 && g_ascii_isdigit(lower[start])) {
++    start--;
++  }
++  start++;
++
++  if (start >= end) {
++    return 0;
++  }
++
++  *has_mhz = TRUE;
++  return (gint) g_ascii_strtoll(label + start, NULL, 10);
++}
++
++GPtrArray *
++skm_parse_sclk_levels(const gchar *raw)
++{
++  GPtrArray *levels = g_ptr_array_new_with_free_func((GDestroyNotify) skm_gpu_level_free);
++  gchar **lines = NULL;
++  guint i = 0;
++
++  if (raw == NULL) {
++    return levels;
++  }
++
++  lines = g_strsplit(raw, "\n", -1);
++  for (i = 0; lines[i] != NULL; i++) {
++    g_autofree gchar *line = g_strdup(lines[i]);
++    gchar *colon = NULL;
++    gchar *label = NULL;
++    SkmGpuLevel *level = NULL;
++
++    g_strstrip(line);
++    if (*line == '\0') {
++      continue;
++    }
++
++    level = g_new0(SkmGpuLevel, 1);
++    if (g_str_has_suffix(line, "*")) {
++      level->active = TRUE;
++      line[strlen(line) - 1] = '\0';
++      g_strstrip(line);
++    }
++
++    colon = strchr(line, ':');
++    if (colon == NULL) {
++      g_free(level);
++      continue;
++    }
++
++    *colon = '\0';
++    colon++;
++    g_strstrip(line);
++    g_strstrip(colon);
++
++    level->index = (gint) g_ascii_strtoll(line, NULL, 10);
++    label = g_strdup(colon);
++    level->label = label;
++    level->mhz = skm_extract_mhz(level->label, &level->has_mhz);
++    g_ptr_array_add(levels, level);
++  }
++
++  g_strfreev(lines);
++  return levels;
++}
++
++SkmGpuState
++skm_service_read_gpu(SkmService *self)
++{
++  SkmGpuState state = { 0 };
++  g_autofree gchar *variant = NULL;
++  g_autofree gchar *vendor = NULL;
++  g_autofree gchar *device = NULL;
++  gboolean supported = FALSE;
++  g_autofree gchar *perf_path = NULL;
++  g_autofree gchar *sclk_path = NULL;
++  g_autofree gchar *perf_text = NULL;
++  g_autofree gchar *sclk_text = NULL;
++  guint i = 0;
++
++  supported = skm_read_variant(self, &variant, &vendor, &device);
++  state.supported_hardware = supported;
++  state.variant = g_strdup(variant);
++  state.vendor_id = g_strdup(vendor);
++  state.device_id = g_strdup(device);
++
++  if (!supported) {
++    state.warning = g_strdup_printf(
++      "Detected vendor %s, device %s. SCLK forcing only supported on CHIP_LIVERPOOL / CHIP_GLADIUS.",
++      vendor,
++      device);
++  }
++
++  perf_path = g_build_filename(self->gpu_root, "power_dpm_force_performance_level", NULL);
++  sclk_path = g_build_filename(self->gpu_root, "pp_dpm_sclk", NULL);
++  if (!skm_node_exists(perf_path) || !skm_node_exists(sclk_path)) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  if (!skm_sysfs_read_text(perf_path, "GPU performance level", &perf_text, NULL) ||
++      !skm_sysfs_read_text(sclk_path, "GPU sclk table", &sclk_text, NULL)) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  state.available = TRUE;
++  state.message = g_strdup("GPU SCLK levels loaded.");
++  state.performance_level = g_strdup(perf_text);
++  state.levels = skm_parse_sclk_levels(sclk_text);
++
++  for (i = 0; i < state.levels->len; i++) {
++    SkmGpuLevel *level = g_ptr_array_index(state.levels, i);
++
++    if (level->active) {
++      state.has_active_level = TRUE;
++      state.active_level = level->index;
++      break;
++    }
++  }
++
++  return state;
++}
++
++SkmOperationResult *
++skm_service_set_gpu_manual(SkmService *self, gboolean enabled)
++{
++  g_autofree gchar *perf_path = NULL;
++  g_autoptr(GError) error = NULL;
++
++  g_return_val_if_fail(self != NULL, skm_operation_result_new(FALSE, FALSE, "Service unavailable."));
++
++  perf_path = g_build_filename(self->gpu_root, "power_dpm_force_performance_level", NULL);
++  if (!skm_node_exists(perf_path)) {
++    return skm_operation_result_new(FALSE, FALSE, "GPU control nodes not available.");
++  }
++
++  if (!skm_sysfs_write_text(perf_path, "GPU performance level", enabled ? "manual" : "auto", &error)) {
++    if (error != NULL && error->domain == SKM_SYSFS_ERROR && error->code == SKM_SYSFS_ERROR_PERMISSION) {
++      g_autofree gchar *hint = skm_permission_hint("GPU performance level");
++      return skm_operation_result_new(FALSE, TRUE, hint);
++    }
++
++    return skm_operation_result_new(FALSE, FALSE, error != NULL ? error->message : "Failed updating GPU mode.");
++  }
++
++  return skm_operation_result_new(
++    TRUE,
++    FALSE,
++    enabled ? "GPU manual mode enabled." : "GPU auto mode restored.");
++}
++
++SkmOperationResult *
++skm_service_apply_gpu_level(SkmService *self, gint index)
++{
++  g_autofree gchar *perf_path = NULL;
++  g_autofree gchar *sclk_path = NULL;
++  g_autofree gchar *sclk_text = NULL;
++  g_autoptr(GError) error = NULL;
++  g_autoptr(GPtrArray) levels = NULL;
++  gboolean found = FALSE;
++  gboolean active = FALSE;
++  guint i = 0;
++  g_autofree gchar *variant = NULL;
++  g_autofree gchar *vendor = NULL;
++  g_autofree gchar *device = NULL;
++
++  g_return_val_if_fail(self != NULL, skm_operation_result_new(FALSE, FALSE, "Service unavailable."));
++
++  if (!skm_read_variant(self, &variant, &vendor, &device)) {
++    return skm_operation_result_new(
++      FALSE,
++      FALSE,
++      "SCLK forcing only supported on CHIP_LIVERPOOL / CHIP_GLADIUS.");
++  }
++
++  perf_path = g_build_filename(self->gpu_root, "power_dpm_force_performance_level", NULL);
++  sclk_path = g_build_filename(self->gpu_root, "pp_dpm_sclk", NULL);
++  if (!skm_sysfs_read_text(sclk_path, "GPU sclk table", &sclk_text, &error)) {
++    return skm_operation_result_new(FALSE, FALSE, error->message);
++  }
++
++  levels = skm_parse_sclk_levels(sclk_text);
++  for (i = 0; i < levels->len; i++) {
++    SkmGpuLevel *level = g_ptr_array_index(levels, i);
++
++    if (level->index == index) {
++      found = TRUE;
++      break;
++    }
++  }
++
++  if (!found) {
++    return skm_operation_result_new(FALSE, FALSE, "Selected SCLK level is not available.");
++  }
++
++  if (!skm_sysfs_write_text(perf_path, "GPU performance level", "manual", &error) ||
++      !skm_sysfs_write_int(sclk_path, "GPU sclk table", index, &error)) {
++    if (error != NULL && error->domain == SKM_SYSFS_ERROR && error->code == SKM_SYSFS_ERROR_PERMISSION) {
++      g_autofree gchar *hint = skm_permission_hint("GPU SCLK");
++      return skm_operation_result_new(FALSE, TRUE, hint);
++    }
++
++    return skm_operation_result_new(FALSE, FALSE, error != NULL ? error->message : "Failed forcing SCLK level.");
++  }
++
++  g_usleep(500000);
++  g_clear_pointer(&sclk_text, g_free);
++  if (!skm_sysfs_read_text(sclk_path, "GPU sclk table", &sclk_text, &error)) {
++    return skm_operation_result_new(FALSE, FALSE, error->message);
++  }
++
++  g_clear_pointer(&levels, g_ptr_array_unref);
++  levels = skm_parse_sclk_levels(sclk_text);
++  for (i = 0; i < levels->len; i++) {
++    SkmGpuLevel *level = g_ptr_array_index(levels, i);
++
++    if (level->index == index && level->active) {
++      active = TRUE;
++      break;
++    }
++  }
++
++  if (!active) {
++    return skm_operation_result_new(FALSE, FALSE, "GPU level write did not stick after 500 ms confirmation poll.");
++  }
++
++  return skm_operation_result_new(TRUE, FALSE, "GPU SCLK level applied.");
++}
++
++SkmOperationResult *
++skm_service_reset_gpu_defaults(SkmService *self)
++{
++  return skm_service_set_gpu_manual(self, FALSE);
++}
+diff --git a/src/service-led.c b/src/service-led.c
+new file mode 100644
+index 0000000..491f1b2
+--- /dev/null
++++ b/src/service-led.c
+@@ -0,0 +1,298 @@
++#include "skm-service-private.h"
++
++#include "skm-sysfs.h"
++
++static const gchar *const skm_led_effects[] = {
++  "blue",
++  "white",
++  "orange",
++  "orange_blue",
++  "orange_white",
++  "pulsate_orange",
++  "orange_white_blue",
++  "white_blue",
++  "violet_blue",
++  "pink",
++  "pink_blue",
++  NULL,
++};
++
++static gchar *
++skm_led_effect_root(SkmService *self, const gchar *effect)
++{
++  g_autofree gchar *entry = NULL;
++
++  g_return_val_if_fail(effect != NULL, NULL);
++  entry = g_strdup_printf("ps4:%s:status", effect);
++  return g_build_filename(self->led_root_base, entry, NULL);
++}
++
++gchar *
++skm_led_effect_brightness_path(SkmService *self, const gchar *effect)
++{
++  g_autofree gchar *root = skm_led_effect_root(self, effect);
++
++  return root != NULL ? g_build_filename(root, "brightness", NULL) : NULL;
++}
++
++gchar *
++skm_led_mode_path(SkmService *self)
++{
++  return g_build_filename(self->led_device_root, "mode", NULL);
++}
++
++gchar *
++skm_led_interval_path(SkmService *self)
++{
++  return g_build_filename(self->led_device_root, "thermal_interval_ms", NULL);
++}
++
++GPtrArray *
++skm_collect_led_effect_options(SkmService *self)
++{
++  GPtrArray *options = g_ptr_array_new_with_free_func(g_free);
++  guint i = 0;
++
++  g_ptr_array_add(options, g_strdup("off"));
++
++  for (i = 0; skm_led_effects[i] != NULL; i++) {
++    g_autofree gchar *brightness_path = skm_led_effect_brightness_path(self, skm_led_effects[i]);
++
++    if (skm_node_exists(brightness_path)) {
++      g_ptr_array_add(options, g_strdup(skm_led_effects[i]));
++    }
++  }
++
++  if (options->len == 1) {
++    g_ptr_array_unref(options);
++    return NULL;
++  }
++
++  return options;
++}
++
++gchar *
++skm_detect_active_led_effect(SkmService *self, GPtrArray *options)
++{
++  guint i = 0;
++
++  if (options == NULL) {
++    return NULL;
++  }
++
++  for (i = 0; i < options->len; i++) {
++    const gchar *effect = g_ptr_array_index(options, i);
++    g_autofree gchar *brightness_path = NULL;
++    gint brightness = 0;
++
++    if (g_strcmp0(effect, "off") == 0) {
++      continue;
++    }
++
++    brightness_path = skm_led_effect_brightness_path(self, effect);
++    if (skm_sysfs_read_int(brightness_path, "LED brightness", &brightness, NULL) && brightness > 0) {
++      return g_strdup(effect);
++    }
++  }
++
++  return g_strdup("off");
++}
++
++gchar *
++skm_thermal_led_effect_from_temp(SkmService *self)
++{
++  g_autofree gchar *temp_path = NULL;
++  gint temp_mc = 0;
++
++  if (self->fan_root == NULL) {
++    return g_strdup("thermal");
++  }
++
++  temp_path = skm_path_join(self->fan_root, "temp1_input");
++  if (!skm_sysfs_read_int(temp_path, "fan temperature", &temp_mc, NULL)) {
++    return g_strdup("thermal");
++  }
++
++  if (temp_mc < 65000) {
++    return g_strdup("blue");
++  }
++
++  if (temp_mc < 80000) {
++    return g_strdup("white");
++  }
++
++  return g_strdup("orange");
++}
++
++void
++skm_capture_led_defaults_if_needed(SkmService *self)
++{
++  SkmSnapshot *snapshot = NULL;
++
++  if (self->led_defaults_valid) {
++    return;
++  }
++
++  snapshot = skm_service_read_snapshot(self);
++  if (snapshot->led.available) {
++    self->led_defaults_valid = TRUE;
++    g_clear_pointer(&self->led_default_effect, g_free);
++    self->led_default_effect = g_strdup(
++      snapshot->led.active_effect != NULL ? snapshot->led.active_effect : "off");
++    self->led_default_has_thermal = snapshot->led.thermal_mode_supported && snapshot->led.has_thermal_mode;
++    self->led_default_thermal = snapshot->led.thermal_mode;
++    self->led_default_has_interval = snapshot->led.has_thermal_interval_ms;
++    self->led_default_interval_ms = snapshot->led.thermal_interval_ms;
++  }
++
++  skm_snapshot_free(snapshot);
++}
++
++SkmLedState
++skm_service_read_led(SkmService *self)
++{
++  SkmLedState state = { 0 };
++  g_autofree gchar *mode_path = skm_led_mode_path(self);
++  g_autofree gchar *interval_path = skm_led_interval_path(self);
++  g_autofree gchar *mode_text = NULL;
++  g_autoptr(GPtrArray) effects = NULL;
++
++  effects = skm_collect_led_effect_options(self);
++  if (effects == NULL) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  state.available = TRUE;
++  state.effect_options = g_steal_pointer(&effects);
++
++  if (skm_node_exists(mode_path)) {
++    state.thermal_mode_supported = TRUE;
++    if (skm_sysfs_read_text(mode_path, "LED mode", &mode_text, NULL)) {
++      state.has_thermal_mode = TRUE;
++      state.thermal_mode = g_strcmp0(mode_text, "thermal") == 0;
++    }
++  }
++
++  if (skm_node_exists(interval_path) &&
++      skm_sysfs_read_int(interval_path, "LED thermal interval", &state.thermal_interval_ms, NULL)) {
++    state.has_thermal_interval_ms = TRUE;
++  }
++
++  if (state.has_thermal_mode && state.thermal_mode) {
++    state.has_active_effect = TRUE;
++    state.active_effect = skm_thermal_led_effect_from_temp(self);
++    state.message = g_strdup("Thermal LED mode active. Driver picks blue/white/orange from APU temp.");
++  } else {
++    state.active_effect = skm_detect_active_led_effect(self, state.effect_options);
++    state.has_active_effect = state.active_effect != NULL;
++    state.message = g_strdup("Static PS4 LED effects loaded.");
++  }
++
++  return state;
++}
++
++SkmOperationResult *
++skm_service_apply_led(SkmService *self, const gchar *effect, gboolean thermal_mode, gint thermal_interval_ms)
++{
++  g_autofree gchar *mode_path = skm_led_mode_path(self);
++  g_autofree gchar *interval_path = skm_led_interval_path(self);
++  g_autoptr(GPtrArray) effects = NULL;
++  g_autoptr(GError) error = NULL;
++  gboolean effect_found = FALSE;
++  guint i = 0;
++
++  g_return_val_if_fail(self != NULL, skm_operation_result_new(FALSE, FALSE, "Service unavailable."));
++
++  skm_service_refresh_paths(self);
++  effects = skm_collect_led_effect_options(self);
++  if (effects == NULL) {
++    return skm_operation_result_new(FALSE, FALSE, "PS4 LED nodes not available.");
++  }
++
++  if (thermal_mode && thermal_interval_ms <= 0) {
++    return skm_operation_result_new(FALSE, FALSE, "Thermal interval must be greater than 0 ms.");
++  }
++
++  for (i = 0; i < effects->len; i++) {
++    const gchar *value = g_ptr_array_index(effects, i);
++
++    if (g_strcmp0(value, effect) == 0) {
++      effect_found = TRUE;
++      break;
++    }
++  }
++
++  if (!effect_found) {
++    return skm_operation_result_new(FALSE, FALSE, "Selected LED effect is not available.");
++  }
++
++  if (thermal_mode) {
++    if (skm_node_exists(interval_path) &&
++        !skm_sysfs_write_int(interval_path, "LED thermal interval", thermal_interval_ms, &error)) {
++      goto permission_or_error;
++    }
++
++    if (skm_node_exists(mode_path) &&
++        !skm_sysfs_write_text(mode_path, "LED mode", "thermal", &error)) {
++      goto permission_or_error;
++    }
++  } else {
++    if (skm_node_exists(mode_path) &&
++        !skm_sysfs_write_text(mode_path, "LED mode", "static", &error)) {
++      goto permission_or_error;
++    }
++
++    for (i = 0; i < effects->len; i++) {
++      const gchar *value = g_ptr_array_index(effects, i);
++      g_autofree gchar *brightness_path = NULL;
++
++      if (g_strcmp0(value, "off") == 0) {
++        continue;
++      }
++
++      brightness_path = skm_led_effect_brightness_path(self, value);
++      if (!skm_sysfs_write_int(brightness_path, "LED brightness", 0, &error)) {
++        goto permission_or_error;
++      }
++    }
++
++    if (g_strcmp0(effect, "off") != 0) {
++      g_autofree gchar *brightness_path = skm_led_effect_brightness_path(self, effect);
++
++      if (!skm_sysfs_write_int(brightness_path, "LED brightness", 255, &error)) {
++        goto permission_or_error;
++      }
++    }
++  }
++
++  return skm_operation_result_new(
++    TRUE,
++    FALSE,
++    thermal_mode ? "PS4 thermal LED mode applied." : "PS4 LED effect applied.");
++
++permission_or_error:
++  if (error != NULL && error->domain == SKM_SYSFS_ERROR && error->code == SKM_SYSFS_ERROR_PERMISSION) {
++    g_autofree gchar *hint = skm_permission_hint("LED settings");
++    return skm_operation_result_new(FALSE, TRUE, hint);
++  }
++
++  return skm_operation_result_new(FALSE, FALSE, error != NULL ? error->message : "Failed applying LED settings.");
++}
++
++SkmOperationResult *
++skm_service_reset_led_defaults(SkmService *self)
++{
++  skm_capture_led_defaults_if_needed(self);
++
++  if (!self->led_defaults_valid) {
++    return skm_operation_result_new(FALSE, FALSE, "LED defaults unavailable on this PS4 kernel build.");
++  }
++
++  return skm_service_apply_led(
++    self,
++    self->led_default_effect != NULL ? self->led_default_effect : "off",
++    self->led_default_has_thermal && self->led_default_thermal,
++    self->led_default_has_interval ? self->led_default_interval_ms : 2000);
++}
+diff --git a/src/service-system.c b/src/service-system.c
+new file mode 100644
+index 0000000..c98427f
+--- /dev/null
++++ b/src/service-system.c
+@@ -0,0 +1,189 @@
++#include "skm-service-private.h"
++
++#include "skm-sysfs.h"
++
++#include <sys/utsname.h>
++
++static gchar *
++skm_variant_from_device(const gchar *device_id)
++{
++  if (g_strcmp0(device_id, "0x9920") == 0) {
++    return g_strdup("Liverpool");
++  }
++
++  if (g_strcmp0(device_id, "0x9923") == 0) {
++    return g_strdup("Gladius");
++  }
++
++  return g_strdup("Unknown");
++}
++
++static gboolean
++skm_supported_variant(const gchar *vendor_id, const gchar *device_id)
++{
++  return g_strcmp0(vendor_id, "0x1002") == 0 &&
++         (g_strcmp0(device_id, "0x9920") == 0 || g_strcmp0(device_id, "0x9923") == 0);
++}
++
++static gchar *
++skm_format_uptime(const gchar *proc_uptime_path)
++{
++  g_autofree gchar *text = NULL;
++  gchar **parts = NULL;
++  gdouble total = 0.0;
++  gint days = 0;
++  gint hours = 0;
++  gint minutes = 0;
++  gchar *formatted = NULL;
++
++  if (!skm_sysfs_read_text(proc_uptime_path, "system uptime", &text, NULL)) {
++    return g_strdup("Unavailable");
++  }
++
++  parts = g_strsplit(text, " ", 2);
++  if (parts[0] == NULL) {
++    g_strfreev(parts);
++    return g_strdup("Unavailable");
++  }
++
++  total = g_ascii_strtod(parts[0], NULL);
++  g_strfreev(parts);
++
++  days = (gint) (total / 86400.0);
++  total -= days * 86400.0;
++  hours = (gint) (total / 3600.0);
++  total -= hours * 3600.0;
++  minutes = (gint) (total / 60.0);
++
++  if (days > 0) {
++    formatted = g_strdup_printf("%dd %dh %dm", days, hours, minutes);
++  } else if (hours > 0) {
++    formatted = g_strdup_printf("%dh %dm", hours, minutes);
++  } else {
++    formatted = g_strdup_printf("%dm", minutes);
++  }
++
++  return formatted;
++}
++
++gchar *
++skm_read_text_or_unavailable(const gchar *path, const gchar *label)
++{
++  g_autofree gchar *text = NULL;
++
++  if (!skm_sysfs_read_text(path, label, &text, NULL)) {
++    return g_strdup("Unavailable");
++  }
++
++  return g_strdup(text);
++}
++
++gboolean
++skm_read_variant(SkmService *self, gchar **out_variant, gchar **out_vendor, gchar **out_device)
++{
++  g_autofree gchar *vendor_path = NULL;
++  g_autofree gchar *device_path = NULL;
++  g_autofree gchar *vendor = NULL;
++  g_autofree gchar *device = NULL;
++  gboolean supported = FALSE;
++
++  vendor_path = g_build_filename(self->gpu_root, "vendor", NULL);
++  device_path = g_build_filename(self->gpu_root, "device", NULL);
++
++  if (!skm_sysfs_read_text(vendor_path, "GPU vendor", &vendor, NULL)) {
++    vendor = g_strdup("Unavailable");
++  }
++
++  if (!skm_sysfs_read_text(device_path, "GPU device", &device, NULL)) {
++    device = g_strdup("Unavailable");
++  }
++
++  *out_variant = skm_variant_from_device(device);
++  *out_vendor = g_strdup(vendor);
++  *out_device = g_strdup(device);
++  supported = skm_supported_variant(vendor, device);
++  return supported;
++}
++
++SkmSystemInfoState
++skm_service_read_system_info(SkmService *self)
++{
++  struct utsname uts;
++  SkmSystemInfoState state = { 0 };
++  g_autofree gchar *variant = NULL;
++  g_autofree gchar *vendor = NULL;
++  g_autofree gchar *device = NULL;
++  g_autofree gchar *cpu_gov_path = NULL;
++  g_autofree gchar *uptime_path = NULL;
++
++  skm_read_variant(self, &variant, &vendor, &device);
++
++  if (uname(&uts) == 0) {
++    state.kernel_version = g_strdup(uts.release);
++  } else {
++    state.kernel_version = g_strdup("Unavailable");
++  }
++
++  state.hardware_variant = g_strdup(variant);
++  cpu_gov_path = g_build_filename(self->sys_root, "devices", "system", "cpu", "cpu0", "cpufreq", "scaling_governor", NULL);
++  uptime_path = g_build_filename(self->proc_root, "uptime", NULL);
++
++  state.cpu_governor = skm_read_text_or_unavailable(cpu_gov_path, "CPU governor");
++  state.uptime = skm_format_uptime(uptime_path);
++  return state;
++}
++
++SkmHdmiState
++skm_service_read_hdmi(SkmService *self)
++{
++  SkmHdmiState state = { 0 };
++  g_autofree gchar *status_path = NULL;
++
++  if (self->connector_root == NULL) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  status_path = skm_path_join(self->connector_root, "status");
++  if (!skm_node_exists(status_path)) {
++    state.available = FALSE;
++    state.message = skm_not_exposed_message();
++    return state;
++  }
++
++  state.available = TRUE;
++  state.message = g_strdup("Polling disabled in kernel. Use Reprobe after reconnecting monitor.");
++  state.connector_name = g_path_get_basename(self->connector_root);
++  state.status = skm_read_text_or_unavailable(status_path, "HDMI status");
++  return state;
++}
++
++SkmOperationResult *
++skm_service_reprobe_display(SkmService *self)
++{
++  g_autofree gchar *status_path = NULL;
++  g_autofree gchar *status = NULL;
++  g_autoptr(GError) error = NULL;
++
++  g_return_val_if_fail(self != NULL, skm_operation_result_new(FALSE, FALSE, "Service unavailable."));
++
++  skm_service_refresh_paths(self);
++  if (self->connector_root == NULL) {
++    return skm_operation_result_new(FALSE, FALSE, "HDMI connector status node not available.");
++  }
++
++  status_path = skm_path_join(self->connector_root, "status");
++  if (!skm_sysfs_write_text(status_path, "HDMI status", "detect", &error)) {
++    if (error != NULL && error->domain == SKM_SYSFS_ERROR && error->code == SKM_SYSFS_ERROR_PERMISSION) {
++      g_autofree gchar *hint = skm_permission_hint("HDMI reprobe");
++      return skm_operation_result_new(FALSE, TRUE, hint);
++    }
++
++    return skm_operation_result_new(FALSE, FALSE, error != NULL ? error->message : "Failed triggering HDMI reprobe.");
++  }
++
++  g_usleep(500000);
++  status = skm_read_text_or_unavailable(status_path, "HDMI status");
++  return skm_operation_result_new(TRUE, FALSE, status != NULL ? status : "HDMI reprobe triggered.");
++}
+diff --git a/src/service.c b/src/service.c
+new file mode 100644
+index 0000000..2c157af
+--- /dev/null
++++ b/src/service.c
+@@ -0,0 +1,193 @@
++#include "skm-service-private.h"
++
++#include "skm-sysfs.h"
++
++gchar *
++skm_path_join(const gchar *left, const gchar *right)
++{
++  if (left == NULL) {
++    return NULL;
++  }
++
++  return g_build_filename(left, right, NULL);
++}
++
++gchar *
++skm_permission_hint(const gchar *subject)
++{
++  return g_strdup_printf(
++    "Permission denied writing %s. Run as root or install Strawberry udev rules for video group access.",
++    subject);
++}
++
++gchar *
++skm_not_exposed_message(void)
++{
++  return g_strdup("Not exposed by this Strawberry PS4 kernel build.");
++}
++
++void
++skm_service_refresh_paths(SkmService *self)
++{
++  g_clear_pointer(&self->fan_root, g_free);
++  g_clear_pointer(&self->connector_root, g_free);
++
++  self->fan_root = skm_find_hwmon_by_name(self->hwmon_root, "ps4_fan");
++  self->connector_root = skm_find_drm_connector(self->drm_root, "card0-HDMI-A-1");
++}
++
++SkmService *
++skm_service_new(const gchar *sys_root, const gchar *proc_root)
++{
++  SkmService *self = g_new0(SkmService, 1);
++
++  self->sys_root = g_strdup(sys_root != NULL ? sys_root : "/sys");
++  self->proc_root = g_strdup(proc_root != NULL ? proc_root : "/proc");
++  self->hwmon_root = g_build_filename(self->sys_root, "class", "hwmon", NULL);
++  self->led_root_base = g_build_filename(self->sys_root, "class", "leds", NULL);
++  self->led_device_root = g_build_filename(self->sys_root, "bus", "platform", "devices", "ps4-led", NULL);
++  self->drm_root = g_build_filename(self->sys_root, "class", "drm", NULL);
++  self->gpu_root = g_build_filename(self->drm_root, "card0", "device", NULL);
++
++  skm_service_refresh_paths(self);
++  return self;
++}
++
++void
++skm_service_free(SkmService *self)
++{
++  if (self == NULL) {
++    return;
++  }
++
++  g_clear_pointer(&self->sys_root, g_free);
++  g_clear_pointer(&self->proc_root, g_free);
++  g_clear_pointer(&self->hwmon_root, g_free);
++  g_clear_pointer(&self->led_root_base, g_free);
++  g_clear_pointer(&self->led_device_root, g_free);
++  g_clear_pointer(&self->drm_root, g_free);
++  g_clear_pointer(&self->gpu_root, g_free);
++  g_clear_pointer(&self->fan_root, g_free);
++  g_clear_pointer(&self->connector_root, g_free);
++  g_clear_pointer(&self->led_default_effect, g_free);
++  g_free(self);
++}
++
++SkmOperationResult *
++skm_operation_result_new(gboolean success, gboolean permission_denied, const gchar *message)
++{
++  SkmOperationResult *result = g_new0(SkmOperationResult, 1);
++
++  result->success = success;
++  result->permission_denied = permission_denied;
++  result->message = g_strdup(message);
++  return result;
++}
++
++void
++skm_operation_result_free(SkmOperationResult *result)
++{
++  if (result == NULL) {
++    return;
++  }
++
++  g_clear_pointer(&result->message, g_free);
++  g_free(result);
++}
++
++void
++skm_fan_state_clear(SkmFanState *state)
++{
++  g_clear_pointer(&state->message, g_free);
++}
++
++void
++skm_led_state_clear(SkmLedState *state)
++{
++  g_clear_pointer(&state->message, g_free);
++  g_clear_pointer(&state->active_effect, g_free);
++  g_clear_pointer(&state->effect_options, g_ptr_array_unref);
++}
++
++void
++skm_gpu_level_free(SkmGpuLevel *level)
++{
++  if (level == NULL) {
++    return;
++  }
++
++  g_clear_pointer(&level->label, g_free);
++  g_free(level);
++}
++
++void
++skm_gpu_state_clear(SkmGpuState *state)
++{
++  g_clear_pointer(&state->message, g_free);
++  g_clear_pointer(&state->variant, g_free);
++  g_clear_pointer(&state->vendor_id, g_free);
++  g_clear_pointer(&state->device_id, g_free);
++  g_clear_pointer(&state->performance_level, g_free);
++  g_clear_pointer(&state->warning, g_free);
++  g_clear_pointer(&state->levels, g_ptr_array_unref);
++}
++
++void
++skm_hdmi_state_clear(SkmHdmiState *state)
++{
++  g_clear_pointer(&state->message, g_free);
++  g_clear_pointer(&state->connector_name, g_free);
++  g_clear_pointer(&state->status, g_free);
++}
++
++void
++skm_system_info_clear(SkmSystemInfoState *state)
++{
++  g_clear_pointer(&state->kernel_version, g_free);
++  g_clear_pointer(&state->hardware_variant, g_free);
++  g_clear_pointer(&state->cpu_governor, g_free);
++  g_clear_pointer(&state->uptime, g_free);
++}
++
++void
++skm_snapshot_free(SkmSnapshot *snapshot)
++{
++  if (snapshot == NULL) {
++    return;
++  }
++
++  skm_system_info_clear(&snapshot->system);
++  skm_fan_state_clear(&snapshot->fan);
++  skm_led_state_clear(&snapshot->led);
++  skm_gpu_state_clear(&snapshot->gpu);
++  skm_hdmi_state_clear(&snapshot->hdmi);
++  g_free(snapshot);
++}
++
++SkmSnapshot *
++skm_service_read_snapshot(SkmService *self)
++{
++  SkmSnapshot *snapshot = g_new0(SkmSnapshot, 1);
++
++  g_return_val_if_fail(self != NULL, snapshot);
++
++  skm_service_refresh_paths(self);
++  snapshot->system = skm_service_read_system_info(self);
++  snapshot->fan = skm_service_read_fan(self);
++  snapshot->led = skm_service_read_led(self);
++  snapshot->gpu = skm_service_read_gpu(self);
++  snapshot->hdmi = skm_service_read_hdmi(self);
++
++  if (!self->led_defaults_valid && snapshot->led.available) {
++    self->led_defaults_valid = TRUE;
++    g_clear_pointer(&self->led_default_effect, g_free);
++    self->led_default_effect = g_strdup(
++      snapshot->led.active_effect != NULL ? snapshot->led.active_effect : "off");
++    self->led_default_has_thermal = snapshot->led.thermal_mode_supported && snapshot->led.has_thermal_mode;
++    self->led_default_thermal = snapshot->led.thermal_mode;
++    self->led_default_has_interval = snapshot->led.has_thermal_interval_ms;
++    self->led_default_interval_ms = snapshot->led.thermal_interval_ms;
++  }
++
++  return snapshot;
++}
+diff --git a/src/skm-service-private.h b/src/skm-service-private.h
+new file mode 100644
+index 0000000..239a5a0
+--- /dev/null
++++ b/src/skm-service-private.h
+@@ -0,0 +1,55 @@
++#pragma once
++
++#include "skm-service.h"
++
++struct _SkmService {
++  gchar *sys_root;
++  gchar *proc_root;
++  gchar *hwmon_root;
++  gchar *led_root_base;
++  gchar *led_device_root;
++  gchar *drm_root;
++  gchar *gpu_root;
++
++  gchar *fan_root;
++  gchar *connector_root;
++
++  gboolean led_defaults_valid;
++  gchar *led_default_effect;
++  gboolean led_default_has_thermal;
++  gboolean led_default_thermal;
++  gboolean led_default_has_interval;
++  gint led_default_interval_ms;
++};
++
++gchar *skm_path_join(const gchar *left, const gchar *right);
++gchar *skm_permission_hint(const gchar *subject);
++gchar *skm_not_exposed_message(void);
++void skm_service_refresh_paths(SkmService *self);
++
++SkmOperationResult *skm_operation_result_new(gboolean success, gboolean permission_denied, const gchar *message);
++
++void skm_fan_state_clear(SkmFanState *state);
++void skm_led_state_clear(SkmLedState *state);
++void skm_gpu_state_clear(SkmGpuState *state);
++void skm_hdmi_state_clear(SkmHdmiState *state);
++void skm_system_info_clear(SkmSystemInfoState *state);
++
++SkmSystemInfoState skm_service_read_system_info(SkmService *self);
++SkmFanState skm_service_read_fan(SkmService *self);
++SkmLedState skm_service_read_led(SkmService *self);
++SkmGpuState skm_service_read_gpu(SkmService *self);
++SkmHdmiState skm_service_read_hdmi(SkmService *self);
++
++gchar *skm_read_text_or_unavailable(const gchar *path, const gchar *label);
++gboolean skm_read_variant(SkmService *self, gchar **out_variant, gchar **out_vendor, gchar **out_device);
++
++gchar *skm_led_effect_brightness_path(SkmService *self, const gchar *effect);
++gchar *skm_led_mode_path(SkmService *self);
++gchar *skm_led_interval_path(SkmService *self);
++GPtrArray *skm_collect_led_effect_options(SkmService *self);
++gchar *skm_detect_active_led_effect(SkmService *self, GPtrArray *options);
++gchar *skm_thermal_led_effect_from_temp(SkmService *self);
++void skm_capture_led_defaults_if_needed(SkmService *self);
++
++GPtrArray *skm_parse_sclk_levels(const gchar *raw);
+diff --git a/src/skm-ui-private.h b/src/skm-ui-private.h
+new file mode 100644
+index 0000000..b13778d
+--- /dev/null
++++ b/src/skm-ui-private.h
+@@ -0,0 +1,129 @@
++#pragma once
++
++#include "skm-service.h"
++
++#include <gtk/gtk.h>
++
++typedef struct _SkmAppWindow SkmAppWindow;
++
++typedef enum {
++  SKM_DIRTY_NONE,
++  SKM_DIRTY_FAN,
++  SKM_DIRTY_LED,
++  SKM_DIRTY_GPU,
++} SkmDirtyKind;
++
++struct _SkmAppWindow {
++  GtkApplicationWindow *window;
++  SkmService *service;
++  GCancellable *cancellable;
++
++  guint poll_source_id;
++  guint fan_debounce_source_id;
++  guint notice_source_id;
++
++  gboolean refresh_in_flight;
++  gboolean fan_syncing;
++  gboolean led_syncing;
++  gboolean gpu_syncing;
++  gboolean fan_dirty;
++  gboolean led_dirty;
++  gboolean gpu_dirty;
++  gboolean gpu_selected_valid;
++
++  gint gpu_selected_index;
++  GDateTime *last_reprobe_at;
++
++  GtkStringList *led_effect_model;
++
++  GtkWidget *notice_revealer;
++  GtkWidget *notice_box;
++  GtkWidget *notice_label;
++
++  GtkWidget *system_kernel_value;
++  GtkWidget *system_variant_value;
++  GtkWidget *system_governor_value;
++  GtkWidget *system_uptime_value;
++
++  GtkWidget *fan_content;
++  GtkWidget *fan_unavailable_label;
++  GtkWidget *fan_temp_value;
++  GtkWidget *fan_rpm_value;
++  GtkWidget *fan_threshold_scale;
++  GtkWidget *fan_threshold_value;
++  GtkWidget *fan_status_label;
++  GtkWidget *fan_apply_button;
++  GtkWidget *fan_reset_button;
++
++  GtkWidget *led_content;
++  GtkWidget *led_unavailable_label;
++  GtkWidget *led_mode_value;
++  GtkWidget *led_active_value;
++  GtkWidget *led_effect_dropdown;
++  GtkWidget *led_thermal_row;
++  GtkWidget *led_thermal_switch;
++  GtkWidget *led_interval_row;
++  GtkWidget *led_interval_spin;
++  GtkWidget *led_status_label;
++  GtkWidget *led_apply_button;
++  GtkWidget *led_reset_button;
++
++  GtkWidget *gpu_content;
++  GtkWidget *gpu_unavailable_label;
++  GtkWidget *gpu_warning_label;
++  GtkWidget *gpu_variant_value;
++  GtkWidget *gpu_mode_value;
++  GtkWidget *gpu_active_value;
++  GtkWidget *gpu_manual_switch;
++  GtkWidget *gpu_levels_box;
++  GtkWidget *gpu_apply_button;
++  GtkWidget *gpu_auto_button;
++  GtkWidget *gpu_reset_button;
++
++  GtkWidget *hdmi_content;
++  GtkWidget *hdmi_unavailable_label;
++  GtkWidget *hdmi_connector_value;
++  GtkWidget *hdmi_status_value;
++  GtkWidget *hdmi_last_reprobe_value;
++  GtkWidget *hdmi_reprobe_button;
++};
++
++GtkWidget *skm_make_label(const gchar *text, const gchar *css_class, gfloat xalign, gboolean wrap);
++GtkWidget *skm_make_button(const gchar *text, const gchar *css_class);
++GtkWidget *skm_attach_info_row(GtkGrid *grid, gint row, const gchar *title, GtkWidget **out_value);
++GtkWidget *skm_make_metric_tile(const gchar *title, GtkWidget **out_value);
++GtkWidget *skm_make_control_row(const gchar *title, GtkWidget *widget, GtkWidget *value_widget);
++void skm_create_section_card(const gchar *title,
++                             const gchar *subtitle,
++                             GtkWidget **out_card,
++                             GtkWidget **out_content,
++                             GtkWidget **out_actions,
++                             GtkWidget **out_unavailable);
++
++void skm_flash_button(GtkWidget *button, gboolean success);
++void skm_show_notice(SkmAppWindow *self, const gchar *kind, const gchar *message);
++
++void skm_update_led_control_sensitivity(SkmAppWindow *self);
++void skm_update_system(SkmAppWindow *self, const SkmSystemInfoState *state);
++void skm_update_fan(SkmAppWindow *self, const SkmFanState *state);
++void skm_update_led(SkmAppWindow *self, const SkmLedState *state);
++void skm_update_gpu(SkmAppWindow *self, const SkmGpuState *state);
++void skm_update_hdmi(SkmAppWindow *self, const SkmHdmiState *state);
++
++void skm_refresh_dashboard(SkmAppWindow *self);
++gboolean skm_poll_cb(gpointer user_data);
++
++void skm_on_fan_threshold_changed(GtkRange *range, gpointer user_data);
++void skm_on_fan_apply_clicked(GtkButton *button, gpointer user_data);
++void skm_on_fan_reset_clicked(GtkButton *button, gpointer user_data);
++void skm_on_led_effect_changed(GObject *object, GParamSpec *pspec, gpointer user_data);
++void skm_on_led_thermal_changed(GObject *object, GParamSpec *pspec, gpointer user_data);
++void skm_on_led_interval_changed(GtkSpinButton *spin, gpointer user_data);
++void skm_on_led_apply_clicked(GtkButton *button, gpointer user_data);
++void skm_on_led_reset_clicked(GtkButton *button, gpointer user_data);
++void skm_on_gpu_level_toggled(GtkCheckButton *check, gpointer user_data);
++void skm_on_gpu_manual_changed(GObject *object, GParamSpec *pspec, gpointer user_data);
++void skm_on_gpu_apply_clicked(GtkButton *button, gpointer user_data);
++void skm_on_gpu_auto_clicked(GtkButton *button, gpointer user_data);
++void skm_on_gpu_reset_clicked(GtkButton *button, gpointer user_data);
++void skm_on_hdmi_reprobe_clicked(GtkButton *button, gpointer user_data);
+diff --git a/src/sysfs.c b/src/sysfs.c
+new file mode 100644
+index 0000000..0bbc341
+--- /dev/null
++++ b/src/sysfs.c
+@@ -0,0 +1,242 @@
++#include "skm-sysfs.h"
++
++#include <errno.h>
++#include <glib/gstdio.h>
++
++GQuark
++skm_sysfs_error_quark(void)
++{
++  return g_quark_from_static_string("skm-sysfs-error");
++}
++
++gboolean
++skm_node_exists(const gchar *path)
++{
++  return path != NULL && g_file_test(path, G_FILE_TEST_EXISTS);
++}
++
++static gboolean
++skm_make_missing_error(const gchar *path, const gchar *label, GError **error)
++{
++  g_set_error(
++    error,
++    SKM_SYSFS_ERROR,
++    SKM_SYSFS_ERROR_NOT_FOUND,
++    "%s not found: %s",
++    label,
++    path);
++  return FALSE;
++}
++
++static gboolean
++skm_make_permission_error(const gchar *path, const gchar *label, const gchar *verb, GError **error)
++{
++  g_set_error(
++    error,
++    SKM_SYSFS_ERROR,
++    SKM_SYSFS_ERROR_PERMISSION,
++    "Permission denied %s %s: %s",
++    verb,
++    label,
++    path);
++  return FALSE;
++}
++
++gboolean
++skm_sysfs_read_text(const gchar *path, const gchar *label, gchar **out_text, GError **error)
++{
++  gchar *raw = NULL;
++  gsize length = 0;
++
++  g_return_val_if_fail(out_text != NULL, FALSE);
++  *out_text = NULL;
++
++  if (!skm_node_exists(path)) {
++    return skm_make_missing_error(path, label, error);
++  }
++
++  if (!g_file_get_contents(path, &raw, &length, error)) {
++    if (error != NULL && *error != NULL) {
++      if ((*error)->domain == G_FILE_ERROR && (*error)->code == G_FILE_ERROR_ACCES) {
++        g_clear_error(error);
++        return skm_make_permission_error(path, label, "reading", error);
++      }
++      g_prefix_error(error, "Failed reading %s: ", label);
++    }
++    return FALSE;
++  }
++
++  g_strchomp(raw);
++  *out_text = raw;
++  return TRUE;
++}
++
++gboolean
++skm_sysfs_read_int(const gchar *path, const gchar *label, gint *out_value, GError **error)
++{
++  gchar *text = NULL;
++  gchar *endptr = NULL;
++  gint64 parsed = 0;
++
++  g_return_val_if_fail(out_value != NULL, FALSE);
++  *out_value = 0;
++
++  if (!skm_sysfs_read_text(path, label, &text, error)) {
++    return FALSE;
++  }
++
++  errno = 0;
++  parsed = g_ascii_strtoll(text, &endptr, 0);
++  if (errno != 0 || endptr == text) {
++    g_set_error(
++      error,
++      SKM_SYSFS_ERROR,
++      SKM_SYSFS_ERROR_IO,
++      "Failed parsing integer from %s",
++      label);
++    g_free(text);
++    return FALSE;
++  }
++
++  *out_value = (gint) parsed;
++  g_free(text);
++  return TRUE;
++}
++
++gboolean
++skm_sysfs_write_text(const gchar *path, const gchar *label, const gchar *value, GError **error)
++{
++  FILE *handle = NULL;
++
++  if (!skm_node_exists(path)) {
++    return skm_make_missing_error(path, label, error);
++  }
++
++  handle = g_fopen(path, "w");
++  if (handle == NULL) {
++    if (errno == EACCES || errno == EPERM) {
++      return skm_make_permission_error(path, label, "writing", error);
++    }
++
++    g_set_error(
++      error,
++      SKM_SYSFS_ERROR,
++      SKM_SYSFS_ERROR_IO,
++      "Failed writing %s: %s",
++      label,
++      g_strerror(errno));
++    return FALSE;
++  }
++
++  if (fputs(value, handle) == EOF) {
++    if (errno == EACCES || errno == EPERM) {
++      fclose(handle);
++      return skm_make_permission_error(path, label, "writing", error);
++    }
++
++    g_set_error(
++      error,
++      SKM_SYSFS_ERROR,
++      SKM_SYSFS_ERROR_IO,
++      "Failed writing %s: %s",
++      label,
++      g_strerror(errno));
++    fclose(handle);
++    return FALSE;
++  }
++
++  fclose(handle);
++  return TRUE;
++}
++
++gboolean
++skm_sysfs_write_int(const gchar *path, const gchar *label, gint value, GError **error)
++{
++  gchar *text = g_strdup_printf("%d", value);
++  gboolean ok = skm_sysfs_write_text(path, label, text, error);
++  g_free(text);
++  return ok;
++}
++
++gchar *
++skm_find_hwmon_by_name(const gchar *base_path, const gchar *name)
++{
++  GDir *dir = NULL;
++  const gchar *entry = NULL;
++
++  if (!skm_node_exists(base_path)) {
++    return NULL;
++  }
++
++  dir = g_dir_open(base_path, 0, NULL);
++  if (dir == NULL) {
++    return NULL;
++  }
++
++  while ((entry = g_dir_read_name(dir)) != NULL) {
++    g_autofree gchar *candidate = NULL;
++    g_autofree gchar *name_path = NULL;
++    g_autofree gchar *read_name = NULL;
++
++    if (!g_str_has_prefix(entry, "hwmon")) {
++      continue;
++    }
++
++    candidate = g_build_filename(base_path, entry, NULL);
++    name_path = g_build_filename(candidate, "name", NULL);
++    if (!skm_sysfs_read_text(name_path, "hwmon name", &read_name, NULL)) {
++      continue;
++    }
++
++    if (g_strcmp0(read_name, name) == 0) {
++      g_dir_close(dir);
++      return g_steal_pointer(&candidate);
++    }
++  }
++
++  g_dir_close(dir);
++  return NULL;
++}
++
++gchar *
++skm_find_drm_connector(const gchar *base_path, const gchar *preferred_name)
++{
++  g_autofree gchar *preferred = NULL;
++  GDir *dir = NULL;
++  const gchar *entry = NULL;
++
++  preferred = g_build_filename(base_path, preferred_name, "status", NULL);
++  if (skm_node_exists(preferred)) {
++    return g_build_filename(base_path, preferred_name, NULL);
++  }
++
++  if (!skm_node_exists(base_path)) {
++    return NULL;
++  }
++
++  dir = g_dir_open(base_path, 0, NULL);
++  if (dir == NULL) {
++    return NULL;
++  }
++
++  while ((entry = g_dir_read_name(dir)) != NULL) {
++    g_autofree gchar *status_path = NULL;
++
++    if (!g_str_has_prefix(entry, "card")) {
++      continue;
++    }
++
++    if (strchr(entry, '-') == NULL) {
++      continue;
++    }
++
++    status_path = g_build_filename(base_path, entry, "status", NULL);
++    if (skm_node_exists(status_path)) {
++      g_dir_close(dir);
++      return g_build_filename(base_path, entry, NULL);
++    }
++  }
++
++  g_dir_close(dir);
++  return NULL;
++}
+diff --git a/src/ui-actions.c b/src/ui-actions.c
+new file mode 100644
+index 0000000..35104f0
+--- /dev/null
++++ b/src/ui-actions.c
+@@ -0,0 +1,562 @@
++#include "skm-ui-private.h"
++
++#include <math.h>
++
++typedef gpointer (*SkmWorkerFunc)(SkmAppWindow *self, gpointer data);
++typedef void (*SkmFinishFunc)(SkmAppWindow *self, gpointer result, gpointer data);
++
++typedef struct {
++  SkmAppWindow *self;
++  SkmWorkerFunc worker;
++  SkmFinishFunc finish;
++  gpointer data;
++  GDestroyNotify destroy_data;
++} SkmTaskCtx;
++
++typedef struct {
++  GtkWidget *button;
++  gint threshold;
++} SkmFanApplyData;
++
++typedef struct {
++  GtkWidget *button;
++} SkmButtonOnlyData;
++
++typedef struct {
++  GtkWidget *button;
++  gchar *effect;
++  gboolean thermal_mode;
++  gint thermal_interval_ms;
++} SkmLedApplyData;
++
++typedef struct {
++  GtkWidget *button;
++  gboolean enabled;
++} SkmGpuManualData;
++
++typedef struct {
++  GtkWidget *button;
++  gint index;
++} SkmGpuLevelData;
++
++static gpointer skm_worker_snapshot(SkmAppWindow *self, gpointer data);
++static void skm_finish_snapshot(SkmAppWindow *self, gpointer result, gpointer data);
++static void skm_task_ctx_free(SkmTaskCtx *ctx);
++static void skm_run_task(SkmAppWindow *self, SkmWorkerFunc worker, SkmFinishFunc finish, gpointer data, GDestroyNotify destroy_data);
++static void skm_handle_operation_result(SkmAppWindow *self,
++                                        SkmOperationResult *result,
++                                        GtkWidget *button,
++                                        SkmDirtyKind dirty_kind,
++                                        gboolean update_reprobe_timestamp);
++static gpointer skm_worker_apply_fan(SkmAppWindow *self, gpointer data);
++static void skm_finish_apply_fan(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_reset_fan(SkmAppWindow *self, gpointer data);
++static void skm_finish_reset_fan(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_apply_led(SkmAppWindow *self, gpointer data);
++static void skm_finish_apply_led(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_reset_led(SkmAppWindow *self, gpointer data);
++static void skm_finish_reset_led(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_set_gpu_manual(SkmAppWindow *self, gpointer data);
++static void skm_finish_set_gpu_manual(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_apply_gpu_level(SkmAppWindow *self, gpointer data);
++static void skm_finish_apply_gpu_level(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_reset_gpu(SkmAppWindow *self, gpointer data);
++static void skm_finish_reset_gpu(SkmAppWindow *self, gpointer result, gpointer data);
++static gpointer skm_worker_reprobe_hdmi(SkmAppWindow *self, gpointer data);
++static void skm_finish_reprobe_hdmi(SkmAppWindow *self, gpointer result, gpointer data);
++static gboolean skm_fan_debounce_cb(gpointer user_data);
++static void skm_led_apply_data_free(SkmLedApplyData *data);
++
++static gpointer
++skm_worker_snapshot(SkmAppWindow *self, gpointer data)
++{
++  (void) data;
++  return skm_service_read_snapshot(self->service);
++}
++
++static void
++skm_finish_snapshot(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmSnapshot *snapshot = result;
++
++  (void) data;
++
++  self->refresh_in_flight = FALSE;
++  skm_update_system(self, &snapshot->system);
++  skm_update_fan(self, &snapshot->fan);
++  skm_update_led(self, &snapshot->led);
++  skm_update_gpu(self, &snapshot->gpu);
++  skm_update_hdmi(self, &snapshot->hdmi);
++  skm_snapshot_free(snapshot);
++}
++
++static void
++skm_task_worker(GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable)
++{
++  SkmTaskCtx *ctx = task_data;
++  gpointer result = NULL;
++
++  (void) source_object;
++  (void) cancellable;
++
++  result = ctx->worker(ctx->self, ctx->data);
++  g_task_return_pointer(task, result, NULL);
++}
++
++static void
++skm_task_done(GObject *source_object, GAsyncResult *res, gpointer user_data)
++{
++  SkmTaskCtx *ctx = user_data;
++  gpointer result = NULL;
++
++  (void) source_object;
++
++  result = g_task_propagate_pointer(G_TASK(res), NULL);
++  ctx->finish(ctx->self, result, ctx->data);
++  skm_task_ctx_free(ctx);
++}
++
++static void
++skm_task_ctx_free(SkmTaskCtx *ctx)
++{
++  if (ctx == NULL) {
++    return;
++  }
++
++  if (ctx->destroy_data != NULL) {
++    ctx->destroy_data(ctx->data);
++  }
++  g_free(ctx);
++}
++
++static void
++skm_run_task(SkmAppWindow *self, SkmWorkerFunc worker, SkmFinishFunc finish, gpointer data, GDestroyNotify destroy_data)
++{
++  GTask *task = NULL;
++  SkmTaskCtx *ctx = g_new0(SkmTaskCtx, 1);
++
++  ctx->self = self;
++  ctx->worker = worker;
++  ctx->finish = finish;
++  ctx->data = data;
++  ctx->destroy_data = destroy_data;
++
++  task = g_task_new(self->window, self->cancellable, skm_task_done, ctx);
++  g_task_set_task_data(task, ctx, NULL);
++  g_task_run_in_thread(task, skm_task_worker);
++  g_object_unref(task);
++}
++
++static void
++skm_handle_operation_result(SkmAppWindow *self,
++                            SkmOperationResult *result,
++                            GtkWidget *button,
++                            SkmDirtyKind dirty_kind,
++                            gboolean update_reprobe_timestamp)
++{
++  if (result->success) {
++    if (dirty_kind == SKM_DIRTY_FAN) {
++      self->fan_dirty = FALSE;
++    } else if (dirty_kind == SKM_DIRTY_LED) {
++      self->led_dirty = FALSE;
++    } else if (dirty_kind == SKM_DIRTY_GPU) {
++      self->gpu_dirty = FALSE;
++    }
++
++    if (update_reprobe_timestamp) {
++      g_clear_pointer(&self->last_reprobe_at, g_date_time_unref);
++      self->last_reprobe_at = g_date_time_new_now_local();
++      skm_show_notice(self, "notice-success", "HDMI reprobe triggered.");
++    } else {
++      skm_show_notice(self, "notice-success", result->message);
++    }
++    skm_flash_button(button, TRUE);
++    skm_refresh_dashboard(self);
++  } else {
++    skm_show_notice(self, "notice-error", result->message);
++    skm_flash_button(button, FALSE);
++  }
++
++  skm_operation_result_free(result);
++}
++
++static gpointer
++skm_worker_apply_fan(SkmAppWindow *self, gpointer data)
++{
++  SkmFanApplyData *params = data;
++
++  return skm_service_apply_fan(self->service, params->threshold);
++}
++
++static void
++skm_finish_apply_fan(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmFanApplyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_FAN, FALSE);
++}
++
++static gpointer
++skm_worker_reset_fan(SkmAppWindow *self, gpointer data)
++{
++  (void) data;
++  return skm_service_reset_fan_defaults(self->service);
++}
++
++static void
++skm_finish_reset_fan(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmButtonOnlyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_FAN, FALSE);
++}
++
++static gpointer
++skm_worker_apply_led(SkmAppWindow *self, gpointer data)
++{
++  SkmLedApplyData *params = data;
++
++  return skm_service_apply_led(
++    self->service,
++    params->effect,
++    params->thermal_mode,
++    params->thermal_interval_ms);
++}
++
++static void
++skm_finish_apply_led(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmLedApplyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_LED, FALSE);
++}
++
++static gpointer
++skm_worker_reset_led(SkmAppWindow *self, gpointer data)
++{
++  (void) data;
++  return skm_service_reset_led_defaults(self->service);
++}
++
++static void
++skm_finish_reset_led(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmButtonOnlyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_LED, FALSE);
++}
++
++static gpointer
++skm_worker_set_gpu_manual(SkmAppWindow *self, gpointer data)
++{
++  SkmGpuManualData *params = data;
++
++  return skm_service_set_gpu_manual(self->service, params->enabled);
++}
++
++static void
++skm_finish_set_gpu_manual(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmGpuManualData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_NONE, FALSE);
++}
++
++static gpointer
++skm_worker_apply_gpu_level(SkmAppWindow *self, gpointer data)
++{
++  SkmGpuLevelData *params = data;
++
++  return skm_service_apply_gpu_level(self->service, params->index);
++}
++
++static void
++skm_finish_apply_gpu_level(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmGpuLevelData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_GPU, FALSE);
++}
++
++static gpointer
++skm_worker_reset_gpu(SkmAppWindow *self, gpointer data)
++{
++  (void) data;
++  return skm_service_reset_gpu_defaults(self->service);
++}
++
++static void
++skm_finish_reset_gpu(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmButtonOnlyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_GPU, FALSE);
++}
++
++static gpointer
++skm_worker_reprobe_hdmi(SkmAppWindow *self, gpointer data)
++{
++  (void) data;
++  return skm_service_reprobe_display(self->service);
++}
++
++static void
++skm_finish_reprobe_hdmi(SkmAppWindow *self, gpointer result, gpointer data)
++{
++  SkmButtonOnlyData *params = data;
++
++  skm_handle_operation_result(self, result, params->button, SKM_DIRTY_NONE, TRUE);
++}
++
++void
++skm_refresh_dashboard(SkmAppWindow *self)
++{
++  if (self->refresh_in_flight) {
++    return;
++  }
++
++  self->refresh_in_flight = TRUE;
++  skm_run_task(self, skm_worker_snapshot, skm_finish_snapshot, NULL, NULL);
++}
++
++gboolean
++skm_poll_cb(gpointer user_data)
++{
++  skm_refresh_dashboard(user_data);
++  return G_SOURCE_CONTINUE;
++}
++
++static gboolean
++skm_fan_debounce_cb(gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmFanApplyData *params = g_new0(SkmFanApplyData, 1);
++
++  self->fan_debounce_source_id = 0;
++  params->button = self->fan_apply_button;
++  params->threshold = (gint) lround(gtk_range_get_value(GTK_RANGE(self->fan_threshold_scale)));
++  skm_run_task(self, skm_worker_apply_fan, skm_finish_apply_fan, params, g_free);
++  return G_SOURCE_REMOVE;
++}
++
++void
++skm_on_fan_threshold_changed(GtkRange *range, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  gint threshold = (gint) lround(gtk_range_get_value(range));
++  g_autofree gchar *text = g_strdup_printf("%d C", threshold);
++
++  gtk_label_set_text(GTK_LABEL(self->fan_threshold_value), text);
++  if (self->fan_syncing) {
++    return;
++  }
++
++  self->fan_dirty = TRUE;
++  if (self->fan_debounce_source_id != 0) {
++    g_source_remove(self->fan_debounce_source_id);
++  }
++  self->fan_debounce_source_id = g_timeout_add(500, skm_fan_debounce_cb, self);
++}
++
++void
++skm_on_fan_apply_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmFanApplyData *params = g_new0(SkmFanApplyData, 1);
++
++  (void) button;
++
++  params->button = self->fan_apply_button;
++  params->threshold = (gint) lround(gtk_range_get_value(GTK_RANGE(self->fan_threshold_scale)));
++  skm_run_task(self, skm_worker_apply_fan, skm_finish_apply_fan, params, g_free);
++}
++
++void
++skm_on_fan_reset_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmButtonOnlyData *params = g_new0(SkmButtonOnlyData, 1);
++
++  (void) button;
++
++  params->button = self->fan_reset_button;
++  skm_run_task(self, skm_worker_reset_fan, skm_finish_reset_fan, params, g_free);
++}
++
++void
++skm_on_led_effect_changed(GObject *object, GParamSpec *pspec, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  (void) object;
++  (void) pspec;
++
++  if (self->led_syncing) {
++    return;
++  }
++  self->led_dirty = TRUE;
++}
++
++void
++skm_on_led_thermal_changed(GObject *object, GParamSpec *pspec, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  (void) object;
++  (void) pspec;
++
++  skm_update_led_control_sensitivity(self);
++
++  if (self->led_syncing) {
++    return;
++  }
++  self->led_dirty = TRUE;
++}
++
++void
++skm_on_led_interval_changed(GtkSpinButton *spin, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  (void) spin;
++
++  if (self->led_syncing) {
++    return;
++  }
++  self->led_dirty = TRUE;
++}
++
++void
++skm_on_led_apply_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmLedApplyData *params = g_new0(SkmLedApplyData, 1);
++  guint selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(self->led_effect_dropdown));
++  const gchar *effect = self->led_effect_model != NULL
++    ? gtk_string_list_get_string(self->led_effect_model, selected)
++    : "off";
++
++  (void) button;
++
++  params->button = self->led_apply_button;
++  params->effect = g_strdup(effect != NULL ? effect : "off");
++  params->thermal_mode = gtk_switch_get_active(GTK_SWITCH(self->led_thermal_switch));
++  params->thermal_interval_ms = gtk_widget_get_visible(self->led_interval_row)
++    ? gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(self->led_interval_spin))
++    : 2000;
++
++  skm_run_task(self, skm_worker_apply_led, skm_finish_apply_led, params, (GDestroyNotify) skm_led_apply_data_free);
++}
++
++static void
++skm_led_apply_data_free(SkmLedApplyData *data)
++{
++  if (data == NULL) {
++    return;
++  }
++
++  g_clear_pointer(&data->effect, g_free);
++  g_free(data);
++}
++
++void
++skm_on_gpu_level_toggled(GtkCheckButton *check, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  if (self->gpu_syncing || !gtk_check_button_get_active(check)) {
++    return;
++  }
++
++  self->gpu_dirty = TRUE;
++  self->gpu_selected_valid = TRUE;
++  self->gpu_selected_index = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(check), "skm-level-index"));
++}
++
++void
++skm_on_led_reset_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmButtonOnlyData *params = g_new0(SkmButtonOnlyData, 1);
++
++  (void) button;
++
++  params->button = self->led_reset_button;
++  skm_run_task(self, skm_worker_reset_led, skm_finish_reset_led, params, g_free);
++}
++
++void
++skm_on_gpu_manual_changed(GObject *object, GParamSpec *pspec, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmGpuManualData *params = NULL;
++
++  (void) object;
++  (void) pspec;
++
++  if (self->gpu_syncing) {
++    return;
++  }
++
++  params = g_new0(SkmGpuManualData, 1);
++  params->button = self->gpu_apply_button;
++  params->enabled = gtk_switch_get_active(GTK_SWITCH(self->gpu_manual_switch));
++  skm_run_task(self, skm_worker_set_gpu_manual, skm_finish_set_gpu_manual, params, g_free);
++}
++
++void
++skm_on_gpu_apply_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmGpuLevelData *params = NULL;
++
++  (void) button;
++
++  if (!self->gpu_selected_valid) {
++    skm_show_notice(self, "notice-error", "Pick an SCLK level first.");
++    skm_flash_button(self->gpu_apply_button, FALSE);
++    return;
++  }
++
++  params = g_new0(SkmGpuLevelData, 1);
++  params->button = self->gpu_apply_button;
++  params->index = self->gpu_selected_index;
++  skm_run_task(self, skm_worker_apply_gpu_level, skm_finish_apply_gpu_level, params, g_free);
++}
++
++void
++skm_on_gpu_auto_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmGpuManualData *params = g_new0(SkmGpuManualData, 1);
++
++  (void) button;
++
++  params->button = self->gpu_auto_button;
++  params->enabled = FALSE;
++  skm_run_task(self, skm_worker_set_gpu_manual, skm_finish_set_gpu_manual, params, g_free);
++}
++
++void
++skm_on_gpu_reset_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmButtonOnlyData *params = g_new0(SkmButtonOnlyData, 1);
++
++  (void) button;
++
++  params->button = self->gpu_reset_button;
++  skm_run_task(self, skm_worker_reset_gpu, skm_finish_reset_gpu, params, g_free);
++}
++
++void
++skm_on_hdmi_reprobe_clicked(GtkButton *button, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++  SkmButtonOnlyData *params = g_new0(SkmButtonOnlyData, 1);
++
++  (void) button;
++
++  params->button = self->hdmi_reprobe_button;
++  skm_run_task(self, skm_worker_reprobe_hdmi, skm_finish_reprobe_hdmi, params, g_free);
++}
+diff --git a/src/ui-common.c b/src/ui-common.c
+new file mode 100644
+index 0000000..8992f39
+--- /dev/null
++++ b/src/ui-common.c
+@@ -0,0 +1,165 @@
++#include "skm-ui-private.h"
++
++typedef struct {
++  GtkWidget *button;
++  gchar *css_class;
++} SkmFlashData;
++
++GtkWidget *
++skm_make_label(const gchar *text, const gchar *css_class, gfloat xalign, gboolean wrap)
++{
++  GtkWidget *label = gtk_label_new(text);
++
++  gtk_label_set_xalign(GTK_LABEL(label), xalign);
++  gtk_label_set_wrap(GTK_LABEL(label), wrap);
++  gtk_label_set_selectable(GTK_LABEL(label), FALSE);
++  if (css_class != NULL) {
++    gtk_widget_add_css_class(label, css_class);
++  }
++  return label;
++}
++
++GtkWidget *
++skm_make_button(const gchar *text, const gchar *css_class)
++{
++  GtkWidget *button = gtk_button_new_with_label(text);
++
++  if (css_class != NULL) {
++    gtk_widget_add_css_class(button, css_class);
++  }
++  return button;
++}
++
++GtkWidget *
++skm_attach_info_row(GtkGrid *grid, gint row, const gchar *title, GtkWidget **out_value)
++{
++  GtkWidget *key = skm_make_label(title, "dim-label", 0.0f, FALSE);
++  GtkWidget *value = skm_make_label("—", "value-label", 1.0f, FALSE);
++
++  gtk_widget_set_halign(value, GTK_ALIGN_END);
++  gtk_widget_set_hexpand(value, TRUE);
++  gtk_grid_attach(grid, key, 0, row, 1, 1);
++  gtk_grid_attach(grid, value, 1, row, 1, 1);
++
++  *out_value = value;
++  return value;
++}
++
++GtkWidget *
++skm_make_metric_tile(const gchar *title, GtkWidget **out_value)
++{
++  GtkWidget *tile = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
++  GtkWidget *value = NULL;
++
++  gtk_widget_add_css_class(tile, "metric-card");
++  gtk_widget_set_hexpand(tile, TRUE);
++  gtk_box_append(GTK_BOX(tile), skm_make_label(title, "metric-title", 0.0f, FALSE));
++  value = skm_make_label("—", "metric-value", 0.0f, FALSE);
++  gtk_box_append(GTK_BOX(tile), value);
++
++  *out_value = value;
++  return tile;
++}
++
++GtkWidget *
++skm_make_control_row(const gchar *title, GtkWidget *widget, GtkWidget *value_widget)
++{
++  GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
++  GtkWidget *title_label = skm_make_label(title, "dim-label", 0.0f, FALSE);
++
++  gtk_widget_set_hexpand(row, TRUE);
++  gtk_widget_set_size_request(title_label, 150, -1);
++  gtk_widget_set_hexpand(widget, TRUE);
++
++  gtk_box_append(GTK_BOX(row), title_label);
++  gtk_box_append(GTK_BOX(row), widget);
++  if (value_widget != NULL) {
++    gtk_box_append(GTK_BOX(row), value_widget);
++  }
++
++  return row;
++}
++
++void
++skm_create_section_card(const gchar *title,
++                        const gchar *subtitle,
++                        GtkWidget **out_card,
++                        GtkWidget **out_content,
++                        GtkWidget **out_actions,
++                        GtkWidget **out_unavailable)
++{
++  GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
++  GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
++  GtkWidget *title_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
++  GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
++  GtkWidget *unavailable = skm_make_label("Not exposed by this Strawberry PS4 kernel build.", "section-unavailable", 0.0f, TRUE);
++  GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
++
++  gtk_widget_add_css_class(card, "glass-card");
++  gtk_widget_set_hexpand(title_box, TRUE);
++  gtk_widget_set_halign(actions, GTK_ALIGN_END);
++
++  gtk_box_append(GTK_BOX(title_box), skm_make_label(title, "card-title", 0.0f, FALSE));
++  gtk_box_append(GTK_BOX(title_box), skm_make_label(subtitle, "card-subtitle", 0.0f, TRUE));
++  gtk_box_append(GTK_BOX(header), title_box);
++  gtk_box_append(GTK_BOX(header), actions);
++  gtk_box_append(GTK_BOX(card), header);
++
++  gtk_widget_set_visible(unavailable, FALSE);
++  gtk_box_append(GTK_BOX(card), unavailable);
++  gtk_box_append(GTK_BOX(card), content);
++
++  *out_card = card;
++  *out_content = content;
++  *out_actions = actions;
++  *out_unavailable = unavailable;
++}
++
++static gboolean
++skm_clear_button_flash_cb(gpointer data)
++{
++  SkmFlashData *flash = data;
++
++  gtk_widget_remove_css_class(flash->button, flash->css_class);
++  g_free(flash->css_class);
++  g_free(flash);
++  return G_SOURCE_REMOVE;
++}
++
++void
++skm_flash_button(GtkWidget *button, gboolean success)
++{
++  SkmFlashData *flash = g_new0(SkmFlashData, 1);
++
++  flash->button = button;
++  flash->css_class = g_strdup(success ? "button-success" : "button-error");
++  gtk_widget_add_css_class(button, flash->css_class);
++  g_timeout_add(900, skm_clear_button_flash_cb, flash);
++}
++
++static gboolean
++skm_hide_notice_cb(gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  self->notice_source_id = 0;
++  gtk_revealer_set_reveal_child(GTK_REVEALER(self->notice_revealer), FALSE);
++  return G_SOURCE_REMOVE;
++}
++
++void
++skm_show_notice(SkmAppWindow *self, const gchar *kind, const gchar *message)
++{
++  gtk_widget_remove_css_class(self->notice_box, "notice-success");
++  gtk_widget_remove_css_class(self->notice_box, "notice-error");
++  gtk_widget_remove_css_class(self->notice_box, "notice-warning");
++  gtk_widget_add_css_class(self->notice_box, kind);
++  gtk_label_set_text(GTK_LABEL(self->notice_label), message);
++  gtk_revealer_set_reveal_child(GTK_REVEALER(self->notice_revealer), TRUE);
++
++  if (self->notice_source_id != 0) {
++    g_source_remove(self->notice_source_id);
++  }
++
++  self->notice_source_id = g_timeout_add_seconds(4, skm_hide_notice_cb, self);
++}
+diff --git a/src/ui-update.c b/src/ui-update.c
+new file mode 100644
+index 0000000..c620584
+--- /dev/null
++++ b/src/ui-update.c
+@@ -0,0 +1,257 @@
++#include "skm-ui-private.h"
++
++static void
++skm_set_section_availability(GtkWidget *content, GtkWidget *unavailable, gboolean available, const gchar *message)
++{
++  gtk_widget_set_sensitive(content, available);
++  gtk_widget_set_visible(unavailable, !available);
++  gtk_label_set_text(GTK_LABEL(unavailable), message);
++}
++
++void
++skm_update_led_control_sensitivity(SkmAppWindow *self)
++{
++  gboolean thermal_mode = gtk_switch_get_active(GTK_SWITCH(self->led_thermal_switch));
++
++  gtk_widget_set_sensitive(self->led_effect_dropdown, !thermal_mode);
++  gtk_widget_set_sensitive(self->led_interval_spin, thermal_mode);
++}
++
++static void
++skm_set_dropdown_strings(GtkDropDown *dropdown, GtkStringList **storage, GPtrArray *values)
++{
++  GtkStringList *model = NULL;
++  guint i = 0;
++
++  model = gtk_string_list_new(NULL);
++  if (values != NULL) {
++    for (i = 0; i < values->len; i++) {
++      gtk_string_list_append(model, g_ptr_array_index(values, i));
++    }
++  }
++
++  gtk_drop_down_set_model(dropdown, G_LIST_MODEL(model));
++  g_set_object(storage, model);
++  g_object_unref(model);
++}
++
++static void
++skm_rebuild_gpu_levels(SkmAppWindow *self, GPtrArray *levels)
++{
++  GtkWidget *child = gtk_widget_get_first_child(self->gpu_levels_box);
++  GtkCheckButton *first = NULL;
++  guint i = 0;
++
++  while (child != NULL) {
++    GtkWidget *next = gtk_widget_get_next_sibling(child);
++
++    gtk_box_remove(GTK_BOX(self->gpu_levels_box), child);
++    child = next;
++  }
++
++  if (levels == NULL || levels->len == 0) {
++    gtk_box_append(GTK_BOX(self->gpu_levels_box), skm_make_label("No SCLK levels exposed.", "dim-label", 0.0f, FALSE));
++    return;
++  }
++
++  self->gpu_syncing = TRUE;
++  for (i = 0; i < levels->len; i++) {
++    SkmGpuLevel *level = g_ptr_array_index(levels, i);
++    GtkWidget *button = NULL;
++    g_autofree gchar *text = NULL;
++
++    text = level->has_mhz
++      ? g_strdup_printf("%d: %d MHz", level->index, level->mhz)
++      : g_strdup_printf("%d: %s", level->index, level->label);
++
++    button = gtk_check_button_new_with_label(text);
++    gtk_widget_add_css_class(button, "level-check");
++    g_object_set_data(G_OBJECT(button), "skm-level-index", GINT_TO_POINTER(level->index));
++    g_signal_connect(button, "toggled", G_CALLBACK(skm_on_gpu_level_toggled), self);
++
++    if (first == NULL) {
++      first = GTK_CHECK_BUTTON(button);
++    } else {
++      gtk_check_button_set_group(GTK_CHECK_BUTTON(button), first);
++    }
++
++    gtk_box_append(GTK_BOX(self->gpu_levels_box), button);
++  }
++
++  if (!self->gpu_selected_valid && levels->len > 0) {
++    SkmGpuLevel *level = g_ptr_array_index(levels, 0);
++    self->gpu_selected_valid = TRUE;
++    self->gpu_selected_index = level->index;
++  }
++
++  child = gtk_widget_get_first_child(self->gpu_levels_box);
++  while (child != NULL) {
++    gint index = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(child), "skm-level-index"));
++
++    if (GTK_IS_CHECK_BUTTON(child)) {
++      gtk_check_button_set_active(GTK_CHECK_BUTTON(child), self->gpu_selected_valid && index == self->gpu_selected_index);
++    }
++    child = gtk_widget_get_next_sibling(child);
++  }
++  self->gpu_syncing = FALSE;
++}
++
++void
++skm_update_system(SkmAppWindow *self, const SkmSystemInfoState *state)
++{
++  gtk_label_set_text(GTK_LABEL(self->system_kernel_value), state->kernel_version);
++  gtk_label_set_text(GTK_LABEL(self->system_variant_value), state->hardware_variant);
++  gtk_label_set_text(GTK_LABEL(self->system_governor_value), state->cpu_governor);
++  gtk_label_set_text(GTK_LABEL(self->system_uptime_value), state->uptime);
++}
++
++void
++skm_update_fan(SkmAppWindow *self, const SkmFanState *state)
++{
++  g_autofree gchar *temp_text = NULL;
++  g_autofree gchar *rpm_text = NULL;
++
++  skm_set_section_availability(self->fan_content, self->fan_unavailable_label, state->available, state->message);
++  gtk_label_set_text(GTK_LABEL(self->fan_status_label), state->message);
++
++  temp_text = state->has_temperature_c ? g_strdup_printf("%.1f C", state->temperature_c) : NULL;
++  rpm_text = state->has_rpm ? g_strdup_printf("%d RPM", state->rpm) : NULL;
++  gtk_label_set_text(GTK_LABEL(self->fan_temp_value), temp_text != NULL ? temp_text : "—");
++  gtk_label_set_text(GTK_LABEL(self->fan_rpm_value), rpm_text != NULL ? rpm_text : "—");
++
++  if (!state->available || self->fan_dirty) {
++    return;
++  }
++
++  self->fan_syncing = TRUE;
++  if (state->has_threshold_c) {
++    g_autofree gchar *text = g_strdup_printf("%d C", state->threshold_c);
++
++    gtk_range_set_value(GTK_RANGE(self->fan_threshold_scale), state->threshold_c);
++    gtk_label_set_text(GTK_LABEL(self->fan_threshold_value), text);
++  }
++
++  self->fan_syncing = FALSE;
++}
++
++void
++skm_update_led(SkmAppWindow *self, const SkmLedState *state)
++{
++  skm_set_section_availability(self->led_content, self->led_unavailable_label, state->available, state->message);
++  gtk_label_set_text(GTK_LABEL(self->led_status_label), state->message);
++  gtk_label_set_text(
++    GTK_LABEL(self->led_mode_value),
++    state->has_thermal_mode && state->thermal_mode ? "Thermal" : "Static");
++  gtk_label_set_text(
++    GTK_LABEL(self->led_active_value),
++    state->has_active_effect && state->active_effect != NULL ? state->active_effect : "off");
++
++  if (!state->available) {
++    gtk_widget_set_visible(self->led_thermal_row, FALSE);
++    gtk_widget_set_visible(self->led_interval_row, FALSE);
++    return;
++  }
++
++  if (!self->led_dirty) {
++    guint selected = 0;
++
++    self->led_syncing = TRUE;
++    skm_set_dropdown_strings(GTK_DROP_DOWN(self->led_effect_dropdown), &self->led_effect_model, state->effect_options);
++    if (state->active_effect != NULL && self->led_effect_model != NULL) {
++      guint i = 0;
++
++      for (i = 0; i < g_list_model_get_n_items(G_LIST_MODEL(self->led_effect_model)); i++) {
++        const gchar *value = gtk_string_list_get_string(self->led_effect_model, i);
++
++        if (g_strcmp0(value, state->active_effect) == 0) {
++          selected = i;
++          break;
++        }
++      }
++    }
++    gtk_drop_down_set_selected(GTK_DROP_DOWN(self->led_effect_dropdown), selected);
++
++    gtk_widget_set_visible(self->led_thermal_row, state->thermal_mode_supported);
++    if (state->has_thermal_mode) {
++      gtk_switch_set_active(GTK_SWITCH(self->led_thermal_switch), state->thermal_mode);
++    }
++    gtk_widget_set_visible(self->led_interval_row, state->has_thermal_interval_ms);
++    if (state->has_thermal_interval_ms) {
++      gtk_spin_button_set_value(GTK_SPIN_BUTTON(self->led_interval_spin), state->thermal_interval_ms);
++    }
++    self->led_syncing = FALSE;
++  }
++  skm_update_led_control_sensitivity(self);
++}
++
++void
++skm_update_gpu(SkmAppWindow *self, const SkmGpuState *state)
++{
++  g_autofree gchar *variant = NULL;
++  g_autofree gchar *active = NULL;
++  gboolean controls_enabled = state->available && state->supported_hardware;
++
++  skm_set_section_availability(self->gpu_content, self->gpu_unavailable_label, state->available, state->message);
++  variant = g_strdup_printf("%s (%s / %s)", state->variant, state->vendor_id, state->device_id);
++  gtk_label_set_text(GTK_LABEL(self->gpu_variant_value), variant);
++  gtk_label_set_text(GTK_LABEL(self->gpu_mode_value), state->performance_level != NULL ? state->performance_level : "Unavailable");
++
++  if (state->has_active_level) {
++    guint i = 0;
++
++    for (i = 0; i < state->levels->len; i++) {
++      SkmGpuLevel *level = g_ptr_array_index(state->levels, i);
++
++      if (level->index == state->active_level) {
++        active = level->has_mhz
++          ? g_strdup_printf("%d: %d MHz", level->index, level->mhz)
++          : g_strdup_printf("%d: %s", level->index, level->label);
++        break;
++      }
++    }
++  }
++  gtk_label_set_text(GTK_LABEL(self->gpu_active_value), active != NULL ? active : "—");
++
++  gtk_widget_set_visible(self->gpu_warning_label, state->warning != NULL && *state->warning != '\0');
++  if (state->warning != NULL) {
++    gtk_label_set_text(GTK_LABEL(self->gpu_warning_label), state->warning);
++  }
++
++  gtk_widget_set_sensitive(self->gpu_manual_switch, controls_enabled);
++  gtk_widget_set_sensitive(self->gpu_levels_box, controls_enabled);
++  gtk_widget_set_sensitive(self->gpu_apply_button, controls_enabled);
++  gtk_widget_set_sensitive(self->gpu_auto_button, controls_enabled);
++  gtk_widget_set_sensitive(self->gpu_reset_button, controls_enabled);
++
++  if (!state->available) {
++    skm_rebuild_gpu_levels(self, NULL);
++    return;
++  }
++
++  self->gpu_syncing = TRUE;
++  gtk_switch_set_active(
++    GTK_SWITCH(self->gpu_manual_switch),
++    g_strcmp0(state->performance_level, "manual") == 0);
++  self->gpu_syncing = FALSE;
++
++  if (!self->gpu_dirty && state->has_active_level) {
++    self->gpu_selected_valid = TRUE;
++    self->gpu_selected_index = state->active_level;
++  }
++  skm_rebuild_gpu_levels(self, state->levels);
++}
++
++void
++skm_update_hdmi(SkmAppWindow *self, const SkmHdmiState *state)
++{
++  g_autofree gchar *timestamp = NULL;
++
++  skm_set_section_availability(self->hdmi_content, self->hdmi_unavailable_label, state->available, state->message);
++  gtk_label_set_text(GTK_LABEL(self->hdmi_connector_value), state->connector_name != NULL ? state->connector_name : "Unavailable");
++  gtk_label_set_text(GTK_LABEL(self->hdmi_status_value), state->status != NULL ? state->status : "Unknown");
++
++  if (self->last_reprobe_at != NULL) {
++    timestamp = g_date_time_format(self->last_reprobe_at, "%Y-%m-%d %H:%M:%S");
++  }
++  gtk_label_set_text(GTK_LABEL(self->hdmi_last_reprobe_value), timestamp != NULL ? timestamp : "Never");
++}
+diff --git a/src/ui.c b/src/ui.c
+new file mode 100644
+index 0000000..f7f9b40
+--- /dev/null
++++ b/src/ui.c
+@@ -0,0 +1,273 @@
++#include "skm-ui-private.h"
++
++static gboolean
++skm_on_close_request(GtkWindow *window, gpointer user_data)
++{
++  SkmAppWindow *self = user_data;
++
++  (void) window;
++
++  if (self->poll_source_id != 0) {
++    g_source_remove(self->poll_source_id);
++    self->poll_source_id = 0;
++  }
++  if (self->fan_debounce_source_id != 0) {
++    g_source_remove(self->fan_debounce_source_id);
++    self->fan_debounce_source_id = 0;
++  }
++  if (self->notice_source_id != 0) {
++    g_source_remove(self->notice_source_id);
++    self->notice_source_id = 0;
++  }
++  g_cancellable_cancel(self->cancellable);
++  return FALSE;
++}
++
++static void
++skm_app_window_free(gpointer data)
++{
++  SkmAppWindow *self = data;
++
++  if (self == NULL) {
++    return;
++  }
++
++  if (self->poll_source_id != 0) {
++    g_source_remove(self->poll_source_id);
++  }
++  if (self->fan_debounce_source_id != 0) {
++    g_source_remove(self->fan_debounce_source_id);
++  }
++  if (self->notice_source_id != 0) {
++    g_source_remove(self->notice_source_id);
++  }
++
++  g_clear_object(&self->cancellable);
++  g_clear_object(&self->led_effect_model);
++  g_clear_pointer(&self->last_reprobe_at, g_date_time_unref);
++  skm_service_free(self->service);
++  g_free(self);
++}
++
++static void
++skm_build_ui(SkmAppWindow *self)
++{
++  GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
++  GtkWidget *scroller = gtk_scrolled_window_new();
++  GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
++  GtkWidget *card = NULL;
++  GtkWidget *actions = NULL;
++  GtkWidget *unavailable = NULL;
++  GtkWidget *hero = NULL;
++  GtkWidget *title_box = NULL;
++  GtkWidget *grid = NULL;
++  GtkWidget *metrics = NULL;
++
++  gtk_widget_add_css_class(root, "app-root");
++  gtk_window_set_child(GTK_WINDOW(self->window), root);
++
++  self->notice_revealer = gtk_revealer_new();
++  gtk_revealer_set_transition_type(GTK_REVEALER(self->notice_revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN);
++  gtk_box_append(GTK_BOX(root), self->notice_revealer);
++
++  self->notice_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
++  gtk_widget_add_css_class(self->notice_box, "notice-banner");
++  gtk_widget_set_margin_top(self->notice_box, 12);
++  gtk_widget_set_margin_start(self->notice_box, 16);
++  gtk_widget_set_margin_end(self->notice_box, 16);
++  gtk_widget_set_margin_bottom(self->notice_box, 12);
++  self->notice_label = skm_make_label("", "notice-label", 0.0f, TRUE);
++  gtk_box_append(GTK_BOX(self->notice_box), self->notice_label);
++  gtk_revealer_set_child(GTK_REVEALER(self->notice_revealer), self->notice_box);
++
++  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
++  gtk_widget_set_vexpand(scroller, TRUE);
++  gtk_box_append(GTK_BOX(root), scroller);
++
++  gtk_widget_set_margin_top(content, 18);
++  gtk_widget_set_margin_bottom(content, 18);
++  gtk_widget_set_margin_start(content, 18);
++  gtk_widget_set_margin_end(content, 18);
++  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroller), content);
++
++  card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
++  gtk_widget_add_css_class(card, "glass-card");
++  gtk_widget_add_css_class(card, "hero-card");
++  hero = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
++  gtk_widget_add_css_class(hero, "aurora-header");
++  gtk_box_append(GTK_BOX(hero), skm_make_label("🍓", "hero-logo", 0.0f, FALSE));
++  title_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
++  gtk_widget_set_hexpand(title_box, TRUE);
++  gtk_box_append(GTK_BOX(title_box), skm_make_label("Strawberry Kernel Manager", "hero-title", 0.0f, FALSE));
++  gtk_box_append(GTK_BOX(title_box), skm_make_label(
++    "Native C + GTK4 control surface for Strawberry PS4 kernels on Liverpool / Gladius hardware.",
++    "hero-subtitle",
++    0.0f,
++    TRUE));
++  gtk_box_append(GTK_BOX(hero), title_box);
++  gtk_box_append(GTK_BOX(card), hero);
++
++  grid = gtk_grid_new();
++  gtk_grid_set_column_spacing(GTK_GRID(grid), 28);
++  gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
++  skm_attach_info_row(GTK_GRID(grid), 0, "Kernel", &self->system_kernel_value);
++  skm_attach_info_row(GTK_GRID(grid), 1, "Hardware", &self->system_variant_value);
++  skm_attach_info_row(GTK_GRID(grid), 2, "CPU governor", &self->system_governor_value);
++  skm_attach_info_row(GTK_GRID(grid), 3, "Uptime", &self->system_uptime_value);
++  gtk_box_append(GTK_BOX(card), grid);
++  gtk_box_append(GTK_BOX(content), card);
++
++  skm_create_section_card(
++    "Fan Control",
++    "PS4 `ps4_fan` hwmon. Threshold writes `temp1_crit` after 500 ms debounce.",
++    &card,
++    &self->fan_content,
++    &actions,
++    &unavailable);
++  self->fan_unavailable_label = unavailable;
++  metrics = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
++  gtk_box_append(GTK_BOX(metrics), skm_make_metric_tile("🌡 Temperature", &self->fan_temp_value));
++  gtk_box_append(GTK_BOX(metrics), skm_make_metric_tile("RPM", &self->fan_rpm_value));
++  gtk_box_append(GTK_BOX(self->fan_content), metrics);
++  self->fan_threshold_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, SKM_FAN_THRESHOLD_MIN, SKM_FAN_THRESHOLD_MAX, 1);
++  gtk_scale_set_draw_value(GTK_SCALE(self->fan_threshold_scale), FALSE);
++  g_signal_connect(self->fan_threshold_scale, "value-changed", G_CALLBACK(skm_on_fan_threshold_changed), self);
++  self->fan_threshold_value = skm_make_label("79 C", "value-label", 1.0f, FALSE);
++  gtk_box_append(GTK_BOX(self->fan_content), skm_make_control_row("Fan threshold", self->fan_threshold_scale, self->fan_threshold_value));
++  self->fan_status_label = skm_make_label("", "dim-label", 0.0f, TRUE);
++  gtk_box_append(GTK_BOX(self->fan_content), self->fan_status_label);
++  self->fan_reset_button = skm_make_button("Reset to Defaults", "secondary-button");
++  self->fan_apply_button = skm_make_button("Apply", "accent-button");
++  g_signal_connect(self->fan_reset_button, "clicked", G_CALLBACK(skm_on_fan_reset_clicked), self);
++  g_signal_connect(self->fan_apply_button, "clicked", G_CALLBACK(skm_on_fan_apply_clicked), self);
++  gtk_box_append(GTK_BOX(actions), self->fan_reset_button);
++  gtk_box_append(GTK_BOX(actions), self->fan_apply_button);
++  gtk_widget_set_sensitive(self->fan_content, FALSE);
++  gtk_box_append(GTK_BOX(content), card);
++
++  skm_create_section_card(
++    "Front Panel LED",
++    "PS4 LED effects via `/sys/class/leds/ps4:*:status` and thermal mode via `/sys/bus/platform/devices/ps4-led`.",
++    &card,
++    &self->led_content,
++    &actions,
++    &unavailable);
++  self->led_unavailable_label = unavailable;
++  grid = gtk_grid_new();
++  gtk_grid_set_column_spacing(GTK_GRID(grid), 24);
++  gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
++  skm_attach_info_row(GTK_GRID(grid), 0, "Mode", &self->led_mode_value);
++  skm_attach_info_row(GTK_GRID(grid), 1, "Active effect", &self->led_active_value);
++  gtk_box_append(GTK_BOX(self->led_content), grid);
++  self->led_effect_model = gtk_string_list_new(NULL);
++  self->led_effect_dropdown = gtk_drop_down_new(G_LIST_MODEL(self->led_effect_model), NULL);
++  g_signal_connect(self->led_effect_dropdown, "notify::selected", G_CALLBACK(skm_on_led_effect_changed), self);
++  gtk_box_append(GTK_BOX(self->led_content), skm_make_control_row("Static effect", self->led_effect_dropdown, NULL));
++  self->led_thermal_switch = gtk_switch_new();
++  g_signal_connect(self->led_thermal_switch, "notify::active", G_CALLBACK(skm_on_led_thermal_changed), self);
++  self->led_thermal_row = skm_make_control_row("Thermal mode", self->led_thermal_switch, NULL);
++  gtk_widget_set_visible(self->led_thermal_row, FALSE);
++  gtk_box_append(GTK_BOX(self->led_content), self->led_thermal_row);
++  self->led_interval_spin = gtk_spin_button_new_with_range(100.0, 60000.0, 100.0);
++  gtk_spin_button_set_value(GTK_SPIN_BUTTON(self->led_interval_spin), 2000.0);
++  g_signal_connect(self->led_interval_spin, "value-changed", G_CALLBACK(skm_on_led_interval_changed), self);
++  self->led_interval_row = skm_make_control_row("Thermal interval (ms)", self->led_interval_spin, NULL);
++  gtk_widget_set_visible(self->led_interval_row, FALSE);
++  gtk_box_append(GTK_BOX(self->led_content), self->led_interval_row);
++  self->led_status_label = skm_make_label("", "dim-label", 0.0f, TRUE);
++  gtk_box_append(GTK_BOX(self->led_content), self->led_status_label);
++  self->led_reset_button = skm_make_button("Reset to Defaults", "secondary-button");
++  self->led_apply_button = skm_make_button("Apply", "accent-button");
++  g_signal_connect(self->led_reset_button, "clicked", G_CALLBACK(skm_on_led_reset_clicked), self);
++  g_signal_connect(self->led_apply_button, "clicked", G_CALLBACK(skm_on_led_apply_clicked), self);
++  gtk_box_append(GTK_BOX(actions), self->led_reset_button);
++  gtk_box_append(GTK_BOX(actions), self->led_apply_button);
++  gtk_widget_set_sensitive(self->led_content, FALSE);
++  gtk_box_append(GTK_BOX(content), card);
++  skm_update_led_control_sensitivity(self);
++
++  skm_create_section_card(
++    "GPU Clock (SCLK)",
++    "Forces amdgpu SCLK on PS4 Liverpool / Gladius. Writes confirmed after 500 ms poll.",
++    &card,
++    &self->gpu_content,
++    &actions,
++    &unavailable);
++  self->gpu_unavailable_label = unavailable;
++  self->gpu_warning_label = skm_make_label("", "warning-banner", 0.0f, TRUE);
++  gtk_widget_set_visible(self->gpu_warning_label, FALSE);
++  gtk_box_append(GTK_BOX(self->gpu_content), self->gpu_warning_label);
++  grid = gtk_grid_new();
++  gtk_grid_set_column_spacing(GTK_GRID(grid), 24);
++  gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
++  skm_attach_info_row(GTK_GRID(grid), 0, "Detected GPU", &self->gpu_variant_value);
++  skm_attach_info_row(GTK_GRID(grid), 1, "Perf level", &self->gpu_mode_value);
++  skm_attach_info_row(GTK_GRID(grid), 2, "Active SCLK", &self->gpu_active_value);
++  gtk_box_append(GTK_BOX(self->gpu_content), grid);
++  self->gpu_manual_switch = gtk_switch_new();
++  g_signal_connect(self->gpu_manual_switch, "notify::active", G_CALLBACK(skm_on_gpu_manual_changed), self);
++  gtk_box_append(GTK_BOX(self->gpu_content), skm_make_control_row("Force Manual", self->gpu_manual_switch, NULL));
++  self->gpu_levels_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
++  gtk_widget_add_css_class(self->gpu_levels_box, "level-list");
++  gtk_box_append(GTK_BOX(self->gpu_content), self->gpu_levels_box);
++  gtk_box_append(GTK_BOX(self->gpu_content), skm_make_label("Use Auto after testing. Unsupported hardware stays read-only.", "dim-label", 0.0f, TRUE));
++  self->gpu_reset_button = skm_make_button("Reset to Defaults", "secondary-button");
++  self->gpu_auto_button = skm_make_button("Auto", "secondary-button");
++  self->gpu_apply_button = skm_make_button("Apply Level", "accent-button");
++  g_signal_connect(self->gpu_reset_button, "clicked", G_CALLBACK(skm_on_gpu_reset_clicked), self);
++  g_signal_connect(self->gpu_auto_button, "clicked", G_CALLBACK(skm_on_gpu_auto_clicked), self);
++  g_signal_connect(self->gpu_apply_button, "clicked", G_CALLBACK(skm_on_gpu_apply_clicked), self);
++  gtk_box_append(GTK_BOX(actions), self->gpu_reset_button);
++  gtk_box_append(GTK_BOX(actions), self->gpu_auto_button);
++  gtk_box_append(GTK_BOX(actions), self->gpu_apply_button);
++  gtk_widget_set_sensitive(self->gpu_content, FALSE);
++  gtk_box_append(GTK_BOX(content), card);
++
++  skm_create_section_card(
++    "Display / HDMI Hotplug",
++    "Polling disabled in Strawberry kernel. Use Reprobe after reconnecting monitor.",
++    &card,
++    &self->hdmi_content,
++    &actions,
++    &unavailable);
++  self->hdmi_unavailable_label = unavailable;
++  grid = gtk_grid_new();
++  gtk_grid_set_column_spacing(GTK_GRID(grid), 24);
++  gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
++  skm_attach_info_row(GTK_GRID(grid), 0, "Connector", &self->hdmi_connector_value);
++  skm_attach_info_row(GTK_GRID(grid), 1, "Status", &self->hdmi_status_value);
++  skm_attach_info_row(GTK_GRID(grid), 2, "Last reprobe", &self->hdmi_last_reprobe_value);
++  gtk_box_append(GTK_BOX(self->hdmi_content), grid);
++  gtk_box_append(GTK_BOX(self->hdmi_content), skm_make_label(
++    "Writing `detect` to connector status triggers EDID re-read and modeset.",
++    "dim-label",
++    0.0f,
++    TRUE));
++  self->hdmi_reprobe_button = skm_make_button("Reprobe", "accent-button");
++  g_signal_connect(self->hdmi_reprobe_button, "clicked", G_CALLBACK(skm_on_hdmi_reprobe_clicked), self);
++  gtk_box_append(GTK_BOX(actions), self->hdmi_reprobe_button);
++  gtk_widget_set_sensitive(self->hdmi_content, FALSE);
++  gtk_box_append(GTK_BOX(content), card);
++}
++
++GtkWindow *
++skm_app_window_new(GtkApplication *application)
++{
++  SkmAppWindow *self = g_new0(SkmAppWindow, 1);
++
++  self->window = GTK_APPLICATION_WINDOW(gtk_application_window_new(application));
++  self->service = skm_service_new("/sys", "/proc");
++  self->cancellable = g_cancellable_new();
++
++  gtk_window_set_title(GTK_WINDOW(self->window), "🍓 Strawberry Kernel Manager");
++  gtk_window_set_default_size(GTK_WINDOW(self->window), 1040, 760);
++  gtk_widget_set_size_request(GTK_WIDGET(self->window), 900, 620);
++
++  skm_build_ui(self);
++  g_signal_connect(self->window, "close-request", G_CALLBACK(skm_on_close_request), self);
++  g_object_set_data_full(G_OBJECT(self->window), "skm-app-window", self, skm_app_window_free);
++
++  skm_refresh_dashboard(self);
++  self->poll_source_id = g_timeout_add_seconds(2, skm_poll_cb, self);
++  return GTK_WINDOW(self->window);
++}
+diff --git a/udev/99-strawberry-km.rules b/udev/99-strawberry-km.rules
+new file mode 100644
+index 0000000..cdc01c8
+--- /dev/null
++++ b/udev/99-strawberry-km.rules
+@@ -0,0 +1,11 @@
++# Strawberry Kernel Manager
++# Grant video group write access to PS4 Strawberry control nodes.
++
++ACTION=="add", SUBSYSTEM=="hwmon", ATTR{name}=="ps4_fan", RUN+="/bin/sh -c 'for n in /sys%p/pwm1 /sys%p/pwm1_enable /sys%p/fan_threshold; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"
++ACTION=="change", SUBSYSTEM=="hwmon", ATTR{name}=="ps4_fan", RUN+="/bin/sh -c 'for n in /sys%p/pwm1 /sys%p/pwm1_enable /sys%p/fan_threshold; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"
++
++ACTION=="add", SUBSYSTEM=="leds", KERNEL=="ps4:*", RUN+="/bin/sh -c 'for n in /sys%p/brightness /sys%p/trigger /sys%p/thermal_mode; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"
++ACTION=="change", SUBSYSTEM=="leds", KERNEL=="ps4:*", RUN+="/bin/sh -c 'for n in /sys%p/brightness /sys%p/trigger /sys%p/thermal_mode; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"
++
++ACTION=="add", SUBSYSTEM=="drm", KERNEL=="card0", RUN+="/bin/sh -c 'for n in /sys/class/drm/card0/device/power_dpm_force_performance_level /sys/class/drm/card0/device/pp_dpm_sclk /sys/class/drm/card0-*/status; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"
++ACTION=="change", SUBSYSTEM=="drm", KERNEL=="card0", RUN+="/bin/sh -c 'for n in /sys/class/drm/card0/device/power_dpm_force_performance_level /sys/class/drm/card0/device/pp_dpm_sclk /sys/class/drm/card0-*/status; do [ -e \"$n\" ] && chgrp video \"$n\" && chmod g+w \"$n\"; done'"

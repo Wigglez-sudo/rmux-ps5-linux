@@ -1,0 +1,145 @@
+From 2c1c267a0442dccd94bc57e7c367a44bde5a522d Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Sun, 15 Nov 2026 22:24:57 +0100
+Subject: [PATCH] ps4: samu: sleep on the completion irq instead of spinning
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_samu_vm.c | 60 ++++++++++++++++++++----
+ 1 file changed, 51 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_samu_vm.c b/drivers/gpu/drm/amd/amdgpu/ps4_samu_vm.c
+index b0f5c03c7e20..59586e93d040 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_samu_vm.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_samu_vm.c
+@@ -6,6 +6,7 @@
+ #include <linux/mutex.h>
+ #include <linux/sizes.h>
+ #include <linux/slab.h>
++#include <linux/wait.h>
+ #include <asm/ps4.h>
+ 
+ #include "amdgpu.h"
+@@ -39,7 +40,8 @@
+ #define MAP_PAGES			(SZ_1M / PAGE_SIZE + 1)
+ #define SEND_TIMEOUT_MS			2000
+ #define PROBE_TIMEOUT_MS		200
+-#define SPIN_US				200
++#define SEND_SPIN_US			20
++#define PS4_SAMU_IH_SRC			152
+ #define INVALIDATE_TIMEOUT_US		10000
+ 
+ #define RNG_MSG_TYPE			0x0a
+@@ -69,10 +71,36 @@ struct ps4_samu_vm {
+ 	u32 fault_page;
+ 	u64 tag;
+ 	struct mutex lock;
++	wait_queue_head_t wq;
++	atomic_t irqs;
++	unsigned int irq_misses;
++	bool irq_ok;
++	bool irq_broken;
+ };
+ 
+ static struct ps4_samu_vm *ps4_samu_vm;
+ 
++static int ps4_samu_irq_process(struct amdgpu_device *adev,
++				struct amdgpu_irq_src *source,
++				struct amdgpu_iv_entry *entry)
++{
++	struct ps4_samu_vm *vm = ps4_samu_vm;
++
++	if (!vm)
++		return 0;
++	atomic_inc(&vm->irqs);
++	wake_up_all(&vm->wq);
++	return 1;
++}
++
++static const struct amdgpu_irq_src_funcs ps4_samu_irq_funcs = {
++	.process = ps4_samu_irq_process,
++};
++
++static struct amdgpu_irq_src ps4_samu_irq = {
++	.funcs = &ps4_samu_irq_funcs,
++};
++
+ static bool ps4_samu_vm_supported(struct amdgpu_device *adev)
+ {
+ 	return adev->asic_type == CHIP_LIVERPOOL ||
+@@ -143,7 +171,7 @@ static int sam_send(struct ps4_samu_vm *vm, u64 word)
+ 	sam_write(adev, SAM_MAILBOX_LOW, lower_32_bits(word));
+ 	sam_write(adev, SAM_MAILBOX_HIGH, upper_32_bits(word));
+ 	sam_write(adev, SAM_DOORBELL, 1);
+-	spin = ktime_add_us(ktime_get(), SPIN_US);
++	spin = ktime_add_us(ktime_get(), SEND_SPIN_US);
+ 	while (sam_read(adev, SAM_STATUS) & SAM_STATUS_BUSY) {
+ 		if (ktime_before(ktime_get(), spin)) {
+ 			udelay(1);
+@@ -151,7 +179,7 @@ static int sam_send(struct ps4_samu_vm *vm, u64 word)
+ 		}
+ 		if (time_after(jiffies, timeout))
+ 			return -ETIMEDOUT;
+-		usleep_range(20, 50);
++		usleep_range(10, 20);
+ 	}
+ 	dma_rmb();
+ 	return 0;
+@@ -173,6 +201,12 @@ int ps4_samu_vm_init(struct amdgpu_device *adev)
+ 	vm->adev = adev;
+ 	vm->pt_entries = 1U << adev->vm_manager.block_size;
+ 	mutex_init(&vm->lock);
++	init_waitqueue_head(&vm->wq);
++
++	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, PS4_SAMU_IH_SRC,
++			      &ps4_samu_irq);
++	if (r)
++		goto err_free;
+ 
+ 	vm->shared = dma_alloc_coherent(adev->dev, SHARED_SIZE, &vm->shared_dma,
+ 					GFP_KERNEL);
+@@ -473,7 +507,6 @@ int ps4_samu_ccp(void *op)
+ 	unsigned long timeout;
+ 	u8 *msg, *reply;
+ 	u32 cmd, status;
+-	ktime_t spin;
+ 	int r;
+ 
+ 	if (!vm)
+@@ -500,7 +533,6 @@ int ps4_samu_ccp(void *op)
+ 		return (s32)status < 0 && (s32)status >= -MAX_ERRNO ? (s32)status : -EIO;
+ 
+ 	timeout = jiffies + msecs_to_jiffies(SEND_TIMEOUT_MS);
+-	spin = ktime_add_us(ktime_get(), SPIN_US);
+ 	for (;;) {
+ 		cmd = READ_ONCE(*(u32 *)reply);
+ 		if (cmd == CCP_MSG_TYPE)
+@@ -511,14 +543,24 @@ int ps4_samu_ccp(void *op)
+ 					     cmd);
+ 			WRITE_ONCE(*(u32 *)reply, 0);
+ 			sam_write(adev, SAM_ACK, 1);
+-		}
+-		if (ktime_before(ktime_get(), spin)) {
+-			cpu_relax();
+ 			continue;
+ 		}
+ 		if (time_after(jiffies, timeout))
+ 			return -ETIMEDOUT;
+-		usleep_range(10, 30);
++		if (vm->irq_broken)
++			usleep_range(10, 30);
++		else
++			wait_event_timeout(vm->wq, READ_ONCE(*(u32 *)reply), 1);
++	}
++	if (!vm->irq_ok) {
++		if (atomic_read(&vm->irqs)) {
++			vm->irq_ok = true;
++			dev_info(adev->dev, "samu: completion irq src %d\n",
++				 PS4_SAMU_IH_SRC);
++		} else if (!vm->irq_broken && ++vm->irq_misses >= 16) {
++			vm->irq_broken = true;
++			dev_warn(adev->dev, "samu: no completion irq, polling\n");
++		}
+ 	}
+ 	dma_rmb();
+ 	status = *(u32 *)(reply + 4);

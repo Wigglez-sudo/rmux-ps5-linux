@@ -1,0 +1,18 @@
+From 7f3a159f05612cb8d9ec3904fc50632a7a47644e Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 20 Jan 2026 17:13:23 +0100
+Subject: [PATCH] im sleepy
+
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index 0719dbc..7274567 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -5,3 +5,4 @@ static/config/settings.json
+ static/config/payload_config.json
+ static/config/payload_order.json
+ static/config/payload_delay_flags.json
++static/config/dns_rules.json

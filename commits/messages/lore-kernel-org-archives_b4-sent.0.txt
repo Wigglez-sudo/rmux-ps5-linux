@@ -1,0 +1,181 @@
+======================================================================
+commit 120d483c653c9031cf4e4485ea33bd491e70f5b8
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 13 Oct 2026 16:42:45 +0200
+
+[PATCH v3 1/2] dt-bindings: input: awinic,aw86927: Add Awinic
+
+======================================================================
+commit 12c59cbd40f51a7e395ed64f780eb914a6c265b1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 18:08:02 +0200
+
+[PATCH 0/2] Input: Add Awinic AW8697 haptics driver
+
+======================================================================
+commit 15dcecf6bea1a53abfd5c6931001580d5743d1f5
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 20 Sep 2026 16:58:23 +0200
+
+[PATCH 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit 166235dff95b07c2c1b35ac64059ee4811f8a09b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 21:20:04 +0100
+
+[PATCH v5 1/2] dt-bindings: media: i2c: Add Samsung S5K3T2
+
+======================================================================
+commit 1a4f277bc74e979d6e455b6fa0d5635da4b1ddc6
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 24 Sep 2026 07:46:50 +0200
+
+[PATCH v3 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit 1de2c5a3cb91d1b8ed59a3a2d8d24c5320fbf06e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 25 Aug 2026 00:46:33 +0200
+
+[PATCH v2] platform/x86: asus-wmi: suppress -ENODEV warning
+
+======================================================================
+commit 45e7e872ffd8b92ae9699e615e9a13e6086ab4e9
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 13 Oct 2026 16:42:44 +0200
+
+[PATCH v3 0/2] Input: Add Awinic AW8697 haptics driver
+
+======================================================================
+commit 4a480cce538b1265949c3dcbf92e2cec903566e4
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 21:20:05 +0100
+
+[PATCH v5 2/2] media: i2c: Add Samsung S5K3T2 image sensor
+
+======================================================================
+commit 4dcec0e35afb2ec8b4df87d7c06fd856ceffa22c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 20 Sep 2026 16:58:24 +0200
+
+[PATCH 1/2] dt-bindings: media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit 5bcef481f8ec22d6b7043274cde5a71b199be381
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 11 Oct 2026 11:13:27 +0200
+
+[PATCH v4 1/2] dt-bindings: media: i2c: Add Samsung S5K3T2
+
+======================================================================
+commit 70c06d47d23f65a370f561bf18aa6490cc6d7107
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 25 Aug 2026 00:47:07 +0200
+
+[PATCH v3] platform/x86: asus-wmi: suppress -ENODEV warning
+
+======================================================================
+commit 79c686026edf22da64ad8339ab8adaeb7146c74f
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 11 Oct 2026 11:13:26 +0200
+
+[PATCH v4 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit 7d289b96cac174480cb3baed0af603f9e4e93bcd
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 19:18:50 +0200
+
+[PATCH v2 1/2] dt-bindings: input: awinic,aw86927: Add Awinic
+
+======================================================================
+commit a697bfd7b5b27030fb89b406349d32755181aac8
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 19:18:49 +0200
+
+[PATCH v2 0/2] Input: Add Awinic AW8697 haptics driver
+
+======================================================================
+commit aa40f4e5c64223705cd14457a8272ed4a5bb7216
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 11 Oct 2026 11:13:28 +0200
+
+[PATCH v4 2/2] media: i2c: Add Samsung S5K3T2 image sensor
+
+======================================================================
+commit ab5910d98580aff3503e15a816209f14f0a1e2d2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 18:08:03 +0200
+
+[PATCH 1/2] dt-bindings: input: awinic,aw86927: Add Awinic
+
+======================================================================
+commit b1c6394af64ff00886e0c8fb2cabd2e5ed559528
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 24 Sep 2026 07:46:51 +0200
+
+[PATCH v3 1/2] dt-bindings: media: i2c: Add Samsung S5K3T2
+
+======================================================================
+commit bea5dd6cd9c80ed8ddb2d66381b45d812b871b47
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 18:08:04 +0200
+
+[PATCH 2/2] Input: aw8697 - Add Awinic AW8697 haptics driver
+
+======================================================================
+commit ceff6879b2bf1e10e76f8fc1201c7811e944bbc2
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 23 Sep 2026 17:18:32 +0200
+
+[PATCH v2 2/2] media: i2c: Add Samsung S5K3T2 image sensor
+
+======================================================================
+commit cefff5ebde308e15239038aedacd02a8a14a21d1
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 13 Oct 2026 16:42:46 +0200
+
+[PATCH v3 2/2] Input: aw8697 - Add Awinic AW8697 haptics
+
+======================================================================
+commit d26a5cea2633c58fd15849b6cb14cd98b8ac6ce5
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Sun, 20 Sep 2026 16:58:25 +0200
+
+[PATCH 2/2] media: i2c: Add Samsung S5K3T2 image sensor
+
+======================================================================
+commit da7deafdb415fca02e0a86bff5cd85a6102e05ab
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 30 Sep 2026 19:18:51 +0200
+
+[PATCH v2 2/2] Input: aw8697 - Add Awinic AW8697 haptics
+
+======================================================================
+commit eb487bba7ed0400d26a3ddc1bb80ac5b06f5a207
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 23 Sep 2026 17:18:30 +0200
+
+[PATCH v2 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit ef544e6129e786109393e639bd42dc8b2aa097ee
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Thu, 24 Sep 2026 07:46:52 +0200
+
+[PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image sensor
+
+======================================================================
+commit fb1e7ff4dd641b8b5d22798f76c90d32c352c575
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 21:20:03 +0100
+
+[PATCH v5 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit ff40409c36aec4783d8f3f465f1bd73003fe891e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Wed, 23 Sep 2026 17:18:31 +0200
+
+[PATCH v2 1/2] dt-bindings: media: i2c: Add Samsung S5K3T2

@@ -1,0 +1,23 @@
+From 022917f4bb02dab40e707840beeb802842a3438f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 12:42:26 +0100
+Subject: [PATCH] Update TODO to mark repo management as complete
+
+Marked the 'Add repo management' task as completed in the README TODO list to reflect recent progress.
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 275b2b6..db8a187 100644
+--- a/README.md
++++ b/README.md
+@@ -87,6 +87,6 @@ If you did check the "Auto-Jailbreak" before pressing the "Start Jailbreak" butt
+ ## TODO
+ - [ ] Add Y2JB auto update (download0.dat)
+ - [ ] Add Y2JB update blocker option (appinfo.db, param.json, app.db)
+-- [ ] Add repo management (to automaticlly update payloads)
++- [X] Add repo management (to automaticlly update payloads)
+ - [ ] Add support to load custom js
+ - [ ] Make it compatible with [ps5_y2jb_autoloader](https://github.com/itsPLK/ps5_y2jb_autoloader) (not sure if it's possible)
+\ No newline at end of file

@@ -1,0 +1,164 @@
+======================================================================
+commit 14c4383abc6af744ac2371bf9d17b5807cd7f198
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Tue, 17 Nov 2026 20:55:43 +0000
+
+Re: [PATCH v4 2/2] media: i2c: Add Samsung S5K3T2 image
+
+diff --git a/m b/m
+index 7bfd39a4a5..124a2c9cc0 100644
+--- a/m
++++ b/m
+@@ -1,57 +1,60 @@
+-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.remote-ip=100.103.45.18
++Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.remote-ip=109.224.244.27
+ ARC-Seal: i=1; d=subspace.kernel.org; s=arc20261015; a=rsa-sha256; cv=none;
+-	t=1794948734;
+-	b=cuN/6tWN1q1iU4TLtaUQ2zlAemiIg9Dh6qwFRDqOACYdEIZnxlkDRzafjfMaIXMFm8wl
+-	 WHDeKT6ETF56m8sPieMMaOCKD3R1TmmiPtFIA6auYA6eSDCcvx+Pd/Kj8Qghk2ULB/1A1
+-	 JJI/lIe6liSmMtH7Q4xjB+fQ/yybeb4dHiGY+kf5CWkdexJJlohagGYTXua6ZsaARtSTx
+-	 H7Xj8JhO1IRRbN7C0gXutVRXK3Oh5J3JycIYnvmCoxhnJstGfQR3rXRIqow5GCy8iIFK0
+-	 lbi47ak99oCZZyvGiNaoX1BUkW+Ncf6t89lMmWTep+lNP3V5NYFzd28+bF1G9TBGkFA==
++	t=1794948952;
++	b=q+ZQOw7U500wdJHZsr/4wSKJgHPTEgmxn3m5l+/5MgBaGixalccN4upvM0erJpRXXjg8
++	 Tprxy6GxVM96ZnvfcvbPFo/+ixwcSswPHkFbja8rp7Gn/uWFF7VON/+xdaAKt0qLXghuY
++	 9/rPBm0cYwBX5PQOoRRk3mMliZkPNW1yg/+hv8jhsiOQLujcVXPyxE5OtskMBX+ArWRag
++	 b7ErIyzM9rG/TlZN5wzb/cUqJVoCHx3h4Kfj7OlTNWQuOJFd/Ojkbl9XEb6q1bqMAS/b2
++	 FazIHynC3e0iiIHrRvUj49wr4Udbh1wGIhDxxSho2SglFlaSksmC9zCu/eKNkrHaZ8w==
+ ARC-Message-Signature: i=1; d=subspace.kernel.org; s=arc20261015;
+-	a=rsa-sha256; c=relaxed/relaxed; t=1794948734;
+-	h=Received:DKIM-Signature:Message-ID:From:Subject:Reply-To:To:Cc:
+-	 In-Reply-To:References:Content-Type:Content-Transfer-Encoding:Date;
+-	bh=qR4YTCRl+SUoV0TzOLZOa+5dovXafk3OxLj0xK/t+0Q=;
+-	b=hW3dSNBTAhmb9KLoZfdr3QfRlCcm4c/LxivY9TYs1qKLEvTF0P/kHoMiyqMmwei3jQPD
+-	 DSoqHGghhuBAvol+3nbxXWyleLPMIrYoc2295CGny1lga/r32hTtmxBX420NhLwPwoFkf
+-	 +XGw8VWp3qfNXp6NpaB2K/q4x9KXKGHtTdVCW9JpqbXH8w6pHiyediuNrWsF8+lhH8nOc
+-	 E4IrJwwscKbfMW/v4msB8EXs1v9u4E5kHu5d9d7H5op4ZNVwEbaMFGTjhsAwx3OajIKg8
+-	 u5pbB9gNlnoI4yVzTlk5GIsTm1YNqcnJWflOjAvwRyoYyaD/LYEWomWxERvROZ91TxQ==
++	a=rsa-sha256; c=relaxed/relaxed; t=1794948952;
++	h=DMARC-Filter:DKIM-Signature:Date:To:From:Cc:Subject:Message-ID:
++	 In-Reply-To:References:Feedback-ID:X-Pm-Message-ID:MIME-Version:
++	 Content-Type:Content-Transfer-Encoding;
++	bh=HZkll7EezYeBdMYzyeDR41vXh/rItYPkuvoaq3vI55s=;
++	b=ot20hu8P7b2u7DfXkA+0yJEfWEy40wCEUJKRZc2lw2MCza2h3f/KosBtiZQrFgCD528c
++	 EmwUixl4S5WTFAfhc6yBBNYVoKtOx0AfiD4ptFiQQX00kbcWJ1RR0+oKssLPoxYGAk+cb
++	 b3WIbHARP8ntUt5xhGnOIpICHdnQEdDPa3XsXzpKaDNCa3gzEUQfPmjqN4HsPqai7QNPJ
++	 v3Gg8VNN7gCeXUZOahw/oiyiB77DtMgmhQQCUtaJjMuoADrbDxmwCBjL6yn3NOxKLL/k5
++	 UINomQPBUXlXf5OHEIztUhMkGtKtzqc4d6TcoidbHvisR02S32FtXf1w3z4mci/4Wvw==
+ ARC-Authentication-Results: i=1; smtp.subspace.kernel.org; 
+-	dkim=pass header.d=kernel.org header.i=@kernel.org header.a=rsa-sha256 header.s=k20260515 header.b=UlHksZgA;
+-	arc=none smtp.remote-ip=100.103.45.18
+-Received: from smtp.kernel.org (quasi.space.kernel.org [100.103.45.18])
++	dmarc=pass header.from=proton.me;
++	spf=pass smtp.mailfrom=proton.me;
++	dkim=pass header.d=proton.me header.i=@proton.me header.a=rsa-sha256 header.s=protonmail2 header.b=ttemJq85;
++	arc=none smtp.remote-ip=109.224.244.27
++Received: from mail-24427.protonmail.ch (mail-24427.protonmail.ch [109.224.244.27])
+ 	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+-	 key-exchange X25519 server-signature ECDSA (prime256v1))
++	 key-exchange X25519 server-signature ECDSA (prime256v1) server-digest SHA256)
+ 	(No client certificate requested)
+-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BC78D606A31C
+-	for <devicetree@vger.kernel.org>; Tue, 17 Nov 2026 20:52:14 +0000 (UTC)
++	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 3E9B5606A31C
++	for <devicetree@vger.kernel.org>; Tue, 17 Nov 2026 20:55:51 +0000 (UTC)
++DMARC-Filter: OpenDMARC Filter v1.4.2 smtp.subspace.kernel.org 3E9B5606A31C
++Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=proton.me
++Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=proton.me
+ Authentication-Results: smtp.subspace.kernel.org;
+-	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.a=rsa-sha256 header.s=k20260515 header.b=UlHksZgA
+-Received: by smtp.kernel.org (Postfix) with ESMTPSA id 1ED631F000C4;
+-	Tue, 17 Nov 2026 20:52:14 +0000 (UTC)
+-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+-	s=k20260515; t=1794948734;
+-	bh=qR4YTCRl+SUoV0TzOLZOa+5dovXafk3OxLj0xK/t+0Q=;
+-	h=From:Subject:Reply-To:To:Cc:In-Reply-To:References:Date;
+-	b=UlHksZgA1iKKI1gW3EK2zUiBhMPAF+5rt3Z3zBzJmUjNx5M0yva5uhbHNQQTiPRaB
+-	 oCLNAp1Vazz247VRfgBCd1oJGmzSVpSHEBhDZNHGRnqEaF+kJOIE8KQGvr0NgOwMAP
+-	 CmshGK35zyrKZxb9pzO8X5+9WGjurB3yZK77vbTuMDnrRboYbhAIZUpzIgpeM9NrQd
+-	 xkgIsSTKlwQteGY1eM4KJbEG2ybevaF6hL+THhDhDoryKJ2nxQw0Pz5DGz8nmB+D/Q
+-	 3CNKCnLQ4pKvPW1p5wotaBz9lfcp9a3LtGDj8bf8ZwDqsmfjQzGgYReJlYi6O1y3pl
+-	 +zPspg5aZs4wA==
+-Message-ID: <sashiko-outbox-219661@kernel.org>
+-From: sashiko-bot@kernel.org
+-Subject: Re: [PATCH v4 2/2] irqchip: Add Cortina Systems CS75xx peripheral
+- interrupt controller
+-Reply-To: sashiko-reviews@lists.linux.dev
+-To: "Fil Dunsky" <filipp.dunsky@gmail.com>
+-Cc: devicetree@vger.kernel.org, robh@kernel.org, conor+dt@kernel.org
+-In-Reply-To: <20261117-cs75xx-intc-v4-2-0a678f35e5f3@gmail.com>
+-References: <20261117-cs75xx-intc-v4-0-0a678f35e5f3@gmail.com>
+- <20261117-cs75xx-intc-v4-2-0a678f35e5f3@gmail.com>
+-Content-Type: text/plain; charset=utf-8
+-Content-Transfer-Encoding: quoted-printable
+-Date: Tue, 17 Nov 2026 20:52:13 +0000
++	dkim=pass (2048-bit key, unprotected) header.d=proton.me header.i=@proton.me header.a=rsa-sha256 header.s=protonmail2 header.b=ttemJq85
++DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=proton.me;
++	s=protonmail2; t=1794948949; x=1795208149;
++	bh=HZkll7EezYeBdMYzyeDR41vXh/rItYPkuvoaq3vI55s=;
++	h=Date:To:From:Cc:Subject:Message-ID:In-Reply-To:References:
++	 Feedback-ID:From:To:Cc:Date:Subject:Reply-To:Feedback-ID:
++	 Message-ID:BIMI-Selector;
++	b=ttemJq85Lx/HQJXgd4ocT/fUrs2E3qjkRxVQvJ+KompJqeCMO3/dRRCkKZ1HoNFgl
++	 KDVHAPHyPz1StnjNwoc+egzCKRXdb1fIdy11Kcyqf0nQeDrjMeMAd7+d7au5rpjHYd
++	 vj0HWq3huEgjwVOs8WX1HJxGX/7L/H8XwtABmrjlYVcNaBKKoNVExtH3HwlcU9HxEI
++	 TxaiokysznrhpwJoTg20K+GPKHHvZi3mxqJgZBZcPBiLOtuZoEsOxoTrOF27/lUHKk
++	 AzMwNlNbyziAvw6BZKV7LPHKeLV1rEszoeDxD2SNVZHbBIM5loah2hZrAGf7mUFCOT
++	 TQXHd32elahQg==
++Date: Tue, 17 Nov 2026 20:55:43 +0000
++To: Elgin Perumbilly <elgin.perumbilly@siliconsignals.io>
++From: "armandas.kvietkus" <armandas.kvietkus@proton.me>
++Cc: Mauro Carvalho Chehab <mchehab@kernel.org>, Rob Herring <robh@kernel.org>, Krzysztof Kozlowski <krzk+dt@kernel.org>, Conor Dooley <conor+dt@kernel.org>, Sakari Ailus <sakari.ailus@linux.intel.com>, "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>, "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
++Subject: Re: [PATCH v4 2/2] media: i2c: Add Samsung S5K3T2 image sensor driver
++Message-ID: <uj-7TS37Pvz6jDAyxdOYWJwLDB0LJ1NU0fxtvAdz6W5_mtR0uh4B5U044_IosBRKBu3Dlp0pR5F98Tf4vQlUwJ5cI-enEmTdMI-Y1M0VL8I=@proton.me>
++In-Reply-To: <PN3P287MB2188EEBDB68A82967833C8DB88772@PN3P287MB2188.INDP287.PROD.OUTLOOK.COM>
++References: <20261011-upstream-s5k3t2-v4-0-d33b12fb3263@proton.me> <20261011-upstream-s5k3t2-v4-2-d33b12fb3263@proton.me> <PN3P287MB2188EEBDB68A82967833C8DB88772@PN3P287MB2188.INDP287.PROD.OUTLOOK.COM>
++Feedback-ID: 164226125:user:proton
++X-Pm-Message-ID: 4bee14c2957ce7b0b86c1d83645e491b479fca16
+ X-Mailing-List: devicetree@vger.kernel.org
+ List-Id: <devicetree.vger.kernel.org>
+ List-Post: <mailto:devicetree@vger.kernel.org>
+@@ -60,144 +63,20 @@ List-Subscribe: <mailto:devicetree+subscribe@vger.kernel.org>
+ List-Unsubscribe: <mailto:devicetree+unsubscribe@vger.kernel.org>
+ List-Owner: <mailto:devicetree+owner@vger.kernel.org>
+ Precedence: list
++MIME-Version: 1.0
++Content-Type: text/plain; charset=utf-8
++Content-Transfer-Encoding: quoted-printable
+ 
+-Thank you for your contribution! Sashiko AI review found 3 potential
+-issues to consider:
+-- [Medium] irqchip: CS75XX_INTC uses undefined ARCH_CORTINA_ACCESS and
+-  lacks HAS_IOMEM
+-- [Medium] irqchip: cs75xx: missing IRQ_LEVEL and wrong IRQ_NOPROBE in
+-  cs75xx_intc_init()
+-- [Medium] irqchip: cs75xx: leaked MMIO region reservation in
+-  cs75xx_intc_init()
+
+======================================================================
+commit 1749a64c6bab8398317a7683a0e656b7b67b33ec
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:48 +0000
+
+Re: [PATCH v4 0/2] media: i2c: Samsung S5K3T2 image sensor
+
+======================================================================
+commit 1b63e5df8a37305179f6b0072174bd5d0d13eb70
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Thu, 1 Oct 2026 18:36:25 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit ce22eb17f892c3c17c6694e129196e7511b04ac3
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Sat, 3 Oct 2026 08:27:50 +0000
+
+Re: [PATCH v3 2/2] media: i2c: Add Samsung S5K3T2 image
+
+======================================================================
+commit de7ee33ac2fe01ab603a545392afb67979959a6c
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:15 +0000
+
+Re: [PATCH v3 0/2] Input: Add Awinic AW8697 haptics driver

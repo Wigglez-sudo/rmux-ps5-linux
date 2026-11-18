@@ -1,0 +1,22 @@
+From b8c27c95f764559e4ba833d6cc9650da2dd34eed Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 22:23:01 +0000
+Subject: [PATCH] ps5-gbe: add todo for debug stuff cleanup
+
+---
+ README.md | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/README.md b/README.md
+index 6ef7cc7..1f2583a 100644
+--- a/README.md
++++ b/README.md
+@@ -8,3 +8,8 @@ needs the in-tree ps5 `spcie` driver; the install script wires up the softdep.
+ sudo ./install.sh            # build + install + load
+ sudo ./install.sh uninstall  # remove it
+ ```
++
++## TODO
++
++- remove all the debug stuff? TheFlow decides. maybe just rip it out of
++  main and keep a separate branch with the debugging around. idk.

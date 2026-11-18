@@ -1,0 +1,22 @@
+From f86a07e1cef69e3411c5666683b267d33c1b4407 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 23:25:53 +0100
+Subject: [PATCH] UI: Credits: improve looks
+
+---
+ templates/credits.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/templates/credits.html b/templates/credits.html
+index 693252b..d832ed4 100644
+--- a/templates/credits.html
++++ b/templates/credits.html
+@@ -27,7 +27,7 @@
+ <body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto transition-colors duration-300">
+ 
+     <header class="flex items-center gap-4 mb-8 animate-fade-in">
+-        <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all hover:scale-105 active:scale-95 text-brand-light">
++        <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all hover:scale-110 active:scale-95 text-brand-light hover:shadow-lg hover:shadow-brand-blue/20">
+             <i class="fa-solid fa-arrow-left"></i>
+         </a>
+         <div>

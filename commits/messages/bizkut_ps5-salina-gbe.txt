@@ -1,0 +1,125 @@
+======================================================================
+commit 03191e6aa9266ce6f8c6e3f6e0955da25525537e
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 13:02:20 +0000
+
+ps5-gbe: add install script
+
+======================================================================
+commit 3675ebe11375dbacfef9d80d2adf934fc2cb8e7b
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 16:22:48 +0000
+
+ps5-gbe: add NAPI poll and ISR
+
+======================================================================
+commit 5751ee1552bc5de0bb66c5c565765a460f40f953
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Fri, 22 May 2026 21:18:40 +0000
+
+ps5-gbe: add PHY analog tuning sequence
+
+======================================================================
+commit 5c42e4e8945feb3e3c769bdd56f5b92694f82f4e
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 13:31:09 +0000
+
+ps5-gbe: add ring init and HW setup
+
+======================================================================
+commit 5e45895570ac98c7c154027dcee177eff49e90df
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sun, 24 May 2026 08:51:34 +0000
+
+readme: note the stable-nodbg branch with debug logging
+
+======================================================================
+commit 66cadccf95db90492a0dd74855d11e68e490d715
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Wed, 20 May 2026 13:36:52 +0000
+
+ps5-gbe: add link polling and stats
+
+======================================================================
+commit 6eec36758cb9115660a7f4e5a1fcdadd4bea8242
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 10:06:14 +0000
+
+ps5-gbe: fix TX stall on ring wrap
+
+======================================================================
+commit 7677c4a590834f0bf114ce691f293a76ecaecfe7
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Thu, 21 May 2026 14:31:55 +0000
+
+ps5-gbe: add PHY serdes calibration
+
+======================================================================
+commit 9603bc2f7a0bcb38a0226e95fc2ac1a99de92054
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 20:41:12 +0000
+
+ps5-gbe: re-check ISR after re-enabling IER to stop interrupt
+
+======================================================================
+commit 98a4c18a729ddd3e1379845d115c05f411f97092
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Wed, 20 May 2026 18:33:17 +0000
+
+ps5-gbe: add PHY SMI helpers and MII bringup
+
+======================================================================
+commit 99727a47047fd0c81fabfa32f8b266f30bc70253
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 21:23:55 +0000
+
+ps5-gbe: add missing credits
+
+======================================================================
+commit ad5b0a1159a657136e6388b3ef3f6db138564d1b
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 09:40:11 +0000
+
+ps5-gbe: initial driver skeleton
+
+======================================================================
+commit b8c27c95f764559e4ba833d6cc9650da2dd34eed
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 22:23:01 +0000
+
+ps5-gbe: add todo for debug stuff cleanup
+
+======================================================================
+commit bdb9a15f7e5dcecdbd675853c849984908123d3b
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 11:05:44 +0000
+
+ps5-gbe: add DMA ring alloc
+
+======================================================================
+commit d79881b29799b7d1a963400a8b015d07c157138e
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 14:16:33 +0000
+
+ps5-gbe: add TX path
+
+======================================================================
+commit dba245a9e423871e24a18c15a8f8fe4d905a6808
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 19 May 2026 14:52:01 +0000
+
+ps5-gbe: add RX path
+
+======================================================================
+commit f08d9887a86875a3ea743000fd12220acb52abcc
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 23 May 2026 12:11:39 +0000
+
+ps5-gbe: add TX timeout and IRQ watchdog
+
+======================================================================
+commit f97844df76c19bc35def1459a41a2184c593aa04
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Wed, 20 May 2026 15:11:30 +0000
+
+ps5-gbe: add LSO error recovery

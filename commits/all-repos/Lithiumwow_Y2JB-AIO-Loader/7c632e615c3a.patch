@@ -1,0 +1,26 @@
+From 7c632e615c3ac26306140a89b11e57a72f793299 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 03:52:19 +0100
+Subject: [PATCH] Y2JB-WEBUI: Bump Version to 1.1.2
+
+Introduces PS5 Utils:
+
+basically Allows users to patch system files to block updates, and upload download0.dat using the WEBUI *still FTP*
+---
+ version.json | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/version.json b/version.json
+index 111fb88..320fbcb 100644
+--- a/version.json
++++ b/version.json
+@@ -1,6 +1,6 @@
+ {
+   "branch": "main",
+-  "version": "1.1.1",
+-  "date": "2026-01-16",
+-  "description": "lil meow meow"
++  "version": "1.1.2",
++  "date": "2026-01-17",
++  "description": "i did not sleep"
+ }

@@ -1,0 +1,13 @@
+======================================================================
+commit 7846006e8c619e0fc44070adbafcc3e2f1b68d85
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 14 Aug 2025 15:10:04 +0200
+
+a71: MeidyOS 1 release
+
+======================================================================
+commit 87dcc7ce01503306731608065f6f127322c976ea
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Tue, 12 Aug 2025 03:42:39 -0700
+
+Initial commit

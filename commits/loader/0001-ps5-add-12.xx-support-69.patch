@@ -1,0 +1,500 @@
+From 0ee46a156c3aa1b8b0e52bffc40b969259212cd4 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 24 Oct 2026 23:09:54 -0700
+Subject: [PATCH] ps5: add 12.xx support (#69)
+
+* ps5: add 12.xx support
+
+thanks for everything to my goat https://github.com/Wigglez-sudo
+
+* ps5: add explicit 12.20 offsets
+---
+ include/config.h        |   3 +
+ include/offsets.h       |   5 +
+ shellcode_kernel/main.c |   2 +-
+ source/hv_defeat_13xx.c |   9 +-
+ source/main.c           |   3 +-
+ source/offsets.c        | 315 ++++++++++++++++++++++++++++++++++++++++
+ source/prepare_resume.c |  10 +-
+ source/utils.c          |  16 ++
+ 8 files changed, 355 insertions(+), 8 deletions(-)
+
+diff --git a/include/config.h b/include/config.h
+index 1e688a3..fe96f41 100644
+--- a/include/config.h
++++ b/include/config.h
+@@ -6,6 +6,9 @@
+ /* Firmwares that use the 11.x Sonic carrier and hypervisor-defeat path. */
+ #define PS5_FW_IS_11XX(fw)                                                     \
+   ((fw) == 0x1100 || (fw) == 0x1120 || (fw) == 0x1140 || (fw) == 0x1160)
++#define PS5_FW_IS_12XX(fw)                                                     \
++  ((fw) == 0x1200 || (fw) == 0x1202 || (fw) == 0x1220 || (fw) == 0x1240 ||   \
++   (fw) == 0x1260 || (fw) == 0x1270)
+ 
+ // This is used to allocate resources for HV shellcode and Linux boot
+ #define cave 0x100000000ULL
+diff --git a/include/offsets.h b/include/offsets.h
+index 3f945ac..780b10c 100644
+--- a/include/offsets.h
++++ b/include/offsets.h
+@@ -103,6 +103,11 @@ extern offset_list off_1100;
+ extern offset_list off_1120;
+ extern offset_list off_1140;
+ extern offset_list off_1160;
++extern offset_list off_1200;
++extern offset_list off_1202;
++extern offset_list off_1220;
++extern offset_list off_1240;
++extern offset_list off_1270;
+ extern offset_list off_1300;
+ extern offset_list off_1320;
+ extern offset_list off_1340;
+diff --git a/shellcode_kernel/main.c b/shellcode_kernel/main.c
+index 3d6ed68..3f4d6a7 100644
+--- a/shellcode_kernel/main.c
++++ b/shellcode_kernel/main.c
+@@ -29,7 +29,7 @@ __attribute__((section(".entry_point"))) uint32_t main(uint64_t add1,
+   }
+ 
+ #if defined(FW_13XX_PORT)
+-  if (args_ptr->fw_version < 0x1300 || args_ptr->fw_version >= 0x1400)
++  if (args_ptr->fw_version < 0x1200 || args_ptr->fw_version >= 0x1400)
+     return -1;
+   activate_uart(args_ptr);
+ #elif defined(FW_1160)
+diff --git a/source/hv_defeat_13xx.c b/source/hv_defeat_13xx.c
+index 42a5e92..24626a9 100644
+--- a/source/hv_defeat_13xx.c
++++ b/source/hv_defeat_13xx.c
+@@ -97,7 +97,8 @@ uint64_t kgadget(kgadget_t gadget) {
+ }
+ 
+ static int offsets_present(void) {
+-  if (fw != 0x1300 && fw != 0x1320 && fw != 0x1340 && fw != 0x1342 && fw != 0x1360)
++  if (!PS5_FW_IS_12XX(fw) && fw != 0x1300 && fw != 0x1320 && fw != 0x1340 &&
++      fw != 0x1342 && fw != 0x1360)
+     return 0;
+ 
+   const uint64_t required[] = {
+@@ -185,6 +186,9 @@ static int check_nvs_signature(void) {
+ uint64_t derive_h(void) {
+   uint64_t record;
+ 
++  if (!env_offset.HV_EFI_MAP_ROOT)
++    return 0;
++
+   if (kernel_read(ktext + env_offset.HV_EFI_MAP_ROOT, &record, sizeof(record)) ||
+       !record || (record >> 47) != 0x1FFFF)
+     return 0;
+@@ -400,7 +404,8 @@ int hv_defeat_13xx(void *shellcode_kernel, size_t shellcode_kernel_len) {
+   uint64_t waking_vector;
+   int result;
+ 
+-  if ((fw != 0x1300 && fw != 0x1320 && fw != 0x1340 && fw != 0x1342 && fw != 0x1360) || !shellcode_kernel ||
++  if ((!PS5_FW_IS_12XX(fw) && fw != 0x1300 && fw != 0x1320 && fw != 0x1340 &&
++       fw != 0x1342 && fw != 0x1360) || !shellcode_kernel ||
+       !shellcode_kernel_len || !offsets_present()) {
+     if (fw == 0x1360)
+       notify("13.60 offsets incomplete\n");
+diff --git a/source/main.c b/source/main.c
+index 56d1f0d..b6e1372 100644
+--- a/source/main.c
++++ b/source/main.c
+@@ -48,7 +48,8 @@ int main(void) {
+   } else if ((0x0650 <= fw) && (fw < 0x0800)) {
+     if (hv_defeat_0607(shellcode_kernel, shellcode_kernel_len))
+       goto err;
+-  } else if (fw == 0x1300 || fw == 0x1320 || fw == 0x1340 || fw == 0x1342 || fw == 0x1360) {
++  } else if (PS5_FW_IS_12XX(fw) || fw == 0x1300 || fw == 0x1320 ||
++             fw == 0x1340 || fw == 0x1342 || fw == 0x1360) {
+     if (hv_defeat_13xx(shellcode_kernel, shellcode_kernel_len))
+       goto err;
+   } else if (PS5_FW_IS_11XX(fw)) {
+diff --git a/source/offsets.c b/source/offsets.c
+index 41e513a..998036b 100644
+--- a/source/offsets.c
++++ b/source/offsets.c
+@@ -945,6 +945,321 @@ offset_list off_1160 = {
+     .HV_EFI_MAP_ROOT = 0x3DCD0C8,
+ };
+ 
++offset_list off_1200 = {
++    .IOMMU_SOFTC = 0x3599510,
++    .VMSPACE_VM_VMID = 0x1FC,
++    .VMSPACE_VM_PMAP = 0x1D8,
++    .DATA_BASE_GVMSPACE = 0x2E7E570,
++    .ACPIGBL_FACS = 0x3A04C80,
++    .IDT = 0x3BD8300,
++    .COMMON_TSS = 0x3BDAFE0,
++    .STOPPED_CPUS = 0x0,
++    .FUN_STOP_CPUS = 0x0,
++    .FUN_AS_LAPIC_EOI = 0x0,
++    .FUN_HV_UNMAP_PT_TMR = 0x0,
++    .FUN_MEMCPY = 0x2EF240,
++    .GAD_ADD_RSP_28_POP_RBP_RET = 0xA70E54,
++    .GAD_IRETQ = 0x2B362D,
++    .GAD_POP_RAX_RET = 0x26EA50,
++    .GAD_POP_RDI_RET = 0x251DF8,
++    .GAD_POP_RSI_RET = 0x212930,
++    .GAD_POP_RDX_RET = 0x34F66B,
++    .GAD_POP_RCX_RET = 0x341252,
++    .GAD_POP_RSP_RET = 0x2B6490,
++    .GAD_WRMSR_RET = 0x2B0B24,
++    .GAD_MOV_QWORD_PTR_RDI_RSI_POP_RBP_RET = 0x47EACA,
++    .HOOK_ACPI_WAKEUP_MACHDEP = 0x43C2D0,
++    .KERNEL_CODE_CAVE = 0x123440,
++    .FUN_PRINTF = 0x544310,
++    .FUN_HV_IOMMU_SET_BUFFERS = 0xC9DCF0,
++    .FUN_HV_IOMM_WAIT_COMPLETION = 0xC9DC30,
++    .FUN_SMP_RENDEZVOUS = 0xB8FCE0,
++    .FUN_SMP_NO_RENDEVOUS_BARRIER = 0x31DB30,
++    .HV_CODE_CAVE_PA = 0x62806F00,
++    .HV_HANDLE_VMEXIT_PA = 0x6283374D,
++    .KERNEL_UART_OVERRIDE = 0x2275CD8,
++    .KERNEL_CFI_CHECK = 0x4F9FD0,
++    .G_VBIOS = 0x3DF79F0,
++    .FUN_TRANSMITTER_CONTROL = 0xC95BF0,
++    .FUN_MP3_INITIALIZE = 0xAA2140,
++    .FUN_MP3_INVOKE = 0xAA0D40,
++    .PS5_WIFI_FW_OFFSET = 0x15A83F0,
++    .PS5_WIFI_FW_SIZE = 0x799C0,
++    .HV_MP_STARTUP_CALL = 0xC9E0D0,
++    .MP_STARTUP_INIT_VECTOR = 0x3187F8,
++    .DATA_CAVE = 0x2DB5000,
++    .GAD_PIVOT_ADD_RSP28_RET = 0x2A82DE,
++    .GAD_POP_R8_RET = 0xC18E0D,
++    .GAD_STORE_RCX_R8_RET = 0x51E819,
++    .GAD_STORE_RDI8_RCX_RET = 0x3D685F,
++    .GAD_OR_RCX_EAX_RET = 0x899F90,
++    .GAD_SET_DR7_RET = 0xA95BA6,
++    .GAD_STORE_RCX_RDX_RET = 0x8BBBE5,
++    .GAD_STORE_RCX_RAX_RET = 0x369F6F,
++    .GAD_MOV_RAX_RSI_RET = 0x971FD4,
++    .GAD_MOV_RAX_RDI_RET = 0x2B9F11,
++    .GAD_REP_MOVSB_RET = 0x30B847,
++    .GAD_CLD_RET = 0x3807D0,
++    .GAD_RET_TRAMP = 0x26EA51,
++    .GAD_DBREG_RESUME = 0x2ACB78,
++    .RESERVED_56 = 0x0,
++    .RESERVED_57 = 0x0,
++    .NVS_SIGNATURE = 0x1A8A900,
++    .HV_EFI_MAP_ROOT = 0x3E0D070,
++};
++
++offset_list off_1202 = {
++    .IOMMU_SOFTC = 0x3599510,
++    .VMSPACE_VM_VMID = 0x1FC,
++    .VMSPACE_VM_PMAP = 0x1D8,
++    .DATA_BASE_GVMSPACE = 0x2E7E570,
++    .ACPIGBL_FACS = 0x3A04C80,
++    .IDT = 0x3BD8300,
++    .COMMON_TSS = 0x3BDAFE0,
++    .STOPPED_CPUS = 0x0,
++    .FUN_STOP_CPUS = 0x0,
++    .FUN_AS_LAPIC_EOI = 0x0,
++    .FUN_HV_UNMAP_PT_TMR = 0x0,
++    .FUN_MEMCPY = 0x2EF240,
++    .GAD_ADD_RSP_28_POP_RBP_RET = 0xA70E64,
++    .GAD_IRETQ = 0x2B362D,
++    .GAD_POP_RAX_RET = 0x26EA50,
++    .GAD_POP_RDI_RET = 0x251DF8,
++    .GAD_POP_RSI_RET = 0x212930,
++    .GAD_POP_RDX_RET = 0x34F66B,
++    .GAD_POP_RCX_RET = 0x341252,
++    .GAD_POP_RSP_RET = 0x2B6490,
++    .GAD_WRMSR_RET = 0x2B0B24,
++    .GAD_MOV_QWORD_PTR_RDI_RSI_POP_RBP_RET = 0x47EACA,
++    .HOOK_ACPI_WAKEUP_MACHDEP = 0x43C2D0,
++    .KERNEL_CODE_CAVE = 0x123470,
++    .FUN_PRINTF = 0x544310,
++    .FUN_HV_IOMMU_SET_BUFFERS = 0xC9DCF0,
++    .FUN_HV_IOMM_WAIT_COMPLETION = 0xC9DC30,
++    .FUN_SMP_RENDEZVOUS = 0xB8FCE0,
++    .FUN_SMP_NO_RENDEVOUS_BARRIER = 0x31DB30,
++    .HV_CODE_CAVE_PA = 0x62806F00,
++    .HV_HANDLE_VMEXIT_PA = 0x6283374D,
++    .KERNEL_UART_OVERRIDE = 0x2275CD8,
++    .KERNEL_CFI_CHECK = 0x4F9FD0,
++    .G_VBIOS = 0x3DF79F0,
++    .FUN_TRANSMITTER_CONTROL = 0xC95BF0,
++    .FUN_MP3_INITIALIZE = 0xAA2150,
++    .FUN_MP3_INVOKE = 0xAA0D50,
++    .PS5_WIFI_FW_OFFSET = 0x15A83F0,
++    .PS5_WIFI_FW_SIZE = 0x799C0,
++    .HV_MP_STARTUP_CALL = 0xC9E0D0,
++    .MP_STARTUP_INIT_VECTOR = 0x3187F8,
++    .DATA_CAVE = 0x2DB5000,
++    .GAD_PIVOT_ADD_RSP28_RET = 0x2A82DE,
++    .GAD_POP_R8_RET = 0xC18E0D,
++    .GAD_STORE_RCX_R8_RET = 0x51E819,
++    .GAD_STORE_RDI8_RCX_RET = 0x3D685F,
++    .GAD_OR_RCX_EAX_RET = 0x899FA0,
++    .GAD_SET_DR7_RET = 0xA95BB6,
++    .GAD_STORE_RCX_RDX_RET = 0x8BBBF5,
++    .GAD_STORE_RCX_RAX_RET = 0x369F6F,
++    .GAD_MOV_RAX_RSI_RET = 0x971FE4,
++    .GAD_MOV_RAX_RDI_RET = 0x2B9F11,
++    .GAD_REP_MOVSB_RET = 0x30B847,
++    .GAD_CLD_RET = 0x36A6B0,
++    .GAD_RET_TRAMP = 0x26EA51,
++    .GAD_DBREG_RESUME = 0x2ACB78,
++    .RESERVED_56 = 0x0,
++    .RESERVED_57 = 0x0,
++    .NVS_SIGNATURE = 0x1A8A900,
++    .HV_EFI_MAP_ROOT = 0x3E0D070,
++};
++
++offset_list off_1220 = {
++    .IOMMU_SOFTC = 0x3599510,
++    .VMSPACE_VM_VMID = 0x1FC,
++    .VMSPACE_VM_PMAP = 0x1D8,
++    .DATA_BASE_GVMSPACE = 0x2E7E570,
++    .ACPIGBL_FACS = 0x3A04C80,
++    .IDT = 0x3BD8300,
++    .COMMON_TSS = 0x3BDAFE0,
++    .STOPPED_CPUS = 0,
++    .FUN_STOP_CPUS = 0,
++    .FUN_AS_LAPIC_EOI = 0,
++    .FUN_HV_UNMAP_PT_TMR = 0,
++    .FUN_MEMCPY = 0x2EF0C0,
++    .GAD_ADD_RSP_28_POP_RBP_RET = 0xA70CE4,
++    .GAD_IRETQ = 0x2B34AD,
++    .GAD_POP_RAX_RET = 0x26E8D0,
++    .GAD_POP_RDI_RET = 0x251C78,
++    .GAD_POP_RSI_RET = 0x2127B0,
++    .GAD_POP_RDX_RET = 0x34F4EB,
++    .GAD_POP_RCX_RET = 0x3410D2,
++    .GAD_POP_RSP_RET = 0x2B6310,
++    .GAD_WRMSR_RET = 0x2B09A4,
++    .GAD_MOV_QWORD_PTR_RDI_RSI_POP_RBP_RET = 0x47E94A,
++    .HOOK_ACPI_WAKEUP_MACHDEP = 0x43C150,
++    .KERNEL_CODE_CAVE = 0x1232F0,
++    .FUN_PRINTF = 0x544190,
++    .FUN_HV_IOMMU_SET_BUFFERS = 0xC9DB70,
++    .FUN_HV_IOMM_WAIT_COMPLETION = 0xC9DAB0,
++    .FUN_SMP_RENDEZVOUS = 0xB8FB60,
++    .FUN_SMP_NO_RENDEVOUS_BARRIER = 0x31D9B0,
++    .HV_CODE_CAVE_PA = 0x62806F00,
++    .HV_HANDLE_VMEXIT_PA = 0x6283374D,
++    .KERNEL_UART_OVERRIDE = 0x2275CD8,
++    .KERNEL_CFI_CHECK = 0x4F9E50,
++    .G_VBIOS = 0x3DF79F0,
++    .FUN_TRANSMITTER_CONTROL = 0xC95A70,
++    .FUN_MP3_INITIALIZE = 0xAA1FD0,
++    .FUN_MP3_INVOKE = 0xAA0BD0,
++    .PS5_WIFI_FW_OFFSET = 0x15A83F0,
++    .PS5_WIFI_FW_SIZE = 0x799C0,
++    .HV_MP_STARTUP_CALL = 0xC9DF50,
++    .MP_STARTUP_INIT_VECTOR = 0x318678,
++    .DATA_CAVE = 0x2DB5000,
++    .GAD_PIVOT_ADD_RSP28_RET = 0x2A815E,
++    .GAD_POP_R8_RET = 0xC18C8D,
++    .GAD_STORE_RCX_R8_RET = 0x51E699,
++    .GAD_STORE_RDI8_RCX_RET = 0x3D66DF,
++    .GAD_OR_RCX_EAX_RET = 0x899E20,
++    .GAD_SET_DR7_RET = 0xA95A36,
++    .GAD_STORE_RCX_RDX_RET = 0x8BBA75,
++    .GAD_STORE_RCX_RAX_RET = 0x369DEF,
++    .GAD_MOV_RAX_RSI_RET = 0x971E64,
++    .GAD_MOV_RAX_RDI_RET = 0x2B9D91,
++    .GAD_REP_MOVSB_RET = 0x30B6C7,
++    .GAD_CLD_RET = 0x36A530,
++    .GAD_RET_TRAMP = 0x26E8D1,
++    .GAD_DBREG_RESUME = 0x2AC9F8,
++    .RESERVED_56 = 0,
++    .RESERVED_57 = 0,
++    .NVS_SIGNATURE = 0x1A8A900,
++    .HV_EFI_MAP_ROOT = 0x3E0D070,
++};
++
++offset_list off_1240 = {
++    .IOMMU_SOFTC = 0x3599510,
++    .VMSPACE_VM_VMID = 0x1FC,
++    .VMSPACE_VM_PMAP = 0x1D8,
++    .DATA_BASE_GVMSPACE = 0x2E7E570,
++    .ACPIGBL_FACS = 0x3A04C80,
++    .IDT = 0x3BD8300,
++    .COMMON_TSS = 0x3BDAFE0,
++    .STOPPED_CPUS = 0,
++    .FUN_STOP_CPUS = 0,
++    .FUN_AS_LAPIC_EOI = 0,
++    .FUN_HV_UNMAP_PT_TMR = 0,
++    .FUN_MEMCPY = 0x2EF0C0,
++    .GAD_ADD_RSP_28_POP_RBP_RET = 0xA70CE4,
++    .GAD_IRETQ = 0x2B34AD,
++    .GAD_POP_RAX_RET = 0x26E8D0,
++    .GAD_POP_RDI_RET = 0x251C78,
++    .GAD_POP_RSI_RET = 0x2127B0,
++    .GAD_POP_RDX_RET = 0x34F4EB,
++    .GAD_POP_RCX_RET = 0x3410D2,
++    .GAD_POP_RSP_RET = 0x2B6310,
++    .GAD_WRMSR_RET = 0x2B09A4,
++    .GAD_MOV_QWORD_PTR_RDI_RSI_POP_RBP_RET = 0x47E94A,
++    .HOOK_ACPI_WAKEUP_MACHDEP = 0x43C150,
++    .KERNEL_CODE_CAVE = 0x1232F0,
++    .FUN_PRINTF = 0x544190,
++    .FUN_HV_IOMMU_SET_BUFFERS = 0xC9DB70,
++    .FUN_HV_IOMM_WAIT_COMPLETION = 0xC9DAB0,
++    .FUN_SMP_RENDEZVOUS = 0xB8FB60,
++    .FUN_SMP_NO_RENDEVOUS_BARRIER = 0x31D9B0,
++    .HV_CODE_CAVE_PA = 0x62806F00,
++    .HV_HANDLE_VMEXIT_PA = 0x6283374D,
++    .KERNEL_UART_OVERRIDE = 0x2275CD8,
++    .KERNEL_CFI_CHECK = 0x4F9E50,
++    .G_VBIOS = 0x3DF79F0,
++    .FUN_TRANSMITTER_CONTROL = 0xC95A70,
++    .FUN_MP3_INITIALIZE = 0xAA1FD0,
++    .FUN_MP3_INVOKE = 0xAA0BD0,
++    .PS5_WIFI_FW_OFFSET = 0x15A83F0,
++    .PS5_WIFI_FW_SIZE = 0x799C0,
++    .HV_MP_STARTUP_CALL = 0xC9DF50,
++    .MP_STARTUP_INIT_VECTOR = 0x318678,
++    .DATA_CAVE = 0x2DB5000,
++    .GAD_PIVOT_ADD_RSP28_RET = 0x2A815E,
++    .GAD_POP_R8_RET = 0xC18C8D,
++    .GAD_STORE_RCX_R8_RET = 0x51E699,
++    .GAD_STORE_RDI8_RCX_RET = 0x3D66DF,
++    .GAD_OR_RCX_EAX_RET = 0x899E20,
++    .GAD_SET_DR7_RET = 0xA95A36,
++    .GAD_STORE_RCX_RDX_RET = 0x8BBA75,
++    .GAD_STORE_RCX_RAX_RET = 0x369DEF,
++    .GAD_MOV_RAX_RSI_RET = 0x971E64,
++    .GAD_MOV_RAX_RDI_RET = 0x2B9D91,
++    .GAD_REP_MOVSB_RET = 0x30B6C7,
++    .GAD_CLD_RET = 0x36A530,
++    .GAD_RET_TRAMP = 0x26E8D1,
++    .GAD_DBREG_RESUME = 0x2AC9F8,
++    .RESERVED_56 = 0,
++    .RESERVED_57 = 0,
++    .NVS_SIGNATURE = 0x1A8A900,
++    .HV_EFI_MAP_ROOT = 0x3E0D070,
++};
++
++offset_list off_1270 = {
++    .IOMMU_SOFTC = 0x3599510,
++    .VMSPACE_VM_VMID = 0x1FC,
++    .VMSPACE_VM_PMAP = 0x1D8,
++    .DATA_BASE_GVMSPACE = 0x2E7E570,
++    .ACPIGBL_FACS = 0x3A04C80,
++    .IDT = 0x3BD8300,
++    .COMMON_TSS = 0x3BDAFE0,
++    .STOPPED_CPUS = 0x0,
++    .FUN_STOP_CPUS = 0x0,
++    .FUN_AS_LAPIC_EOI = 0x0,
++    .FUN_HV_UNMAP_PT_TMR = 0x0,
++    .FUN_MEMCPY = 0x2EF0C0,
++    .GAD_ADD_RSP_28_POP_RBP_RET = 0xA70D44,
++    .GAD_IRETQ = 0x2B34AD,
++    .GAD_POP_RAX_RET = 0x26E8D0,
++    .GAD_POP_RDI_RET = 0x251C78,
++    .GAD_POP_RSI_RET = 0x2127B0,
++    .GAD_POP_RDX_RET = 0x34F4EB,
++    .GAD_POP_RCX_RET = 0x3410D2,
++    .GAD_POP_RSP_RET = 0x2B6310,
++    .GAD_WRMSR_RET = 0x2B09A4,
++    .GAD_MOV_QWORD_PTR_RDI_RSI_POP_RBP_RET = 0x47E94A,
++    .HOOK_ACPI_WAKEUP_MACHDEP = 0x43C150,
++    .KERNEL_CODE_CAVE = 0x1232F0,
++    .FUN_PRINTF = 0x544190,
++    .FUN_HV_IOMMU_SET_BUFFERS = 0xC9DBD0,
++    .FUN_HV_IOMM_WAIT_COMPLETION = 0xC9DB10,
++    .FUN_SMP_RENDEZVOUS = 0xB8FBC0,
++    .FUN_SMP_NO_RENDEVOUS_BARRIER = 0x31D9B0,
++    .HV_CODE_CAVE_PA = 0x62806F00,
++    .HV_HANDLE_VMEXIT_PA = 0x6283374D,
++    .KERNEL_UART_OVERRIDE = 0x2275CD8,
++    .KERNEL_CFI_CHECK = 0x4F9E50,
++    .G_VBIOS = 0x3DF79F0,
++    .FUN_TRANSMITTER_CONTROL = 0xC95AD0,
++    .FUN_MP3_INITIALIZE = 0xAA2030,
++    .FUN_MP3_INVOKE = 0xAA0C30,
++    .PS5_WIFI_FW_OFFSET = 0x15A83F0,
++    .PS5_WIFI_FW_SIZE = 0x799C0,
++    .HV_MP_STARTUP_CALL = 0xC9DFB0,
++    .MP_STARTUP_INIT_VECTOR = 0x318678,
++    .DATA_CAVE = 0x2DB5000,
++    .GAD_PIVOT_ADD_RSP28_RET = 0x2A815E,
++    .GAD_POP_R8_RET = 0xC18CED,
++    .GAD_STORE_RCX_R8_RET = 0x51E699,
++    .GAD_STORE_RDI8_RCX_RET = 0x3D66DF,
++    .GAD_OR_RCX_EAX_RET = 0x899E20,
++    .GAD_SET_DR7_RET = 0xA95A96,
++    .GAD_STORE_RCX_RDX_RET = 0x8BBA75,
++    .GAD_STORE_RCX_RAX_RET = 0x369DEF,
++    .GAD_MOV_RAX_RSI_RET = 0x971E64,
++    .GAD_MOV_RAX_RDI_RET = 0x2B9D91,
++    .GAD_REP_MOVSB_RET = 0x30B6C7,
++    .GAD_CLD_RET = 0x36A530,
++    .GAD_RET_TRAMP = 0x26E8D1,
++    .GAD_DBREG_RESUME = 0x2AC9F8,
++    .RESERVED_56 = 0x0,
++    .RESERVED_57 = 0x0,
++    .NVS_SIGNATURE = 0x1A8A900,
++    .HV_EFI_MAP_ROOT = 0x3E0D070,
++};
++
+ offset_list off_1300 = {
+     .IOMMU_SOFTC = 0x3532CF0,
+     .VMSPACE_VM_VMID = 0x1EC,
+diff --git a/source/prepare_resume.c b/source/prepare_resume.c
+index b4cbada..1ce251f 100644
+--- a/source/prepare_resume.c
++++ b/source/prepare_resume.c
+@@ -158,7 +158,8 @@ int prepare_resume(void **shellcode_kernel, size_t *shellcode_kernel_len) {
+ 
+   const uint8_t *shellcode_src = shellcode_kernel_bin;
+   size_t shellcode_len = shellcode_kernel_bin_len;
+-  if (fw == 0x1300 || fw == 0x1320 || fw == 0x1340 || fw == 0x1342) {
++  if (PS5_FW_IS_12XX(fw) || fw == 0x1300 || fw == 0x1320 || fw == 0x1340 ||
++      fw == 0x1342) {
+     shellcode_src = shellcode_kernel_13xx_bin;
+     shellcode_len = shellcode_kernel_13xx_bin_len;
+   } else if (fw == 0x1360 && linux_i.kit_type != KIT_RETAIL_PRO) {
+@@ -169,7 +170,8 @@ int prepare_resume(void **shellcode_kernel, size_t *shellcode_kernel_len) {
+     shellcode_len = shellcode_kernel_1160_bin_len;
+   }
+ 
+-  if ((fw == 0x1300 || fw == 0x1320) && shellcode_len > 0x3910)
++  if ((PS5_FW_IS_12XX(fw) || fw == 0x1300 || fw == 0x1320) &&
++      shellcode_len > 0x3910)
+     return -1;
+   if (PS5_FW_IS_11XX(fw) && shellcode_len > 0x5000)
+     return -1;
+@@ -256,8 +258,8 @@ uint64_t prepare_sck_args(void) {
+   args.kernel_cfi_check = ktext + env_offset.KERNEL_CFI_CHECK;
+   args.hv_handle_vmexit_pa = env_offset.HV_HANDLE_VMEXIT_PA;
+   args.hv_code_cave_pa = env_offset.HV_CODE_CAVE_PA;
+-  if ((PS5_FW_IS_11XX(fw) || fw == 0x1320 || fw == 0x1340 || fw == 0x1342 ||
+-       fw == 0x1360) &&
++  if ((PS5_FW_IS_11XX(fw) || PS5_FW_IS_12XX(fw) || fw == 0x1320 ||
++       fw == 0x1340 || fw == 0x1342 || fw == 0x1360) &&
+       linux_i.kit_type == KIT_RETAIL_PRO) {
+     uint64_t pro_base = derive_h() + HV_CODE_OFFSET_PRO;
+     uint64_t hv_offset = pro_base - HV_BASE_REGULAR;
+diff --git a/source/utils.c b/source/utils.c
+index eb06ea3..b79bf31 100644
+--- a/source/utils.c
++++ b/source/utils.c
+@@ -130,6 +130,22 @@ int set_offsets(void) {
+     }
+     env_offset = off_1160;
+     break;
++  case 0x1200:
++    env_offset = off_1200;
++    break;
++  case 0x1202:
++    env_offset = off_1202;
++    break;
++  case 0x1220:
++    env_offset = off_1220;
++    break;
++  case 0x1240:
++    env_offset = off_1240;
++    break;
++  case 0x1260:
++  case 0x1270:
++    env_offset = off_1270;
++    break;
+   case 0x1300:
+     env_offset = off_1300;
+     break;

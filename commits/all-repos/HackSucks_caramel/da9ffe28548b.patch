@@ -1,0 +1,2712 @@
+From da9ffe28548be9e67f9d9c0e6ce9ac896089337c Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Fri, 6 Nov 2026 10:56:28 +0100
+Subject: [PATCH] amdgpu: vce: add the native vce1 block on baikal liverpool
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/Makefile           |   2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_job.c       |  26 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_job.h       |   2 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c       |   2 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c       |  48 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h       |   8 +
+ drivers/gpu/drm/amd/amdgpu/cik.c              |  23 +-
+ drivers/gpu/drm/amd/amdgpu/vce_liverpool.c    | 340 +++++++
+ drivers/gpu/drm/amd/amdgpu/vce_liverpool.h    |  49 +
+ .../gpu/drm/amd/amdgpu/vce_liverpool_compat.c | 859 ++++++++++++++++++
+ .../gpu/drm/amd/amdgpu/vce_liverpool_sps.h    | 193 ++++
+ .../drm/amd/amdgpu/vce_liverpool_vectors.h    |  53 ++
+ drivers/ps4/Makefile                          |   2 +-
+ extra_firmware/amdgpu/liverpool_vce.bin       | Bin 0 -> 52056 bytes
+ 14 files changed, 1592 insertions(+), 15 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/vce_liverpool.c
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/vce_liverpool.h
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/vce_liverpool_compat.c
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/vce_liverpool_sps.h
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/vce_liverpool_vectors.h
+ create mode 100644 extra_firmware/amdgpu/liverpool_vce.bin
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index 913b69ca403a..57d42ed9ca55 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -80,7 +80,7 @@ amdgpu-$(CONFIG_PERF_EVENTS) += amdgpu_pmu.o
+ 
+ # add asic specific block
+ amdgpu-$(CONFIG_DRM_AMDGPU_CIK)+= cik.o cik_ih.o \
+-	dce_v8_0.o gfx_v7_0.o cik_sdma.o uvd_v4_2.o vce_v2_0.o \
++	dce_v8_0.o gfx_v7_0.o cik_sdma.o uvd_v4_2.o vce_v2_0.o vce_liverpool.o vce_liverpool_compat.o \
+ 	liverpool_clk.o liverpool_smu.o
+ 
+ amdgpu-$(CONFIG_DRM_AMDGPU_SI)+= si.o gmc_v6_0.o gfx_v6_0.o si_ih.o si_dma.o dce_v6_0.o \
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+index 92323d0bdb4a..25f6d6e571a6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+@@ -32,6 +32,7 @@
+ #include "amdgpu_reset.h"
+ #include "amdgpu_dev_coredump.h"
+ #include "amdgpu_xgmi.h"
++#include "vce_liverpool.h"
+ 
+ static void amdgpu_job_do_core_dump(struct amdgpu_device *adev,
+ 				    struct amdgpu_job *job)
+@@ -94,6 +95,11 @@ static enum drm_gpu_sched_stat amdgpu_job_timedout(struct drm_sched_job *s_job)
+ 	struct amdgpu_device *adev = ring->adev;
+ 	int idx, r;
+ 
++	if (vce_liverpool_job_timeout(job)) {
++		drm_sched_suspend_timeout(&ring->sched);
++		return DRM_GPU_SCHED_STAT_ENODEV;
++	}
++
+ 	if (!drm_dev_enter(adev_to_drm(adev), &idx)) {
+ 		dev_info(adev->dev, "%s - device unplugged skipping recovery on scheduler:%s",
+ 			 __func__, s_job->sched->name);
+@@ -334,6 +340,8 @@ void amdgpu_job_set_gang_leader(struct amdgpu_job *job,
+ 
+ void amdgpu_job_free(struct amdgpu_job *job)
+ {
++	vce_liverpool_free_job(job);
++
+ 	if (job->gang_submit != &job->base.s_fence->scheduled)
+ 		dma_fence_put(job->gang_submit);
+ 
+@@ -373,10 +381,17 @@ int amdgpu_job_submit_direct(struct amdgpu_job *job, struct amdgpu_ring *ring,
+ 	int r;
+ 
+ 	job->base.sched = &ring->sched;
+-	r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job, fence);
++	if (vce_liverpool_cpu_job(job)) {
++		*fence = dma_fence_get_stub();
++		r = 0;
++	} else {
++		r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job, fence);
++	}
+ 
+ 	if (r)
+ 		return r;
++	if (job->vce_native && *fence)
++		*fence = vce_liverpool_complete_job(job, *fence);
+ 
+ 	amdgpu_job_free(job);
+ 	return 0;
+@@ -443,8 +458,11 @@ static struct dma_fence *amdgpu_job_run(struct drm_sched_job *sched_job)
+ 		dev_dbg(adev->dev, "Skip scheduling IBs in ring(%s)",
+ 			ring->name);
+ 	} else {
+-		r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job,
+-				       &fence);
++		if (vce_liverpool_cpu_job(job))
++			fence = dma_fence_get_stub();
++		else
++			r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job,
++					       &fence);
+ 		if (r)
+ 			dev_err(adev->dev,
+ 				"Error scheduling IBs (%d) in ring(%s)", r,
+@@ -452,6 +470,8 @@ static struct dma_fence *amdgpu_job_run(struct drm_sched_job *sched_job)
+ 	}
+ 
+ 	job->job_run_counter++;
++	if (!r && fence && job->vce_native)
++		fence = vce_liverpool_complete_job(job, fence);
+ 	amdgpu_job_free_resources(job);
+ 
+ 	fence = r ? ERR_PTR(r) : fence;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
+index 44fe40f9e8df..32f00ce5cc3a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
+@@ -42,6 +42,7 @@
+ #define AMDGPU_JOB_GET_VMID(job) ((job) ? (job)->vmid : 0)
+ 
+ struct amdgpu_fence;
++struct vce_liverpool_job;
+ enum amdgpu_ib_pool_type;
+ 
+ /* Internal kernel job ids. (decreasing values, starting from U64_MAX). */
+@@ -66,6 +67,7 @@ enum amdgpu_ib_pool_type;
+ 
+ struct amdgpu_job {
+ 	struct drm_sched_job    base;
++	struct vce_liverpool_job *vce_native;
+ 	struct amdgpu_vm	*vm;
+ 	struct amdgpu_sync	explicit_sync;
+ 	struct amdgpu_fence	*hw_fence;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+index 7c081b338fe2..25bbf8164614 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_kms.c
+@@ -221,6 +221,8 @@ static int amdgpu_firmware_info(struct drm_amdgpu_info_firmware *fw_info,
+ 	switch (query_fw->fw_type) {
+ 	case AMDGPU_INFO_FW_VCE:
+ 		fw_info->ver = adev->vce.fw_version;
++		if (adev->vce.fw_version && amdgpu_vce_is_native(adev))
++			fw_info->ver = (40 << 24) | (2 << 16) | (2 << 8);
+ 		fw_info->feature = adev->vce.fb_version;
+ 		break;
+ 	case AMDGPU_INFO_FW_UVD:
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+index 3952af9ae115..27c8b496af32 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.c
+@@ -36,6 +36,7 @@
+ #include "amdgpu_vce.h"
+ #include "amdgpu_cs.h"
+ #include "cikd.h"
++#include "vce_liverpool.h"
+ 
+ /* 1 second timeout */
+ #define VCE_IDLE_TIMEOUT	msecs_to_jiffies(1000)
+@@ -49,6 +50,7 @@
+ #define FIRMWARE_KABINI	"amdgpu/kabini_vce.bin"
+ #define FIRMWARE_KAVERI	"amdgpu/kaveri_vce.bin"
+ #define FIRMWARE_HAWAII	"amdgpu/hawaii_vce.bin"
++#define FIRMWARE_LIVERPOOL "amdgpu/liverpool_vce.bin"
+ #define FIRMWARE_MULLINS	"amdgpu/mullins_vce.bin"
+ #endif
+ #define FIRMWARE_TONGA		"amdgpu/tonga_vce.bin"
+@@ -72,6 +74,7 @@ MODULE_FIRMWARE(FIRMWARE_BONAIRE);
+ MODULE_FIRMWARE(FIRMWARE_KABINI);
+ MODULE_FIRMWARE(FIRMWARE_KAVERI);
+ MODULE_FIRMWARE(FIRMWARE_HAWAII);
++MODULE_FIRMWARE(FIRMWARE_LIVERPOOL);
+ MODULE_FIRMWARE(FIRMWARE_MULLINS);
+ #endif
+ MODULE_FIRMWARE(FIRMWARE_TONGA);
+@@ -93,6 +96,11 @@ static int amdgpu_vce_get_create_msg(struct amdgpu_ring *ring, uint32_t handle,
+ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
+ 				      bool direct, struct dma_fence **fence);
+ 
++bool amdgpu_vce_is_native(struct amdgpu_device *adev)
++{
++	return adev->asic_type == CHIP_LIVERPOOL && adev->pdev->device == 0x9923;
++}
++
+ /**
+  * amdgpu_vce_firmware_name() - determine the firmware file name for VCE
+  *
+@@ -120,6 +128,8 @@ static const char *amdgpu_vce_firmware_name(struct amdgpu_device *adev)
+ 		return FIRMWARE_KABINI;
+ 	case CHIP_HAWAII:
+ 		return FIRMWARE_HAWAII;
++	case CHIP_LIVERPOOL:
++		return amdgpu_vce_is_native(adev) ? FIRMWARE_LIVERPOOL : NULL;
+ 	case CHIP_MULLINS:
+ 		return FIRMWARE_MULLINS;
+ #endif
+@@ -184,6 +194,14 @@ int amdgpu_vce_early_init(struct amdgpu_device *adev)
+ 	}
+ 
+ 	hdr = (const struct common_firmware_header *)adev->vce.fw->data;
++	if (amdgpu_vce_is_native(adev) &&
++	    (adev->vce.fw->size != 52056 ||
++	     le32_to_cpu(hdr->ucode_size_bytes) != 51800 ||
++	     le32_to_cpu(hdr->ucode_array_offset_bytes) != 256 ||
++	     le32_to_cpu(hdr->ucode_version) != ((31 << 20) | (3 << 8) | 1))) {
++		amdgpu_ucode_release(&adev->vce.fw);
++		return -EINVAL;
++	}
+ 
+ 	ucode_version = le32_to_cpu(hdr->ucode_version);
+ 	version_major = (ucode_version >> 20) & 0xfff;
+@@ -576,6 +594,14 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
+ 
+ 	/* stitch together an VCE destroy msg */
+ 	ib->length_dw = 0;
++	if (amdgpu_vce_is_native(ring->adev)) {
++		r = vce_liverpool_destroy_session(ring->adev, handle, ib->ptr, job);
++		if (r < 0)
++			goto err;
++		ib->length_dw = r;
++		r = 0;
++		goto submit;
++	}
+ 	ib->ptr[ib->length_dw++] = 0x0000000c; /* len */
+ 	ib->ptr[ib->length_dw++] = 0x00000001; /* session cmd */
+ 	ib->ptr[ib->length_dw++] = handle;
+@@ -595,6 +621,7 @@ static int amdgpu_vce_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
+ 	for (i = ib->length_dw; i < ib_size_dw; ++i)
+ 		ib->ptr[i] = 0x0;
+ 
++submit:
+ 	if (direct)
+ 		r = amdgpu_job_submit_direct(job, ring, &f);
+ 	else
+@@ -662,7 +689,6 @@ static int amdgpu_vce_validate_bo(struct amdgpu_cs_parser *p,
+ 	return ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
+ }
+ 
+-
+ /**
+  * amdgpu_vce_cs_reloc - command submission relocation
+  *
+@@ -757,14 +783,7 @@ static int amdgpu_vce_validate_handle(struct amdgpu_cs_parser *p,
+ 	return -EINVAL;
+ }
+ 
+-/**
+- * amdgpu_vce_ring_parse_cs - parse and validate the command stream
+- *
+- * @p: parser context
+- * @job: the job to parse
+- * @ib: the IB to patch
+- */
+-int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
++int amdgpu_vce_ring_parse_cs_legacy(struct amdgpu_cs_parser *p,
+ 			     struct amdgpu_job *job,
+ 			     struct amdgpu_ib *ib)
+ {
+@@ -1006,6 +1025,14 @@ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
+ 	return r;
+ }
+ 
++int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p,
++		struct amdgpu_job *job, struct amdgpu_ib *ib)
++{
++	if (amdgpu_vce_is_native(p->adev))
++		return vce_liverpool_parse_cs(p, job, ib);
++	return amdgpu_vce_ring_parse_cs_legacy(p, job, ib);
++}
++
+ /**
+  * amdgpu_vce_ring_parse_cs_vm - parse the command stream in VM mode
+  *
+@@ -1189,6 +1216,9 @@ int amdgpu_vce_ring_test_ib(struct amdgpu_ring *ring, long timeout)
+ 	struct dma_fence *fence = NULL;
+ 	long r;
+ 
++	if (amdgpu_vce_is_native(ring->adev))
++		return vce_liverpool_test_ib(ring, timeout);
++
+ 	/* skip vce ring1/2 ib test for now, since it's not reliable */
+ 	if (ring != &ring->adev->vce.ring[0])
+ 		return 0;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
+index 778c714c8385..3c9bf33b7254 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_vce.h
+@@ -53,8 +53,14 @@ struct amdgpu_vce {
+ 	unsigned		num_rings;
+ 	uint32_t		keyselect;
+ 	struct drm_mm_node	gart_node;
++	bool			native_stop_failed;
++	bool			native_running;
++	struct mutex		native_mutex;
++	struct workqueue_struct *native_workqueue;
++	struct vce_liverpool_session *native_sessions[AMDGPU_MAX_VCE_HANDLES];
+ };
+ 
++bool amdgpu_vce_is_native(struct amdgpu_device *adev);
+ int amdgpu_vce_early_init(struct amdgpu_device *adev);
+ int amdgpu_vce_sw_init(struct amdgpu_device *adev, unsigned long size);
+ int amdgpu_vce_sw_fini(struct amdgpu_device *adev);
+@@ -64,6 +70,8 @@ int amdgpu_vce_resume(struct amdgpu_device *adev);
+ void amdgpu_vce_free_handles(struct amdgpu_device *adev, struct drm_file *filp);
+ int amdgpu_vce_ring_parse_cs(struct amdgpu_cs_parser *p, struct amdgpu_job *job,
+ 			     struct amdgpu_ib *ib);
++int amdgpu_vce_ring_parse_cs_legacy(struct amdgpu_cs_parser *p,
++		struct amdgpu_job *job, struct amdgpu_ib *ib);
+ int amdgpu_vce_ring_parse_cs_vm(struct amdgpu_cs_parser *p,
+ 				struct amdgpu_job *job,
+ 				struct amdgpu_ib *ib);
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 37dc52a3341f..afc618f08784 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -49,6 +49,7 @@
+ #include "uvd_v4_2.h"
+ #include "uvd_v5_0.h"
+ #include "vce_v2_0.h"
++#include "vce_liverpool.h"
+ #include "cik_dpm.h"
+ 
+ #include "uvd/uvd_4_2_d.h"
+@@ -93,6 +94,21 @@ static const struct amdgpu_video_codecs cik_video_codecs_encode =
+ 	.codec_array = cik_video_codecs_encode_array,
+ };
+ 
++static const struct amdgpu_video_codec_info liverpool_video_codecs_encode_array[] = {
++	{
++		.codec_type = AMDGPU_INFO_VIDEO_CAPS_CODEC_IDX_MPEG4_AVC,
++		.max_width = 1920,
++		.max_height = 1088,
++		.max_pixels_per_frame = 1920 * 1088,
++		.max_level = 42,
++	},
++};
++
++static const struct amdgpu_video_codecs liverpool_video_codecs_encode = {
++	.codec_count = ARRAY_SIZE(liverpool_video_codecs_encode_array),
++	.codec_array = liverpool_video_codecs_encode_array,
++};
++
+ static const struct amdgpu_video_codec_info cik_video_codecs_decode_array[] =
+ {
+ 	{
+@@ -134,6 +150,10 @@ static const struct amdgpu_video_codecs cik_video_codecs_decode =
+ static int cik_query_video_codecs(struct amdgpu_device *adev, bool encode,
+ 				  const struct amdgpu_video_codecs **codecs)
+ {
++	if (encode && amdgpu_vce_is_native(adev)) {
++		*codecs = &liverpool_video_codecs_encode;
++		return 0;
++	}
+ 	switch (adev->asic_type) {
+ 	case CHIP_BONAIRE:
+ 	case CHIP_HAWAII:
+@@ -2754,7 +2774,8 @@ int cik_set_ip_blocks(struct amdgpu_device *adev)
+ 		amdgpu_device_ip_block_add(adev, &cik_sdma_ip_block);
+ 		if (adev->pdev->device == 0x9923)
+ 			amdgpu_device_ip_block_add(adev, &uvd_v5_0_ip_block);
+-		/*amdgpu_device_ip_block_add(adev, &vce_v2_0_ip_block)*/;
++		if (adev->pdev->device == 0x9923)
++			amdgpu_device_ip_block_add(adev, &vce_liverpool_ip_block);
+ 		break;
+ 	case CHIP_GLADIUS:
+ 		amdgpu_device_ip_block_add(adev, &cik_common_ip_block);
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_liverpool.c b/drivers/gpu/drm/amd/amdgpu/vce_liverpool.c
+new file mode 100644
+index 000000000000..8b3a2bb5b4d9
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/vce_liverpool.c
+@@ -0,0 +1,340 @@
++#include <linux/delay.h>
++#include <linux/firmware.h>
++
++#include "amdgpu.h"
++#include "amdgpu_vce.h"
++#include "cikd.h"
++#include "vce_liverpool.h"
++#include "vce/vce_1_0_d.h"
++#include "oss/oss_2_0_d.h"
++
++static int vce_liverpool_stop(struct amdgpu_device *adev)
++{
++	u32 value, control;
++	unsigned int i;
++
++	if (!adev->vce.native_running)
++		return 0;
++	WREG32(mmVCE_SYS_INT_EN, RREG32(mmVCE_SYS_INT_EN) & ~8u);
++	for (i = 0; i < 10000; i++) {
++		value = RREG32(mmVCE_LMI_STATUS);
++		if ((value & 15) == 15 && !(RREG32(mmVCE_STATUS) & 0x138))
++			break;
++		udelay(10);
++	}
++	if (i == 10000)
++		goto timeout;
++	WREG32(mmVCE_LMI_CTRL2, RREG32(mmVCE_LMI_CTRL2) | 0x100);
++	for (i = 0; i < 10000; i++) {
++		if ((RREG32(mmVCE_LMI_STATUS) & 0x240) == 0x240)
++			break;
++		udelay(10);
++	}
++	if (i == 10000)
++		goto timeout;
++	WREG32(mmVCE_SOFT_RESET, RREG32(mmVCE_SOFT_RESET) | 1);
++	for (i = 0; i < 10000; i++) {
++		if ((RREG32(mmVCE_LMI_STATUS) & 0x337f) == 0x337f)
++			break;
++		udelay(10);
++	}
++	if (i == 10000)
++		goto timeout;
++	control = RREG32(mmVCE_VCPU_CNTL) & ~1u;
++	WREG32(mmVCE_STATUS, 0);
++	WREG32(mmVCE_VCPU_CNTL, control);
++	adev->vce.native_running = false;
++	adev->vce.native_stop_failed = false;
++	return 0;
++
++timeout:
++	adev->vce.native_stop_failed = true;
++	dev_err(adev->dev, "VCE did not drain, retaining firmware allocation\n");
++	return -ETIMEDOUT;
++}
++
++static int vce_liverpool_start(struct amdgpu_device *adev)
++{
++	struct amdgpu_ring *ring = &adev->vce.ring[0];
++	u32 code_size = ALIGN(le32_to_cpu(((const struct common_firmware_header *)
++		adev->vce.fw->data)->ucode_size_bytes), 256);
++	unsigned int i;
++
++	WREG32(mmVCE_SYS_INT_EN, RREG32(mmVCE_SYS_INT_EN) & ~8u);
++	WREG32(mmVCE_SOFT_RESET, RREG32(mmVCE_SOFT_RESET) | 1);
++	WREG32(mmVCE_STATUS, RREG32(mmVCE_STATUS) | 1);
++	WREG32(mmSRBM_SOFT_RESET, RREG32(mmSRBM_SOFT_RESET) & ~0x01000000u);
++	WREG32(mmVCE_CLOCK_GATING_A, RREG32(mmVCE_CLOCK_GATING_A) & ~0x10000u);
++	WREG32(mmVCE_UENC_CLOCK_GATING,
++		(RREG32(mmVCE_UENC_CLOCK_GATING) & 0xc0f81fff) | 0x7e000);
++	WREG32(mmVCE_UENC_REG_CLOCK_GATING, RREG32(mmVCE_UENC_REG_CLOCK_GATING) | 0xfe);
++	WREG32(mmVCE_CLOCK_GATING_B, RREG32(mmVCE_CLOCK_GATING_B) & ~0x200020u);
++	WREG32(mmVCE_LMI_SWAP_CNTL, 0);
++	WREG32(mmVCE_LMI_SWAP_CNTL1, 0);
++	WREG32(mmVCE_LMI_VM_CTRL, 0);
++	WREG32(mmVCE_LMI_CTRL, 0x200000);
++	WREG32(mmVCE_LMI_CACHE_CTRL, RREG32(mmVCE_LMI_CACHE_CTRL) & ~1u);
++	WREG32(0x83bb, 0);
++	WREG32(mmVCE_LMI_VCPU_CACHE_40BIT_BAR, adev->vce.gpu_addr >> 8);
++	WREG32(mmVCE_VCPU_CACHE_OFFSET0, 0);
++	WREG32(mmVCE_VCPU_CACHE_SIZE0, code_size);
++	WREG32(mmVCE_VCPU_CACHE_OFFSET1, code_size);
++	WREG32(mmVCE_VCPU_CACHE_SIZE1, 0x40000);
++	WREG32(mmVCE_VCPU_CACHE_OFFSET2, code_size + 0x40000);
++	WREG32(mmVCE_VCPU_CACHE_SIZE2, 0x80000);
++	WREG32(mmVCE_RB_BASE_LO, lower_32_bits(ring->gpu_addr));
++	WREG32(mmVCE_RB_BASE_HI, upper_32_bits(ring->gpu_addr));
++	WREG32(mmVCE_RB_SIZE, ring->ring_size / 4);
++	WREG32(mmVCE_RB_RPTR, 0);
++	WREG32(mmVCE_RB_WPTR, 0);
++	ring->wptr = 0;
++	WREG32(mmVCE_RB_BASE_LO2, lower_32_bits(adev->vce.gpu_addr + 0xcd000));
++	WREG32(mmVCE_RB_BASE_HI2, upper_32_bits(adev->vce.gpu_addr + 0xcd000));
++	WREG32(mmVCE_RB_SIZE2, 128);
++	WREG32(mmVCE_RB_RPTR2, 0);
++	WREG32(mmVCE_RB_WPTR2, 0);
++	WREG32(mmVCE_LMI_CTRL2, RREG32(mmVCE_LMI_CTRL2) & ~0x100u);
++	amdgpu_device_flush_hdp(adev, NULL);
++	adev->vce.native_running = true;
++	WREG32(mmVCE_VCPU_CNTL, RREG32(mmVCE_VCPU_CNTL) | 1);
++	mdelay(10);
++	WREG32(mmVCE_SOFT_RESET, RREG32(mmVCE_SOFT_RESET) & ~1u);
++	for (i = 0; i < 1000; i++) {
++		if (RREG32(mmVCE_STATUS) & 2)
++			break;
++		usleep_range(1000, 1100);
++	}
++	if (i == 1000)
++		return vce_liverpool_stop(adev) ?: -ETIMEDOUT;
++	WREG32(mmVCE_SYS_INT_EN, RREG32(mmVCE_SYS_INT_EN) | 8);
++	WREG32(mmVCE_STATUS, RREG32(mmVCE_STATUS) & ~1u);
++	return 0;
++}
++
++static uint64_t vce_liverpool_get_rptr(struct amdgpu_ring *ring)
++{
++	struct amdgpu_device *adev = ring->adev;
++
++	if (!adev->vce.native_running)
++		return ring->wptr;
++	return RREG32(mmVCE_RB_RPTR);
++}
++
++static uint64_t vce_liverpool_get_wptr(struct amdgpu_ring *ring)
++{
++	struct amdgpu_device *adev = ring->adev;
++
++	if (!adev->vce.native_running)
++		return ring->wptr;
++	return RREG32(mmVCE_RB_WPTR);
++}
++
++static void vce_liverpool_set_wptr(struct amdgpu_ring *ring)
++{
++	struct amdgpu_device *adev = ring->adev;
++
++	if (!adev->vce.native_running)
++		return;
++	amdgpu_device_flush_hdp(adev, NULL);
++	WREG32(mmVCE_RB_WPTR, lower_32_bits(ring->wptr));
++}
++
++static const struct amdgpu_ring_funcs vce_liverpool_ring_funcs = {
++	.type = AMDGPU_RING_TYPE_VCE,
++	.align_mask = 0xf,
++	.nop = VCE_CMD_NO_OP,
++	.support_64bit_ptrs = false,
++	.no_user_fence = true,
++	.get_rptr = vce_liverpool_get_rptr,
++	.get_wptr = vce_liverpool_get_wptr,
++	.set_wptr = vce_liverpool_set_wptr,
++	.parse_cs = amdgpu_vce_ring_parse_cs,
++	.emit_frame_size = 6,
++	.emit_ib_size = 4,
++	.emit_ib = amdgpu_vce_ring_emit_ib,
++	.emit_fence = amdgpu_vce_ring_emit_fence,
++	.test_ring = amdgpu_vce_ring_test_ring,
++	.test_ib = amdgpu_vce_ring_test_ib,
++	.insert_nop = amdgpu_ring_insert_nop,
++	.pad_ib = amdgpu_ring_generic_pad_ib,
++};
++
++static int vce_liverpool_set_irq(struct amdgpu_device *adev,
++		struct amdgpu_irq_src *source, unsigned int type,
++		enum amdgpu_interrupt_state state)
++{
++	if (!adev->vce.native_running)
++		return 0;
++	WREG32(mmVCE_SYS_INT_EN, (RREG32(mmVCE_SYS_INT_EN) & ~8u) |
++		(state == AMDGPU_IRQ_STATE_ENABLE ? 8 : 0));
++	return 0;
++}
++
++static int vce_liverpool_irq(struct amdgpu_device *adev,
++		struct amdgpu_irq_src *source, struct amdgpu_iv_entry *entry)
++{
++	amdgpu_fence_process(&adev->vce.ring[0]);
++	return 0;
++}
++
++static const struct amdgpu_irq_src_funcs vce_liverpool_irq_funcs = {
++	.set = vce_liverpool_set_irq,
++	.process = vce_liverpool_irq,
++};
++
++static int vce_liverpool_early_init(struct amdgpu_ip_block *ip_block)
++{
++	struct amdgpu_device *adev = ip_block->adev;
++	int r;
++
++	if (!amdgpu_vce_is_native(adev))
++		return -ENODEV;
++	r = amdgpu_vce_early_init(adev);
++	if (r)
++		return r;
++	adev->vce.num_rings = 1;
++	adev->vce.ring[0].funcs = &vce_liverpool_ring_funcs;
++	adev->vce.ring[0].me = 0;
++	adev->vce.irq.num_types = 1;
++	adev->vce.irq.funcs = &vce_liverpool_irq_funcs;
++	return 0;
++}
++
++static int vce_liverpool_sw_init(struct amdgpu_ip_block *ip_block)
++{
++	struct amdgpu_device *adev = ip_block->adev;
++	struct amdgpu_ring *ring = &adev->vce.ring[0];
++	int r;
++
++	r = amdgpu_irq_add_id(adev, AMDGPU_IRQ_CLIENTID_LEGACY, 167, &adev->vce.irq);
++	if (r)
++		return r;
++	r = amdgpu_vce_sw_init(adev, 0xd0000);
++	if (r)
++		return r;
++	mutex_init(&adev->vce.native_mutex);
++	adev->vce.native_workqueue = alloc_ordered_workqueue("vce-native", WQ_MEM_RECLAIM);
++	if (!adev->vce.native_workqueue)
++		return -ENOMEM;
++	r = amdgpu_vce_resume(adev);
++	if (r)
++		return r;
++	snprintf(ring->name, sizeof(ring->name), "vce0");
++	return amdgpu_ring_init(adev, ring, 512, &adev->vce.irq, 0,
++		AMDGPU_RING_PRIO_0, NULL);
++}
++
++static int vce_liverpool_hw_init(struct amdgpu_ip_block *ip_block)
++{
++	struct amdgpu_device *adev = ip_block->adev;
++	int r;
++
++	r = vce_liverpool_start(adev);
++	if (r)
++		return r;
++	r = amdgpu_ring_test_helper(&adev->vce.ring[0]);
++	if (r) {
++		vce_liverpool_stop(adev);
++		return r;
++	}
++	dev_info(adev->dev, "VCE native firmware initialized\n");
++	return 0;
++}
++
++static int vce_liverpool_hw_fini(struct amdgpu_ip_block *ip_block)
++{
++	int r;
++
++	cancel_delayed_work_sync(&ip_block->adev->vce.idle_work);
++	r = amdgpu_fence_wait_empty(&ip_block->adev->vce.ring[0]);
++	if (r)
++		return r;
++	flush_workqueue(ip_block->adev->vce.native_workqueue);
++	return vce_liverpool_stop(ip_block->adev);
++}
++
++static int vce_liverpool_sw_fini(struct amdgpu_ip_block *ip_block)
++{
++	struct amdgpu_device *adev = ip_block->adev;
++	int r;
++
++	if (adev->vce.native_stop_failed)
++		return -EBUSY;
++	r = amdgpu_vce_suspend(adev);
++	if (r)
++		return r;
++	destroy_workqueue(adev->vce.native_workqueue);
++	mutex_destroy(&adev->vce.native_mutex);
++	return amdgpu_vce_sw_fini(adev);
++}
++
++static int vce_liverpool_suspend(struct amdgpu_ip_block *ip_block)
++{
++	int r = amdgpu_vce_suspend(ip_block->adev);
++
++	return r ?: vce_liverpool_hw_fini(ip_block);
++}
++
++static int vce_liverpool_resume(struct amdgpu_ip_block *ip_block)
++{
++	int r = amdgpu_vce_resume(ip_block->adev);
++
++	return r ?: vce_liverpool_hw_init(ip_block);
++}
++
++static bool vce_liverpool_is_idle(struct amdgpu_ip_block *ip_block)
++{
++	struct amdgpu_device *adev = ip_block->adev;
++
++	if (!adev->vce.native_running)
++		return true;
++	return !(RREG32(mmVCE_STATUS) & 0x138) &&
++		(RREG32(mmVCE_LMI_STATUS) & 15) == 15;
++}
++
++static int vce_liverpool_wait_idle(struct amdgpu_ip_block *ip_block)
++{
++	unsigned int i;
++
++	for (i = 0; i < 10000; i++) {
++		if (vce_liverpool_is_idle(ip_block))
++			return 0;
++		udelay(10);
++	}
++	return -ETIMEDOUT;
++}
++
++static int vce_liverpool_clockgating(struct amdgpu_ip_block *ip_block,
++		enum amd_clockgating_state state)
++{
++	return 0;
++}
++
++static int vce_liverpool_powergating(struct amdgpu_ip_block *ip_block,
++		enum amd_powergating_state state)
++{
++	return 0;
++}
++
++static const struct amd_ip_funcs vce_liverpool_ip_funcs = {
++	.name = "vce_liverpool",
++	.early_init = vce_liverpool_early_init,
++	.sw_init = vce_liverpool_sw_init,
++	.sw_fini = vce_liverpool_sw_fini,
++	.hw_init = vce_liverpool_hw_init,
++	.hw_fini = vce_liverpool_hw_fini,
++	.suspend = vce_liverpool_suspend,
++	.resume = vce_liverpool_resume,
++	.is_idle = vce_liverpool_is_idle,
++	.wait_for_idle = vce_liverpool_wait_idle,
++	.set_clockgating_state = vce_liverpool_clockgating,
++	.set_powergating_state = vce_liverpool_powergating,
++};
++
++const struct amdgpu_ip_block_version vce_liverpool_ip_block = {
++	.type = AMD_IP_BLOCK_TYPE_VCE,
++	.major = 1,
++	.minor = 0,
++	.rev = 0,
++	.funcs = &vce_liverpool_ip_funcs,
++};
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_liverpool.h b/drivers/gpu/drm/amd/amdgpu/vce_liverpool.h
+new file mode 100644
+index 000000000000..d552dad75e57
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/vce_liverpool.h
+@@ -0,0 +1,49 @@
++#ifndef VCE_LIVERPOOL_H
++#define VCE_LIVERPOOL_H
++
++extern const struct amdgpu_ip_block_version vce_liverpool_ip_block;
++#ifdef CONFIG_DRM_AMDGPU_CIK
++int vce_liverpool_parse_cs(struct amdgpu_cs_parser *p, struct amdgpu_job *job,
++		struct amdgpu_ib *ib);
++struct dma_fence *vce_liverpool_complete_job(struct amdgpu_job *job,
++		struct dma_fence *hardware);
++void vce_liverpool_free_job(struct amdgpu_job *job);
++bool vce_liverpool_job_timeout(struct amdgpu_job *job);
++bool vce_liverpool_cpu_job(struct amdgpu_job *job);
++int vce_liverpool_destroy_session(struct amdgpu_device *adev, u32 handle,
++		u32 *words, struct amdgpu_job *job);
++int vce_liverpool_test_ib(struct amdgpu_ring *ring, long timeout);
++#else
++static inline int vce_liverpool_parse_cs(struct amdgpu_cs_parser *p,
++		struct amdgpu_job *job, struct amdgpu_ib *ib)
++{
++	return -EOPNOTSUPP;
++}
++static inline struct dma_fence *vce_liverpool_complete_job(struct amdgpu_job *job,
++		struct dma_fence *hardware)
++{
++	return hardware;
++}
++static inline void vce_liverpool_free_job(struct amdgpu_job *job)
++{
++}
++static inline bool vce_liverpool_job_timeout(struct amdgpu_job *job)
++{
++	return false;
++}
++static inline bool vce_liverpool_cpu_job(struct amdgpu_job *job)
++{
++	return false;
++}
++static inline int vce_liverpool_destroy_session(struct amdgpu_device *adev,
++		u32 handle, u32 *words, struct amdgpu_job *job)
++{
++	return -EOPNOTSUPP;
++}
++static inline int vce_liverpool_test_ib(struct amdgpu_ring *ring, long timeout)
++{
++	return -EOPNOTSUPP;
++}
++#endif
++
++#endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_liverpool_compat.c b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_compat.c
+new file mode 100644
+index 000000000000..294d952327ea
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_compat.c
+@@ -0,0 +1,859 @@
++#include <linux/dma-fence.h>
++#include <linux/delay.h>
++#include <linux/kref.h>
++#include <linux/moduleparam.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++#include <linux/workqueue.h>
++
++#include "amdgpu.h"
++#include "amdgpu_cs.h"
++#include "amdgpu_vce.h"
++#include "vce_liverpool.h"
++#include "vce_liverpool_vectors.h"
++#include "vce_liverpool_sps.h"
++
++#define VCE_NATIVE_POOL_SIZE 0x6a4000u
++
++struct vce_liverpool_session {
++	struct kref ref;
++	struct amdgpu_device *adev;
++	struct drm_file *filp;
++	u32 handle, native_handle;
++	u32 width, padded_height, height, pitch;
++	u32 profile, level, fps_num, fps_den, qp_i, qp_p;
++	u32 crop[4];
++	u32 record;
++	u32 metadata, bitstream, header;
++	struct amdgpu_bo *bo;
++	struct dma_fence *tail;
++	u64 gpu;
++	void *cpu;
++	bool started, failed;
++};
++
++struct vce_liverpool_job {
++	struct dma_fence fence;
++	spinlock_t lock;
++	struct dma_fence_cb callback;
++	struct work_struct work, release;
++	struct dma_fence *hardware;
++	struct vce_liverpool_session *session;
++	struct amdgpu_device *adev;
++	struct amdgpu_bo *output_bo, *feedback_bo, *input_bo;
++	void *output, *feedback;
++	u32 output_size, record, fps_num, fps_den;
++	bool encode, armed, input_pinned, retain, control_only;
++};
++
++static atomic_t vce_liverpool_next_handle = ATOMIC_INIT(0);
++static bool vce_liverpool_trace;
++module_param_named(vce_native_trace, vce_liverpool_trace, bool, 0600);
++MODULE_PARM_DESC(vce_native_trace, "Trace native VCE command submissions");
++
++static void vce_liverpool_session_release(struct kref *ref)
++{
++	struct vce_liverpool_session *session =
++		container_of(ref, struct vce_liverpool_session, ref);
++
++	if (session->adev->vce.native_stop_failed)
++		return;
++	if (session->bo)
++		amdgpu_bo_free_kernel(&session->bo, &session->gpu, &session->cpu);
++	dma_fence_put(session->tail);
++	kfree(session);
++}
++
++static const char *vce_liverpool_fence_name(struct dma_fence *fence)
++{
++	return "vce-native-output";
++}
++
++static void vce_liverpool_release_job(struct work_struct *work)
++{
++	struct vce_liverpool_job *job =
++		container_of(work, struct vce_liverpool_job, release);
++
++	dma_fence_put(job->hardware);
++	if (job->input_pinned) {
++		if (amdgpu_bo_reserve(job->input_bo, false))
++			return;
++		amdgpu_bo_unpin(job->input_bo);
++		amdgpu_bo_unreserve(job->input_bo);
++	}
++	amdgpu_bo_unref(&job->input_bo);
++	amdgpu_bo_unref(&job->output_bo);
++	amdgpu_bo_unref(&job->feedback_bo);
++	if (job->session)
++		kref_put(&job->session->ref, vce_liverpool_session_release);
++	kfree(job);
++}
++
++static void vce_liverpool_fence_release(struct dma_fence *fence)
++{
++	struct vce_liverpool_job *job = container_of(fence, struct vce_liverpool_job, fence);
++
++	queue_work(system_unbound_wq, &job->release);
++}
++
++static const struct dma_fence_ops vce_liverpool_fence_ops = {
++	.get_driver_name = vce_liverpool_fence_name,
++	.get_timeline_name = vce_liverpool_fence_name,
++	.release = vce_liverpool_fence_release,
++};
++
++static u32 vce_liverpool_startcode(const u8 *data, u32 size, u32 offset)
++{
++	while (offset + 3 < size) {
++		if (!data[offset] && !data[offset + 1] &&
++		    (data[offset + 2] == 1 || (!data[offset + 2] && data[offset + 3] == 1)))
++			return offset;
++		offset++;
++	}
++	return size;
++}
++
++static int vce_liverpool_copy_output(struct vce_liverpool_job *job, u32 start, u32 size)
++{
++	struct vce_liverpool_session *session = job->session;
++	u8 *source, sps[512];
++	u32 first, position, next, nal, copied = 0;
++	int length;
++
++	if (!size || size > VCE_NATIVE_POOL_SIZE || start >= VCE_NATIVE_POOL_SIZE)
++		return -EINVAL;
++	source = kvmalloc(size, GFP_KERNEL);
++	if (!source)
++		return -ENOMEM;
++	first = min(size, VCE_NATIVE_POOL_SIZE - start);
++	memcpy_fromio(source, session->cpu + session->bitstream + start, first);
++	if (first < size)
++		memcpy_fromio(source + first, session->cpu + session->bitstream, size - first);
++	position = vce_liverpool_startcode(source, size, 0);
++	if (position != 0) {
++		length = -EINVAL;
++		goto out;
++	}
++	while (position < size) {
++		nal = position + (source[position + 2] == 1 ? 3 : 4);
++		if (nal >= size) {
++			length = -EINVAL;
++			goto out;
++		}
++		next = vce_liverpool_startcode(source, size, nal + 1);
++		if ((source[nal] & 31) == 7) {
++			length = vce_liverpool_fix_sps(source + nal, next - nal, sps, sizeof(sps),
++				session->width, session->height, job->fps_num, job->fps_den, session->profile);
++			if (length < 0)
++				goto out;
++			if (copied + nal - position + length > job->output_size) {
++				length = -ENOSPC;
++				goto out;
++			}
++			memcpy_toio(job->output + copied, source + position, nal - position);
++			copied += nal - position;
++			memcpy_toio(job->output + copied, sps, length);
++			copied += length;
++		} else {
++			if (next - position > job->output_size - copied) {
++				length = -ENOSPC;
++				goto out;
++			}
++			memcpy_toio(job->output + copied, source + position, next - position);
++			copied += next - position;
++		}
++		position = next;
++	}
++	length = copied;
++out:
++	kvfree(source);
++	return length;
++}
++
++static void vce_liverpool_finish(struct work_struct *work)
++{
++	struct vce_liverpool_job *job = container_of(work, struct vce_liverpool_job, work);
++	struct vce_liverpool_session *session = job->session;
++	u32 producer, start, bytes, padding, i;
++	int error = dma_fence_get_status(job->hardware), length = 0;
++
++	if (READ_ONCE(job->retain))
++		return;
++	if (error > 0)
++		error = 0;
++	else
++		job->retain = true;
++	if (!error && job->encode) {
++		void *metadata = session->cpu + session->metadata;
++		void *record = metadata + 8 + job->record * 512;
++
++		for (i = 0; i < 10000; i++) {
++			producer = readl(metadata + 4);
++			bytes = readl(record + 0x10);
++			padding = readl(record + 0x1c);
++			if (producer != job->record && bytes > padding)
++				break;
++			usleep_range(100, 150);
++		}
++		if (i == 10000) {
++			error = -ETIMEDOUT;
++			job->retain = true;
++		} else {
++			start = readl(record + 0xc);
++			length = vce_liverpool_copy_output(job, start, bytes - padding);
++			if (length < 0)
++				error = length;
++		}
++		if (i != 10000) {
++			writel(0, record + 0x10);
++			writel((job->record + 1) % 5, metadata);
++		}
++	}
++	if (error && session) {
++		WRITE_ONCE(session->failed, true);
++		dev_err(job->adev->dev, "VCE output completion failed (%d)\n", error);
++	}
++	if (job->retain)
++		WRITE_ONCE(job->adev->vce.native_stop_failed, true);
++	if (job->feedback) {
++		memset_io(job->feedback, 0, 40);
++		writel(error ? 0 : length, job->feedback + 16);
++		wmb();
++		writel(error ? 0 : 1, job->feedback + 4);
++	}
++	amdgpu_device_flush_hdp(job->adev, NULL);
++	if (error)
++		dma_fence_set_error(&job->fence, error);
++	dma_fence_signal(&job->fence);
++	if (!job->retain)
++		dma_fence_put(&job->fence);
++}
++
++static void vce_liverpool_hardware_done(struct dma_fence *fence, struct dma_fence_cb *callback)
++{
++	struct vce_liverpool_job *job = container_of(callback, struct vce_liverpool_job, callback);
++
++	queue_work(job->adev->vce.native_workqueue, &job->work);
++}
++
++struct dma_fence *vce_liverpool_complete_job(struct amdgpu_job *job, struct dma_fence *hardware)
++{
++	struct vce_liverpool_job *native = job->vce_native;
++
++	if (native->armed) {
++		dma_fence_put(hardware);
++		return dma_fence_get(&native->fence);
++	}
++	native->armed = true;
++	native->hardware = hardware;
++	dma_fence_get(&native->fence);
++	if (dma_fence_add_callback(hardware, &native->callback, vce_liverpool_hardware_done))
++		queue_work(native->adev->vce.native_workqueue, &native->work);
++	return dma_fence_get(&native->fence);
++}
++
++void vce_liverpool_free_job(struct amdgpu_job *job)
++{
++	if (job->vce_native) {
++		if (!job->vce_native->armed) {
++			dma_fence_set_error(&job->vce_native->fence, -ECANCELED);
++			dma_fence_signal(&job->vce_native->fence);
++			if (job->vce_native->session)
++				WRITE_ONCE(job->vce_native->session->failed, true);
++		}
++		dma_fence_put(&job->vce_native->fence);
++		job->vce_native = NULL;
++	}
++}
++
++bool vce_liverpool_cpu_job(struct amdgpu_job *job)
++{
++	return job->vce_native && job->vce_native->control_only;
++}
++
++bool vce_liverpool_job_timeout(struct amdgpu_job *job)
++{
++	struct vce_liverpool_job *native = job->vce_native;
++
++	if (!native)
++		return false;
++	WRITE_ONCE(native->retain, true);
++	WRITE_ONCE(native->adev->vce.native_stop_failed, true);
++	dma_fence_set_error(&native->fence, -ETIMEDOUT);
++	dma_fence_signal(&native->fence);
++	dev_err(native->adev->dev, "VCE disabled after timeout, retaining DMA buffers\n");
++	return true;
++}
++
++static int vce_liverpool_find_buffer(struct amdgpu_cs_parser *p, u64 address,
++		u64 size, struct amdgpu_bo **bo, u64 *offset)
++{
++	struct amdgpu_bo_va_mapping *mapping;
++	u64 start, bo_size;
++	int r;
++
++	if (!address || !size || address + size < address)
++		return -EINVAL;
++	r = amdgpu_cs_find_mapping(p, address, bo, &mapping);
++	if (r)
++		return r;
++	if (address + size > (mapping->last + 1) * AMDGPU_GPU_PAGE_SIZE)
++		return -EINVAL;
++	start = address - mapping->start * AMDGPU_GPU_PAGE_SIZE;
++	bo_size = amdgpu_bo_size(*bo);
++	if (mapping->offset > bo_size || start > bo_size - mapping->offset)
++		return -EINVAL;
++	*offset = mapping->offset + start;
++	if (size > bo_size - *offset)
++		return -EINVAL;
++	return 0;
++}
++
++static int vce_liverpool_map(struct amdgpu_cs_parser *p, u64 address, u32 size,
++		struct amdgpu_bo **reference, void **cpu)
++{
++	struct amdgpu_bo *bo;
++	u64 offset;
++	void *base;
++	int r;
++
++	r = vce_liverpool_find_buffer(p, address, size, &bo, &offset);
++	if (r)
++		return r;
++	r = amdgpu_bo_kmap(bo, &base);
++	if (r)
++		return r;
++	*reference = amdgpu_bo_ref(bo);
++	*cpu = base + offset;
++	return 0;
++}
++
++static u64 vce_liverpool_address(const u32 *words)
++{
++	return ((u64)words[0] << 32) | words[1];
++}
++
++static void vce_liverpool_set_address(u32 *words, u64 address)
++{
++	words[0] = upper_32_bits(address);
++	words[1] = lower_32_bits(address);
++}
++
++static bool vce_liverpool_packet(u32 command, u32 length)
++{
++	switch (command) {
++	case 1: return length == 12;
++	case 2: return length == 32;
++	case 0x01000001: return length == 48;
++	case 0x02000001: return length == 8;
++	case 0x03000001: return length == 352;
++	case 0x04000001: return length == 12;
++	case 0x04000002: return length == 116;
++	case 0x04000005: return length == 104 || length == 112;
++	case 0x04000007: return length == 104;
++	case 0x04000008: return length == 76;
++	case 0x04000009: return length >= 8 && length <= 256;
++	case 0x05000001: return length == 16;
++	case 0x05000002: return length == 72;
++	case 0x05000004: return length == 20;
++	case 0x05000005: return length == 20;
++	default: return false;
++	}
++}
++
++static struct vce_liverpool_session *vce_liverpool_find_session(struct amdgpu_device *adev,
++		u32 handle, struct drm_file *filp, unsigned int *slot)
++{
++	unsigned int i;
++
++	for (i = 0; i < AMDGPU_MAX_VCE_HANDLES; i++) {
++		struct vce_liverpool_session *session = adev->vce.native_sessions[i];
++
++		if (session && session->handle == handle && session->filp == filp) {
++			*slot = i;
++			return session;
++		}
++	}
++	return NULL;
++}
++
++static int vce_liverpool_allocate_session(struct vce_liverpool_session *session)
++{
++	u32 frame, allocation;
++	int r;
++
++	session->pitch = ALIGN(session->width, 64);
++	frame = session->pitch * ALIGN(session->height, 32) * 3 / 2;
++	session->metadata = ALIGN(frame * 2, 256);
++	session->bitstream = session->metadata + 0xb00;
++	session->header = session->bitstream + VCE_NATIVE_POOL_SIZE;
++	allocation = PAGE_ALIGN(session->header + 4096);
++	r = amdgpu_bo_create_kernel(session->adev, allocation, PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM,
++		&session->bo, &session->gpu, &session->cpu);
++	if (r)
++		return r;
++	if (session->gpu >= (1ULL << 40) || allocation > (1ULL << 40) - session->gpu) {
++		amdgpu_bo_free_kernel(&session->bo, &session->gpu, &session->cpu);
++		return -ERANGE;
++	}
++	memset_io(session->cpu, 0, allocation);
++	return 0;
++}
++
++int vce_liverpool_parse_cs(struct amdgpu_cs_parser *p, struct amdgpu_job *job,
++		struct amdgpu_ib *ib)
++{
++	struct amdgpu_device *adev = p->adev;
++	struct vce_liverpool_session *session = NULL;
++	struct vce_liverpool_job *native;
++	struct amdgpu_ib translated = {};
++	u32 *original, *words, index, handle, slot = 0, count = 0;
++	u32 create = 0, encode = 0, destroy = 0, bitstream = 0, feedback = 0;
++	u32 picture = 0, rate = 0;
++	bool allocated = false, legacy_parsed = false;
++	int r = -EINVAL;
++
++	if (job->num_ibs != 1 || job->vce_native || ib->length_dw < 3 ||
++	    ib->length_dw > 4096 || adev->vce.native_stop_failed)
++		return -EINVAL;
++	original = kmalloc_array(ib->length_dw, sizeof(*original), GFP_KERNEL);
++	if (!original)
++		return -ENOMEM;
++	for (index = 0; index < ib->length_dw; index++)
++		original[index] = amdgpu_ib_get_value(ib, index);
++	if (original[0] != 12 || original[1] != 1 || !original[2])
++		goto free_original;
++	handle = original[2];
++	for (index = 0; index < ib->length_dw;) {
++		u32 length, command;
++
++		if (ib->length_dw - index < 2)
++			goto free_original;
++		length = original[index];
++		command = original[index + 1];
++		if (length < 8 || (length & 3) || length / 4 > ib->length_dw - index ||
++		    !vce_liverpool_packet(command, length)) {
++			dev_err_ratelimited(adev->dev, "VCE unsupported command %08x length %u\n",
++				command, length);
++			goto free_original;
++		}
++		if (vce_liverpool_trace)
++			dev_info(adev->dev, "VCE command %08x length %u data %*ph\n",
++				command, length, min_t(u32, length, 64), original + index);
++		switch (command) {
++		case 1:
++			if (index || original[index + 2] != handle)
++				goto free_original;
++			break;
++		case 2:
++			if (original[index + 6] > 0 && original[index + 6] != ~0u)
++				goto free_original;
++			if (original[index + 7])
++				goto free_original;
++			break;
++		case 0x01000001: if (create) goto free_original; create = index; break;
++		case 0x02000001: if (destroy) goto free_original; destroy = index; break;
++		case 0x03000001: if (encode) goto free_original; encode = index; break;
++		case 0x04000002: picture = index; break;
++		case 0x04000005: rate = index; break;
++		case 0x05000004: bitstream = index; break;
++		case 0x05000005: feedback = index; break;
++		}
++		index += length / 4;
++	}
++	if (encode && (!bitstream || !feedback || destroy))
++		goto free_original;
++	r = amdgpu_vce_ring_parse_cs_legacy(p, job, ib);
++	if (r)
++		goto free_original;
++	legacy_parsed = true;
++	native = kzalloc(sizeof(*native), GFP_KERNEL);
++	if (!native) {
++		r = -ENOMEM;
++		goto free_original;
++	}
++	spin_lock_init(&native->lock);
++	dma_fence_init(&native->fence, &vce_liverpool_fence_ops, &native->lock,
++		dma_fence_context_alloc(1), 1);
++	INIT_WORK(&native->work, vce_liverpool_finish);
++	INIT_WORK(&native->release, vce_liverpool_release_job);
++	native->adev = adev;
++	job->vce_native = native;
++	mutex_lock(&adev->vce.native_mutex);
++	session = vce_liverpool_find_session(adev, handle, p->filp, &slot);
++	if (create) {
++		if (session) {
++			r = -EEXIST;
++			goto unlock;
++		}
++		for (slot = 0; slot < AMDGPU_MAX_VCE_HANDLES; slot++)
++			if (!adev->vce.native_sessions[slot])
++				break;
++		if (slot == AMDGPU_MAX_VCE_HANDLES) {
++			r = -ENOSPC;
++			goto unlock;
++		}
++		session = kzalloc(sizeof(*session), GFP_KERNEL);
++		if (!session) {
++			r = -ENOMEM;
++			goto unlock;
++		}
++		kref_init(&session->ref);
++		session->adev = adev;
++		session->filp = p->filp;
++		session->handle = handle;
++		session->native_handle = atomic_inc_return(&vce_liverpool_next_handle);
++		session->profile = original[create + 3];
++		session->level = original[create + 4];
++		session->width = original[create + 6];
++		session->padded_height = original[create + 7];
++		session->fps_num = 30;
++		session->fps_den = 1;
++		session->qp_i = session->qp_p = 20;
++		session->record = 0;
++		adev->vce.native_sessions[slot] = session;
++		allocated = true;
++	}
++	if (!session || (session->failed && !destroy)) {
++		r = -EIO;
++		goto unlock;
++	}
++	if (picture) {
++		if (session->started && memcmp(session->crop, original + picture + 8,
++				sizeof(session->crop))) {
++			r = -EOPNOTSUPP;
++			goto unlock;
++		}
++		for (index = 0; index < 4; index++)
++			session->crop[index] = original[picture + 8 + index];
++		if (original[picture + 21] || original[picture + 24] > 1) {
++			r = -EOPNOTSUPP;
++			goto unlock;
++		}
++	}
++	if (rate) {
++		if (original[rate + 2]) {
++			r = -EOPNOTSUPP;
++			goto unlock;
++		}
++		session->fps_num = original[rate + 5] ?: 30;
++		session->fps_den = original[rate + 11] ?: 1;
++		session->qp_i = original[rate + 7];
++		session->qp_p = original[rate + 8];
++	}
++	if (session->profile != 66 && session->profile != 77 && session->profile != 100) {
++		r = -EOPNOTSUPP;
++		goto unlock;
++	}
++	if (session->crop[0] || session->crop[1] || session->crop[2] ||
++	    session->crop[3] > 7 || session->padded_height < session->crop[3] * 2) {
++		r = -EINVAL;
++		goto unlock;
++	}
++	session->height = session->padded_height - session->crop[3] * 2;
++	if (session->width < 64 || session->width > 1920 || (session->width & 15) ||
++	    session->height < 64 || session->height > 1080 || (session->height & 1) ||
++	    session->qp_i > 51 || session->qp_p > 51 || !session->fps_num ||
++	    session->fps_num > 1000000 || !session->fps_den || session->fps_den > 1000000) {
++		r = -EINVAL;
++		goto unlock;
++	}
++	native->session = session;
++	kref_get(&session->ref);
++	native->fps_num = session->fps_num;
++	native->fps_den = session->fps_den;
++	if (session->tail) {
++		struct dma_fence *dependency = dma_fence_get(session->tail);
++
++		r = drm_sched_job_add_dependency(&job->base, dependency);
++		if (r)
++			goto unlock;
++	}
++	if (feedback) {
++		r = vce_liverpool_map(p, vce_liverpool_address(original + feedback + 2),
++			40, &native->feedback_bo, &native->feedback);
++		if (r)
++			goto unlock;
++	}
++	r = amdgpu_ib_get(adev, NULL, 4096, AMDGPU_IB_POOL_DELAYED, &translated);
++	if (r)
++		goto unlock;
++	words = translated.ptr;
++	if (encode) {
++		u32 type = original[encode + 18];
++		u32 qp_i = session->qp_i ?: session->qp_p;
++		u32 qp_p = session->qp_p ?: session->qp_i;
++		u32 frame_rate = session->fps_num / session->fps_den;
++		u32 *commands;
++		u64 input_y, input_uv, luma_size, chroma_size;
++		struct amdgpu_bo *input_bo, *chroma_bo;
++
++		if ((type != 0 && type != 2 && type != 3) || original[encode + 3] ||
++		    original[encode + 16] || original[encode + 17] ||
++		    original[encode + 13] < ALIGN(session->height, 16) ||
++		    original[encode + 14] < session->width ||
++		    original[encode + 14] > 16384 ||
++		    original[encode + 14] != original[encode + 15]) {
++			r = -EOPNOTSUPP;
++			goto free_translated;
++		}
++		if (!frame_rate) {
++			r = -ERANGE;
++			goto free_translated;
++		}
++		if ((!type && !session->qp_p) || (type && !session->qp_i) ||
++		    (!session->started && !type)) {
++			r = -EOPNOTSUPP;
++			goto free_translated;
++		}
++		if (!session->bo) {
++			r = vce_liverpool_allocate_session(session);
++			if (r)
++				goto free_translated;
++		}
++		luma_size = (u64)original[encode + 14] * ALIGN(session->height, 16);
++		chroma_size = luma_size / 2;
++		r = vce_liverpool_find_buffer(p, vce_liverpool_address(original + encode + 9),
++			luma_size, &input_bo, &input_y);
++		if (r)
++			goto free_translated;
++		r = vce_liverpool_find_buffer(p, vce_liverpool_address(original + encode + 11),
++			chroma_size, &chroma_bo, &input_uv);
++		if (r || chroma_bo != input_bo) {
++			r = r ?: -EOPNOTSUPP;
++			goto free_translated;
++		}
++		r = amdgpu_bo_pin(input_bo,
++			amdgpu_mem_type_to_domain(input_bo->tbo.resource->mem_type));
++		if (r)
++			goto free_translated;
++		native->input_bo = amdgpu_bo_ref(input_bo);
++		native->input_pinned = true;
++		input_y += amdgpu_bo_gpu_offset(input_bo);
++		input_uv += amdgpu_bo_gpu_offset(input_bo);
++		if (input_y >= (1ULL << 40) || luma_size > (1ULL << 40) - input_y ||
++		    input_uv >= (1ULL << 40) || chroma_size > (1ULL << 40) - input_uv) {
++			r = -ERANGE;
++			goto free_translated;
++		}
++		native->output_size = original[bitstream + 4];
++		r = vce_liverpool_map(p, vce_liverpool_address(original + bitstream + 2),
++			native->output_size, &native->output_bo, &native->output);
++		if (r)
++			goto free_translated;
++		if (!session->started) {
++			memcpy(words, vce_liverpool_create, sizeof(vce_liverpool_create));
++			words[2] = session->native_handle;
++			words[6] = session->profile == 100 ? 77 : session->profile;
++			words[7] = session->level;
++			words[11] = session->width;
++			words[12] = session->height;
++			words[13] = words[14] = session->pitch;
++			words[15] = ALIGN(session->height, 32) / 8;
++			vce_liverpool_set_address(words + 17, session->gpu + session->bitstream);
++			vce_liverpool_set_address(words + 20, session->gpu + session->metadata);
++			vce_liverpool_set_address(words + 48, session->gpu + session->header);
++			vce_liverpool_set_address(words + 53, session->gpu + session->header);
++			count = ARRAY_SIZE(vce_liverpool_create);
++			session->started = true;
++		}
++		commands = words + count;
++		memcpy(commands, vce_liverpool_encode, sizeof(vce_liverpool_encode));
++		commands[2] = session->native_handle;
++		commands[6] = session->profile != 66;
++		commands[8] = 0;
++		commands[14] = commands[15] = commands[16] = commands[17] = 0;
++		commands[18] = DIV_ROUND_UP(session->width, 16) * DIV_ROUND_UP(session->height, 16);
++		commands[30] = commands[18];
++		commands[59] = session->fps_num;
++		commands[61] = qp_i;
++		commands[62] = qp_p;
++		commands[65] = session->fps_den;
++		commands[70] = commands[57] / frame_rate;
++		commands[74] = qp_i;
++		commands[76] = qp_p;
++		commands[266] = fls(max(session->width, session->height) - 1) + 3;
++		commands[267] = commands[266];
++		commands[295] = type;
++		commands[299] = original[encode + 81];
++		commands[300] = original[encode + 82];
++		vce_liverpool_set_address(commands + 301, input_y);
++		vce_liverpool_set_address(commands + 303, input_uv);
++		vce_liverpool_set_address(commands + 305, session->gpu);
++		commands[307] = session->height;
++		commands[308] = original[encode + 14];
++		commands[309] = original[encode + 15];
++		vce_liverpool_set_address(commands + 312, session->gpu + session->bitstream);
++		vce_liverpool_set_address(commands + 314, session->gpu + session->metadata);
++		vce_liverpool_set_address(commands + 316, session->gpu + session->header);
++		vce_liverpool_set_address(commands + 318, session->gpu + session->header);
++		count += ARRAY_SIZE(vce_liverpool_encode);
++		native->encode = true;
++		native->record = session->record;
++		session->record = (session->record + 1) % 5;
++	} else if (destroy && session->started) {
++		u32 destroy_words[] = {12, 1, session->native_handle, 8, 5};
++
++		memcpy(words, destroy_words, sizeof(destroy_words));
++		count = ARRAY_SIZE(destroy_words);
++	} else {
++		words[0] = 8;
++		words[1] = 0;
++		count = 2;
++		native->control_only = true;
++	}
++	translated.length_dw = count;
++	amdgpu_ib_free(ib, NULL);
++	*ib = translated;
++	dma_fence_put(session->tail);
++	session->tail = destroy ? NULL : dma_fence_get(&native->fence);
++	if (destroy) {
++		adev->vce.native_sessions[slot] = NULL;
++		kref_put(&session->ref, vce_liverpool_session_release);
++	}
++	r = 0;
++	goto unlock;
++
++free_translated:
++	amdgpu_ib_free(&translated, NULL);
++unlock:
++	if (r && allocated) {
++		adev->vce.native_sessions[slot] = NULL;
++		kref_put(&session->ref, vce_liverpool_session_release);
++	}
++	mutex_unlock(&adev->vce.native_mutex);
++	if (r)
++		vce_liverpool_free_job(job);
++free_original:
++	if (r)
++		dev_err_ratelimited(adev->dev, "VCE command translation rejected (%d)\n", r);
++	if (r && create && legacy_parsed) {
++		for (index = 0; index < AMDGPU_MAX_VCE_HANDLES; index++) {
++			if (atomic_read(&adev->vce.handles[index]) == handle &&
++			    adev->vce.filp[index] == p->filp)
++				atomic_set(&adev->vce.handles[index], 0);
++		}
++	}
++	kfree(original);
++	return r;
++}
++
++int vce_liverpool_destroy_session(struct amdgpu_device *adev, u32 handle, u32 *words,
++		struct amdgpu_job *job)
++{
++	struct vce_liverpool_session *session = NULL;
++	unsigned int i;
++	int count = -ENOENT;
++
++	words[0] = 8;
++	words[1] = 0;
++	mutex_lock(&adev->vce.native_mutex);
++	for (i = 0; i < AMDGPU_MAX_VCE_HANDLES; i++) {
++		session = adev->vce.native_sessions[i];
++		if (!session || session->handle != handle)
++			continue;
++		count = 2;
++		if (session->started && !adev->vce.native_stop_failed) {
++			words[0] = 12;
++			words[1] = 1;
++			words[2] = session->native_handle;
++			words[3] = 8;
++			words[4] = 5;
++			count = 5;
++		}
++		job->vce_native = kzalloc(sizeof(*job->vce_native), GFP_KERNEL);
++		if (!job->vce_native) {
++			count = -ENOMEM;
++			break;
++		}
++		spin_lock_init(&job->vce_native->lock);
++		dma_fence_init(&job->vce_native->fence, &vce_liverpool_fence_ops,
++			&job->vce_native->lock, dma_fence_context_alloc(1), 1);
++		INIT_WORK(&job->vce_native->work, vce_liverpool_finish);
++		INIT_WORK(&job->vce_native->release, vce_liverpool_release_job);
++		job->vce_native->adev = adev;
++		job->vce_native->session = session;
++		job->vce_native->control_only = count == 2;
++		if (session->tail) {
++			struct dma_fence *dependency = dma_fence_get(session->tail);
++			int r = drm_sched_job_add_dependency(&job->base, dependency);
++
++			if (r) {
++				job->vce_native->session = NULL;
++				count = r;
++				break;
++			}
++			dma_fence_put(session->tail);
++			session->tail = NULL;
++		}
++		adev->vce.native_sessions[i] = NULL;
++		break;
++	}
++	mutex_unlock(&adev->vce.native_mutex);
++	return count;
++}
++
++int vce_liverpool_test_ib(struct amdgpu_ring *ring, long timeout)
++{
++	struct amdgpu_device *adev = ring->adev;
++	struct amdgpu_bo *bo = NULL;
++	struct amdgpu_job *job;
++	struct dma_fence *fence = NULL;
++	void *cpu;
++	u64 gpu;
++	u32 *words;
++	int r;
++	long waited;
++
++	r = amdgpu_bo_create_kernel(adev, 3 * PAGE_SIZE, PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM,
++		&bo, &gpu, &cpu);
++	if (r)
++		return r;
++	memset_io(cpu, 0, 3 * PAGE_SIZE);
++	r = amdgpu_job_alloc_with_ib(adev, &adev->vce.entity, AMDGPU_FENCE_OWNER_UNDEFINED,
++		4096, AMDGPU_IB_POOL_DIRECT, &job, AMDGPU_KERNEL_JOB_ID_VCN_RING_TEST);
++	if (r)
++		goto free_bo;
++	words = job->ibs[0].ptr;
++	memcpy(words, vce_liverpool_create, sizeof(vce_liverpool_create));
++	words[2] = 1;
++	words[6] = 66;
++	words[11] = 160;
++	words[12] = 128;
++	words[13] = words[14] = 192;
++	words[15] = 16;
++	vce_liverpool_set_address(words + 17, gpu + PAGE_SIZE);
++	words[19] = PAGE_SIZE;
++	vce_liverpool_set_address(words + 20, gpu);
++	vce_liverpool_set_address(words + 48, gpu + 2 * PAGE_SIZE);
++	vce_liverpool_set_address(words + 53, gpu + 2 * PAGE_SIZE);
++	words += ARRAY_SIZE(vce_liverpool_create);
++	words[0] = 12;
++	words[1] = 1;
++	words[2] = 1;
++	words[3] = 8;
++	words[4] = 5;
++	job->ibs[0].length_dw = ARRAY_SIZE(vce_liverpool_create) + 5;
++	r = amdgpu_job_submit_direct(job, ring, &fence);
++	if (r) {
++		amdgpu_job_free(job);
++		goto free_bo;
++	}
++	waited = dma_fence_wait_timeout(fence, false, timeout);
++	if (waited <= 0) {
++		adev->vce.native_stop_failed = true;
++		r = waited ?: -ETIMEDOUT;
++		dma_fence_put(fence);
++		return r;
++	}
++	r = dma_fence_get_status(fence);
++	dma_fence_put(fence);
++	if (r < 0) {
++		adev->vce.native_stop_failed = true;
++		return r;
++	}
++	r = 0;
++free_bo:
++	amdgpu_bo_free_kernel(&bo, &gpu, &cpu);
++	return r;
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_liverpool_sps.h b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_sps.h
+new file mode 100644
+index 000000000000..5933ef58f3d9
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_sps.h
+@@ -0,0 +1,193 @@
++#ifndef VCE_LIVERPOOL_SPS_H
++#define VCE_LIVERPOOL_SPS_H
++
++struct vce_liverpool_bits {
++	u8 data[512];
++	u32 count;
++	u32 position;
++	bool error;
++};
++
++static u32 vce_liverpool_get_bits(struct vce_liverpool_bits *bits, u32 count)
++{
++	u32 result = 0, i;
++
++	if (count > 32 || bits->position + count > bits->count) {
++		bits->error = true;
++		return 0;
++	}
++	for (i = 0; i < count; i++) {
++		result = (result << 1) |
++			((bits->data[bits->position / 8] >> (7 - bits->position % 8)) & 1);
++		bits->position++;
++	}
++	return result;
++}
++
++static void vce_liverpool_put_bits(struct vce_liverpool_bits *bits, u32 value, u32 count)
++{
++	u32 i;
++
++	if (count > 32 || bits->count + count > sizeof(bits->data) * 8) {
++		bits->error = true;
++		return;
++	}
++	for (i = 0; i < count; i++) {
++		u32 bit = (value >> (count - i - 1)) & 1;
++
++		bits->data[bits->count / 8] |= bit << (7 - bits->count % 8);
++		bits->count++;
++	}
++}
++
++static u32 vce_liverpool_get_ue(struct vce_liverpool_bits *bits)
++{
++	u32 zeroes = 0;
++
++	while (!bits->error && !vce_liverpool_get_bits(bits, 1)) {
++		if (++zeroes > 30) {
++			bits->error = true;
++			return 0;
++		}
++	}
++	return ((1u << zeroes) - 1) + vce_liverpool_get_bits(bits, zeroes);
++}
++
++static void vce_liverpool_put_ue(struct vce_liverpool_bits *bits, u32 value)
++{
++	u32 count = 0, code;
++
++	if (value >= 0x7fffffff) {
++		bits->error = true;
++		return;
++	}
++	code = ++value;
++	while (code >>= 1)
++		count++;
++	vce_liverpool_put_bits(bits, 0, count);
++	vce_liverpool_put_bits(bits, value, count + 1);
++}
++
++static int vce_liverpool_fix_sps(const u8 *source, u32 size, u8 *output,
++		u32 capacity, u32 width, u32 height, u32 fps_num, u32 fps_den,
++		u32 requested_profile)
++{
++	struct vce_liverpool_bits input = {}, result = {};
++	u32 i, offset = 0, zeros = 0, prefix_bits, cropped_height, cropped_width;
++	u32 profile, poc_type, frame_only, native_width, native_height;
++	u32 sps_id_end;
++
++	if (size < 5 || size > sizeof(input.data) || !fps_num || !fps_den ||
++	    fps_num > 1000000 || fps_den > 1000000)
++		return -EINVAL;
++	for (i = 1; i < size; i++) {
++		if (zeros == 2 && source[i] == 3) {
++			zeros = 0;
++			continue;
++		}
++		input.data[offset++] = source[i];
++		zeros = source[i] ? 0 : zeros + 1;
++	}
++	input.count = offset * 8;
++	profile = vce_liverpool_get_bits(&input, 8);
++	if (profile != 66 && profile != 77)
++		return -EINVAL;
++	if (requested_profile != profile && !(requested_profile == 100 && profile == 77))
++		return -EINVAL;
++	vce_liverpool_get_bits(&input, 16);
++	vce_liverpool_get_ue(&input);
++	sps_id_end = input.position;
++	vce_liverpool_get_ue(&input);
++	poc_type = vce_liverpool_get_ue(&input);
++	if (!poc_type)
++		vce_liverpool_get_ue(&input);
++	else if (poc_type != 2)
++		return -EINVAL;
++	vce_liverpool_get_ue(&input);
++	vce_liverpool_get_bits(&input, 1);
++	native_width = (vce_liverpool_get_ue(&input) + 1) * 16;
++	native_height = (vce_liverpool_get_ue(&input) + 1) * 16;
++	frame_only = vce_liverpool_get_bits(&input, 1);
++	if (!frame_only)
++		return -EINVAL;
++	vce_liverpool_get_bits(&input, 1);
++	if (input.error || native_width != width || native_height < height ||
++	    native_height - height > 14 || (height & 1))
++		return -EINVAL;
++	prefix_bits = input.position;
++	for (i = 0; i < prefix_bits; i++) {
++		if (i == sps_id_end && requested_profile == 100) {
++			vce_liverpool_put_ue(&result, 1);
++			vce_liverpool_put_ue(&result, 0);
++			vce_liverpool_put_ue(&result, 0);
++			vce_liverpool_put_bits(&result, 0, 1);
++			vce_liverpool_put_bits(&result, 0, 1);
++		}
++		vce_liverpool_put_bits(&result,
++			(input.data[i / 8] >> (7 - i % 8)) & 1, 1);
++	}
++	result.data[0] = requested_profile;
++	if (requested_profile == 100)
++		result.data[1] = 0;
++	if (profile == 66)
++		result.data[1] |= 0x40;
++	cropped_height = (native_height - height) / 2;
++	cropped_width = (native_width - width) / 2;
++	vce_liverpool_put_bits(&result, !!(cropped_width || cropped_height), 1);
++	if (cropped_width || cropped_height) {
++		vce_liverpool_put_ue(&result, 0);
++		vce_liverpool_put_ue(&result, cropped_width);
++		vce_liverpool_put_ue(&result, 0);
++		vce_liverpool_put_ue(&result, cropped_height);
++	}
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 1, 8);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 5, 3);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 2, 8);
++	vce_liverpool_put_bits(&result, 2, 8);
++	vce_liverpool_put_bits(&result, 2, 8);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, fps_den, 32);
++	vce_liverpool_put_bits(&result, fps_num * 2, 32);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 0, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	vce_liverpool_put_ue(&result, 2);
++	vce_liverpool_put_ue(&result, 1);
++	vce_liverpool_put_ue(&result, 14);
++	vce_liverpool_put_ue(&result, 14);
++	vce_liverpool_put_ue(&result, 0);
++	vce_liverpool_put_ue(&result, 1);
++	vce_liverpool_put_bits(&result, 1, 1);
++	while (result.count % 8)
++		vce_liverpool_put_bits(&result, 0, 1);
++	if (result.error || capacity < 2)
++		return -EINVAL;
++	output[0] = source[0];
++	offset = 1;
++	zeros = 0;
++	for (i = 0; i < result.count / 8; i++) {
++		u8 value = result.data[i];
++
++		if (offset + 2 > capacity)
++			return -ENOSPC;
++		if (zeros == 2 && value <= 3) {
++			output[offset++] = 3;
++			zeros = 0;
++		}
++		output[offset++] = value;
++		zeros = value ? 0 : zeros + 1;
++	}
++	return offset;
++}
++
++#endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/vce_liverpool_vectors.h b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_vectors.h
+new file mode 100644
+index 000000000000..f472055d55a7
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/vce_liverpool_vectors.h
+@@ -0,0 +1,53 @@
++static const u32 vce_liverpool_create[] = {
++	0xc, 0x1, 0x1, 0xd8, 0x2, 0x1, 0x4d, 0x2a,
++	0x1, 0x1, 0x1, 0x780, 0x438, 0x780, 0x780, 0x88,
++	0x0, 0x0, 0x19fab00, 0x6a4000, 0x0, 0x19fa000, 0x5, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x20a3b00, 0x0, 0x0, 0x1, 0x0, 0x20a3b00, 0x0,
++	0x0,
++};
++static const u32 vce_liverpool_encode[] = {
++	0xc, 0x1, 0x1, 0xcc, 0xf, 0x0, 0x1, 0x0,
++	0x0, 0x0, 0x0, 0x1e, 0x0, 0x1e, 0x0, 0x0,
++	0x0, 0x0, 0x1fe0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x1fe0, 0xf4240,
++	0x3e8, 0x3e8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x88, 0x10,
++	0x4, 0xf4240, 0x0, 0x3c, 0x3c, 0x14, 0x14, 0x0,
++	0x7a120, 0x1, 0x30, 0xf4240, 0x0, 0x0, 0x411a, 0x0,
++	0x0, 0x1, 0x14, 0x1, 0x14, 0x0, 0x0, 0x1,
++	0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x58, 0x11, 0x1, 0x1, 0x0, 0x0, 0x0, 0x1,
++	0x50, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x7e,
++	0x0, 0x0, 0x0, 0x0, 0x4, 0x4, 0x28, 0x12,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0,
++	0x38, 0x13, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x220, 0x14,
++	0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x1, 0x5,
++	0x0, 0x1, 0x1, 0x1, 0x1, 0x0, 0x0, 0x0,
++	0x1, 0xfa4, 0x3a980, 0x1, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0,
++	0x2, 0x1, 0xe, 0xe, 0x0, 0x1, 0x50, 0x17,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++	0x0, 0x0, 0x88, 0x6, 0x0, 0x0, 0x0, 0x3,
++	0xf4240, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5000000, 0x0,
++	0x51fe000, 0x0, 0x1400000, 0x438, 0x780, 0x780, 0x0, 0x0,
++	0x0, 0x19fab00, 0x0, 0x19fa000, 0x0, 0x20a3b00, 0x0, 0x20a3b00,
++	0x0, 0x0, 0x0, 0x0,
++};
+diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
+index f727b51e5df2..a82ed762d756 100644
+--- a/drivers/ps4/Makefile
++++ b/drivers/ps4/Makefile
+@@ -17,4 +17,4 @@ obj-y += ps4-led.o
+ obj-y += ps4-fan.o
+ obj-y += ps4-buzzer.o
+ obj-$(CONFIG_PS4_TRNG) += ps4-trng.o
+-obj-$(CONFIG_PS4_CCP) += ps4-ccp.o
++obj-$(CONFIG_PS4_CCP) += ps4-ccp.o
+\ No newline at end of file
+diff --git a/extra_firmware/amdgpu/liverpool_vce.bin b/extra_firmware/amdgpu/liverpool_vce.bin
+new file mode 100644
+index 0000000000000000000000000000000000000000..9ebf269a6ecaa3c5490f201b4b307f539e1c127e
+GIT binary patch
+literal 52056
+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
+
+literal 0
+HcmV?d00001
+

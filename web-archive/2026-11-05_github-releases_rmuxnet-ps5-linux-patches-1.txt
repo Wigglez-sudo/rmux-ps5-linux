@@ -1,0 +1,174 @@
+Releases · rmuxnet/ps5-linux-patches-1 · GitHub 
+ Skip to content 
+ Navigation Menu Sign in Products Platform GitHub Repository hosting, code review, and collaboration Copilot AI coding agent for tasks, projects and automated work Build & Ship Actions CI/CD and automation Code Quality Quality analysis, fixes, and enforcement Codespaces Cloud development environments Secure Code Security Vulnerability detection and remediation Secret Protection Secret scanning and leak prevention All Features Developers Learn Documentation Training Certifications Build Build with Copilot Customize Copilot Integrations Explore Trending repos GitHub Sponsors Developer articles Changelog Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place. Businesses By Stage Enterprises Team Startups Nonprofits By Industry Healthcare Financial services Manufacturing Government See all industries Evaluate GitHub Why GitHub Customer Stories Business insights Trust Center Add-ons GitHub Advanced Security Enterprise-grade code security Copilot for business Enterprise-grade AI features Premium Support Enterprise-grade 24/7 support Resources Learn & Connect Documentation Resource center Blog Events & webinars Community Forum Customer Stories Integrations Support Customer support Training GitHub Status Company About Partners Changelog GitHub Universe GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub. Pricing Search / Sign in Sign up Appearance settings 
+ You signed in with another tab or window. Reload to refresh your session. 
+ You signed out in another tab or window. Reload to refresh your session. 
+ You switched accounts on another tab or window. Reload to refresh your session. 
+ Dismiss alert 
+ {{ message }} 
+ rmuxnet ps5-linux-patches-1 Repository navigation Code Pull requests 2 ( 2 ) Actions Projects Security and quality Insights More items 
+ Releases: rmuxnet/ps5-linux-patches-1 
+ Releases 
+ Tags 
+ --> 
+ Releases · rmuxnet/ps5-linux-patches-1 
+ Release list 
+ 7.3.1-PinkSoup (8de2aff)
+ 7.3.1-PinkSoup (de57310)
+ 7.3.1-PinkSoup (9c64ec6)
+ Jump to release 
+ 7.3.1-PinkSoup (8de2aff)
+ 7.3.1-PinkSoup (de57310)
+ 7.3.1-PinkSoup (9c64ec6)
+ 7.3.1-PinkSoup (8de2aff) 
+ 7.3.1-PinkSoup (8de2aff) 
+ Latest 
+ Latest 
+ Compare 
+ Choose a tag to compare
+ Sorry, something went wrong. 
+ Filter
+ Loading 
+ Sorry, something went wrong. 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ No results found 
+ View all tags 
+ rmuxnet 
+ released this
+ 03 Nov 14:49
+ 7.3.1-PinkSoup-8de2aff
+ 8de2aff 
+ Kernel 
+ 7.3.1-PinkSoup 
+ Commit 
+ 8de2aff ps5-fan: return a manual MainSoC zone to auto on all models 
+ Branch: shitshow 
+ Author: Armandas Kvietkus armandas.kvietkus@proton.me 
+ Date: 2026-11-03 15:31 +0100 
+ Build 
+ Started: 2026-11-03 15:49 CET 
+ Host: asus 
+ Compiler: clang version 23.1.4 
+ LTO: full (FullLTO) 
+ CPU flags: -march=znver2 -mtune=znver2 
+ Optimize: performance 
+ Install 
+ On the PS5: 
+ unzip ps5-linux-7.3.1-PinkSoup.zip
+ cd ps5-linux-7.3.1-PinkSoup
+./install.sh 
+ It installs the modules, makes the initrd, backs up the boot partition to /boot/efi-backup/<date> and copies the new kernel there. 
+Cold boot the PS5 after that. 
+ Assets 
+ 3 
+ Loading 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ --> 
+ All reactions 
+ 7.3.1-PinkSoup (de57310) 
+ 7.3.1-PinkSoup (de57310) 
+ Compare 
+ Choose a tag to compare
+ Sorry, something went wrong. 
+ Filter
+ Loading 
+ Sorry, something went wrong. 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ No results found 
+ View all tags 
+ rmuxnet 
+ released this
+ 02 Nov 16:58
+ 7.3.1-PinkSoup-de57310
+ de57310 
+ Kernel 
+ 7.3.1-PinkSoup 
+ Commit 
+ de57310 config: enable UVC webcams 
+ Branch: shitshow 
+ Author: Armandas Kvietkus armandas.kvietkus@proton.me 
+ Date: 2026-11-02 17:48 +0100 
+ Build 
+ Started: 2026-11-02 17:49 CET 
+ Host: asus 
+ Compiler: clang version 23.1.1 
+ LTO: full (FullLTO) 
+ CPU flags: -march=znver2 -mtune=znver2 
+ Optimize: performance 
+ Install 
+ On the PS5: 
+ unzip ps5-linux-7.3.1-PinkSoup.zip
+ cd ps5-linux-7.3.1-PinkSoup
+./install.sh 
+ It installs the modules, makes the initrd, backs up the boot partition to /boot/efi-backup/<date> and copies the new kernel there. 
+Cold boot the PS5 after that. 
+ Assets 
+ 3 
+ Loading 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ --> 
+ All reactions 
+ 7.3.1-PinkSoup (9c64ec6) 
+ 7.3.1-PinkSoup (9c64ec6) 
+ Pre-release 
+ Pre-release 
+ Compare 
+ Choose a tag to compare
+ Sorry, something went wrong. 
+ Filter
+ Loading 
+ Sorry, something went wrong. 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ No results found 
+ View all tags 
+ rmuxnet 
+ released this
+ 02 Nov 11:13
+ 7.3.1-PinkSoup-9c64ec6
+ 9c64ec6 
+ Kernel 
+ 7.3.1-PinkSoup 
+ Commit 
+ 9c64ec6 release: add create-release.sh and install.sh 
+ Branch: shitshow 
+ Author: Armandas Kvietkus armandas.kvietkus@proton.me 
+ Date: 2026-11-02 11:59 +0100 
+ Build 
+ Started: 2026-11-02 11:49 CET 
+ Host: asus 
+ Compiler: clang version 23.1.1 
+ LTO: full (FullLTO) 
+ CPU flags: -march=znver2 -mtune=znver2 
+ Optimize: performance 
+ Install 
+ On the PS5: 
+ unzip ps5-linux-7.3.1-PinkSoup.zip
+ cd ps5-linux-7.3.1-PinkSoup
+./install.sh 
+ It installs the modules, makes the initrd, backs up the boot partition to /boot/efi-backup/<date> and copies the new kernel there. 
+Cold boot the PS5 after that. 
+ Assets 
+ 3 
+ Loading 
+ Uh oh!
+ There was an error while loading. Please reload this page . 
+ --> 
+ All reactions 
+ Footer 
+ © 2026 GitHub, Inc.
+ Footer navigation 
+ Terms 
+ Privacy 
+ Security 
+ Status 
+ Community 
+ Docs 
+ Contact 
+ Manage cookies
+ Do not share my personal information
+ You can’t perform that action at this time.

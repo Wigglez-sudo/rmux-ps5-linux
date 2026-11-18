@@ -1,0 +1,68 @@
+From ca8e7e51edcf306647fd491afda1cbc9ee71c299 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 17:40:11 +0100
+Subject: [PATCH] style(settings): add specific styles for settings inputs
+
+- Define dark/light mode variables for the settings page.
+- Add animation keyframes for page load (fadeIn).
+---
+ static/style/settings.css | 49 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+ create mode 100644 static/style/settings.css
+
+diff --git a/static/style/settings.css b/static/style/settings.css
+new file mode 100644
+index 0000000..ff2937f
+--- /dev/null
++++ b/static/style/settings.css
+@@ -0,0 +1,49 @@
++:root {
++    --bg-color: #ffffff;
++    --text-color: #1f2937;
++    --surface-color: #f3f4f6;
++    --border-color: #e5e7eb;
++}
++
++.dark {
++    --bg-color: #000000;
++    --text-color: #e5e7eb;
++    --surface-color: #121212;
++    --border-color: #2a2a2a;
++}
++
++body {
++    background-color: var(--bg-color);
++    color: var(--text-color);
++}
++
++.surface {
++    background-color: var(--surface-color);
++}
++
++.border {
++    border: 1px solid var(--border-color);
++}
++
++.input-field {
++    background-color: transparent;
++    border-color: var(--border-color);
++    color: var(--text-color);
++}
++
++.dark .input-field {
++    background-color: rgba(0, 0, 0, 0.2);
++}
++
++.input-field:focus {
++    border-color: #0070d1;
++}
++
++@keyframes fadeIn {
++    from { opacity: 0; transform: translateY(10px); }
++    to { opacity: 1; transform: translateY(0); }
++}
++
++main {
++    animation: fadeIn 0.4s ease-out;
++}
+\ No newline at end of file

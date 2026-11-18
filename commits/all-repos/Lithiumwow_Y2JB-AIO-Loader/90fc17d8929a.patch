@@ -1,0 +1,22 @@
+From 90fc17d8929a43a28b911ee398e4241d164a9f09 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 25 Jan 2026 18:29:55 +0100
+Subject: [PATCH] fixup!
+
+---
+ src/backpork/core.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/backpork/core.py b/src/backpork/core.py
+index 107d018..e4544c2 100644
+--- a/src/backpork/core.py
++++ b/src/backpork/core.py
+@@ -175,4 +175,5 @@ def flush(self):
+ 
+             except Exception as e:
+                 err = traceback.format_exc()
+-                yield f"data: {json.dumps({'log': f'CRITICAL ERROR:\n{err}', 'status': 'error'})}\n\n"
+\ No newline at end of file
++                error_msg = f"CRITICAL ERROR:\n{err}"
++                yield f"data: {json.dumps({'log': error_msg, 'status': 'error'})}\n\n"
+\ No newline at end of file

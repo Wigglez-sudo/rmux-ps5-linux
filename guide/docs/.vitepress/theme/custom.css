@@ -1,0 +1,271 @@
+/*
+  Style ported from the pdfgrabber web UI.
+  OLED black, one accent (lilac by default) for links, primary buttons and focus.
+  Look (Filled, Outline, Flat) sets surfaces and buttons, corners (Soft, Sharp, Round) set every radius.
+  Outline with soft corners is the default. Glass only on the floating layer (nav bar), content sits on solid-ish panels.
+*/
+:root {
+  --bg: #000;
+  --panel: rgba(0, 0, 0, calc(var(--card-alpha) * 0.65));
+  --raised: #111113;
+  --field: #0c0c0e;
+  --hover: rgba(255, 255, 255, 0.05);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --text: #f5f5f7;
+  --text-2: #a1a1a6;
+  --text-3: #8e8e93;
+  --accent: #cdb8ff;
+  --accent-ink: #15101f;
+  --ok: #7bd88f;
+  --warn: #f5d08a;
+  --bad: #ff6961;
+  --frost: rgba(16, 16, 20, 0.58);
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  --card-alpha: 0.84;
+  --r-control: 8px; --r-btn: 8px; --r-panel: 12px; --r-float: 14px; --r-sheet: 16px;
+  --r-seg: 9px; --r-seg-in: 7px; --r-bar: 3px;
+  --panel-border: var(--line-strong);
+  --btn-bg: transparent;
+  --btn-hover: var(--hover);
+  --btn-border: var(--line-strong);
+  --btn-weight: 550;
+  --primary-bg: transparent;
+  --primary-fg: var(--accent);
+  --primary-border: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 16%, transparent);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+
+[data-corners="soft"] { --r-control: 8px; --r-btn: 8px; --r-panel: 12px; --r-float: 14px; --r-sheet: 16px; --r-seg: 9px; --r-seg-in: 7px; --r-bar: 3px; }
+[data-corners="sharp"] { --r-control: 0; --r-btn: 0; --r-panel: 0; --r-float: 0; --r-sheet: 0; --r-seg: 0; --r-seg-in: 0; --r-bar: 0; }
+[data-corners="round"] { --r-control: 999px; --r-btn: 999px; --r-panel: 24px; --r-float: 24px; --r-sheet: 28px; --r-seg: 999px; --r-seg-in: 999px; --r-bar: 999px; }
+[data-look="filled"] {
+  --panel: rgba(6, 6, 8, var(--card-alpha)); --panel-border: var(--line);
+  --btn-bg: rgba(255,255,255,0.04); --btn-hover: rgba(255,255,255,0.09); --btn-border: var(--line-strong);
+  --primary-bg: var(--accent); --primary-fg: var(--accent-ink); --primary-border: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 82%, white);
+}
+[data-look="outline"] {
+  --panel: rgba(0, 0, 0, calc(var(--card-alpha) * 0.65)); --panel-border: var(--line-strong);
+  --btn-bg: transparent; --btn-hover: var(--hover); --btn-border: var(--line-strong);
+  --primary-bg: transparent; --primary-fg: var(--accent); --primary-border: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+[data-look="flat"] {
+  --panel: rgba(22, 22, 26, var(--card-alpha)); --panel-border: transparent;
+  --btn-bg: rgba(255,255,255,0.1); --btn-hover: rgba(255,255,255,0.16); --btn-border: transparent;
+  --primary-bg: var(--accent); --primary-fg: var(--accent-ink); --primary-border: var(--accent);
+  --primary-hover: color-mix(in srgb, var(--accent) 82%, white);
+}
+@media (prefers-contrast: more) { :root { --line: rgba(255,255,255,0.28); --line-strong: rgba(255,255,255,0.45); --text-2: #c7c7cc; --text-3: #aeaeb2; } }
+
+/* VitePress tokens mapped onto the pdfgrabber ones */
+:root, .dark {
+  --vp-c-bg: #000;
+  --vp-c-bg-alt: #050506;
+  --vp-c-bg-elv: var(--raised);
+  --vp-c-bg-soft: var(--panel);
+  --vp-c-text-1: var(--text);
+  --vp-c-text-2: var(--text-2);
+  --vp-c-text-3: var(--text-3);
+  --vp-c-divider: var(--line);
+  --vp-c-border: var(--line-strong);
+  --vp-c-gutter: var(--line);
+  --vp-c-default-soft: rgba(255,255,255,0.07);
+  --vp-c-brand-1: var(--accent);
+  --vp-c-brand-2: color-mix(in srgb, var(--accent) 82%, white);
+  --vp-c-brand-3: var(--accent);
+  --vp-c-brand-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --vp-c-tip-1: var(--accent);
+  --vp-c-tip-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vp-c-warning-1: var(--warn);
+  --vp-c-warning-soft: color-mix(in srgb, var(--warn) 10%, transparent);
+  --vp-c-danger-1: var(--bad);
+  --vp-c-danger-soft: color-mix(in srgb, var(--bad) 10%, transparent);
+  --vp-font-family-base: var(--font);
+  --vp-font-family-mono: var(--mono);
+  --vp-nav-bg-color: transparent;
+  --vp-nav-screen-bg-color: #000;
+  --vp-local-nav-bg-color: var(--frost);
+  --vp-sidebar-bg-color: rgba(0, 0, 0, calc(var(--card-alpha) * 0.5));
+  --vp-code-block-bg: rgba(255,255,255,0.03);
+  --vp-code-bg: rgba(255,255,255,0.07);
+  --vp-code-color: var(--text);
+  --vp-code-copy-code-bg: var(--raised);
+  --vp-code-copy-code-hover-bg: var(--raised);
+  --vp-code-copy-code-hover-border-color: var(--line-strong);
+  --vp-home-hero-name-color: var(--text);
+  --vp-home-hero-image-background-image: none;
+  --vp-button-brand-border: var(--primary-border);
+  --vp-button-brand-text: var(--primary-fg);
+  --vp-button-brand-bg: var(--primary-bg);
+  --vp-button-brand-hover-border: var(--primary-border);
+  --vp-button-brand-hover-text: var(--primary-fg);
+  --vp-button-brand-hover-bg: var(--primary-hover);
+  --vp-button-brand-active-border: var(--primary-border);
+  --vp-button-brand-active-text: var(--primary-fg);
+  --vp-button-brand-active-bg: var(--primary-hover);
+  --vp-button-alt-border: var(--btn-border);
+  --vp-button-alt-text: var(--text);
+  --vp-button-alt-bg: var(--btn-bg);
+  --vp-button-alt-hover-border: var(--btn-border);
+  --vp-button-alt-hover-text: var(--text);
+  --vp-button-alt-hover-bg: var(--btn-hover);
+  --vp-button-alt-active-border: var(--btn-border);
+  --vp-button-alt-active-text: var(--text);
+  --vp-button-alt-active-bg: var(--btn-hover);
+  --vp-local-search-bg: var(--raised);
+  --vp-local-search-result-bg: rgba(255,255,255,0.03);
+  --vp-local-search-result-border: var(--line);
+  --vp-local-search-result-selected-bg: color-mix(in srgb, var(--accent) 10%, transparent);
+  --vp-local-search-result-selected-border: var(--accent);
+  --vp-local-search-highlight-bg: var(--accent);
+  --vp-local-search-highlight-text: var(--accent-ink);
+}
+
+/* Page: black under the canvas background */
+html, body { background: var(--bg); }
+body { -webkit-font-smoothing: antialiased; }
+.Layout { isolation: isolate; }
+:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Nav bar: the floating layer, frosted */
+.VPNav {
+  background: var(--frost) !important;
+  backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid var(--line);
+}
+.VPNavBar, .VPNavBar .content-body, .VPNavBar .title, .VPNavBar.screen-open { background: transparent !important; border-bottom: 0 !important; }
+.VPNavBar .divider { display: none; }
+.VPNavBar .title .VPNavBarTitle .title { font-weight: 650; letter-spacing: -0.01em; }
+.VPNavBarMenuLink, .VPNavBarMenuGroup .button { border-radius: var(--r-control); }
+.VPNavBarMenuLink:hover { color: var(--text) !important; }
+.VPNavBarMenuLink.active { color: var(--accent) !important; }
+.VPLocalNav { backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%); border-bottom-color: var(--line) !important; }
+.VPNavScreen { background: #000 !important; }
+.VPFlyout .menu .VPMenu { background: var(--raised); border: 1px solid var(--line-strong); border-radius: var(--r-panel); box-shadow: 0 16px 48px rgba(0,0,0,0.7); }
+.VPMenuLink .link { border-radius: var(--r-control) !important; }
+.VPMenuLink .link:hover { background: var(--hover) !important; }
+
+/* Search button */
+.DocSearch-Button, .VPNavBarSearch .DocSearch-Button {
+  background: var(--btn-bg) !important; border: 1px solid var(--line-strong) !important; border-radius: var(--r-control) !important;
+}
+.DocSearch-Button:hover { border-color: var(--accent) !important; }
+.VPLocalSearchBox .shell { border: 1px solid var(--line-strong); border-radius: var(--r-sheet) !important; box-shadow: 0 24px 80px rgba(0,0,0,0.7); }
+.VPLocalSearchBox .search-bar { border-radius: var(--r-control) !important; }
+.VPLocalSearchBox .result { border-radius: var(--r-control) !important; }
+.VPLocalSearchBox .backdrop { background: rgba(0,0,0,0.6) !important; }
+
+/* Sidebar */
+.VPSidebar { border-right: 1px solid var(--line); }
+@media (min-width: 960px) {
+  .VPSidebar { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+}
+.VPSidebar .curtain { background: transparent !important; }
+.VPSidebarItem .text { transition: color .15s; }
+.VPSidebarItem.level-0 > .item > .text, .VPSidebarItem.level-0 > .item > .link > .text { font-size: 13px; color: var(--text-3); font-weight: 600; }
+.VPSidebarItem .item { border-radius: var(--r-control); }
+.VPSidebarItem.is-link > .item:hover .text { color: var(--text) !important; }
+.VPSidebarItem.is-active > .item .text { color: var(--accent) !important; }
+.VPSidebar .group + .group { border-top-color: var(--line) !important; }
+
+/* Doc page: the content sits on a panel so the background never fights the text */
+@media (min-width: 768px) {
+  .VPDoc .content-container {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--r-panel);
+    padding: 32px 40px 28px;
+  }
+}
+@media (max-width: 767px) {
+  .VPDoc { background: var(--panel); }
+}
+.VPDocAsideOutline .outline-link.active { color: var(--accent) !important; }
+.VPDocAsideOutline .outline-marker { background: var(--accent) !important; }
+.VPDocFooter .pager-link { border-radius: var(--r-panel) !important; border-color: var(--panel-border) !important; background: var(--panel); transition: border-color .15s; }
+.VPDocFooter .pager-link:hover { border-color: var(--accent) !important; }
+.VPDocFooter .edit-link-button { color: var(--accent) !important; }
+
+/* Doc typography */
+.vp-doc h1 { letter-spacing: -0.02em; font-weight: 700; }
+.vp-doc h2 { border-top-color: var(--line); letter-spacing: -0.01em; font-weight: 650; }
+.vp-doc a { color: var(--accent); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 3px; }
+.vp-doc a:hover { text-decoration-color: var(--accent); }
+.vp-doc table { border-radius: var(--r-control); overflow: hidden; border: 1px solid var(--line); display: table; width: 100%; }
+@media (max-width: 767px) { .vp-doc table { display: block; } }
+.vp-doc tr { border-top-color: var(--line); }
+.vp-doc tr:nth-child(2n) { background: rgba(255,255,255,0.025); }
+.vp-doc th, .vp-doc td { border-color: var(--line); }
+.vp-doc th { background: rgba(255,255,255,0.04); color: var(--text); }
+.vp-doc blockquote { border-left: 2px solid var(--accent); color: var(--text-2); }
+.vp-doc hr { border-top-color: var(--line); }
+.vp-doc :not(pre) > code { border-radius: min(6px, var(--r-control)); }
+.vp-doc img { border-radius: var(--r-control); }
+
+/* Code blocks: outlined, never filled */
+.vp-doc div[class*='language-'] {
+  border: 1px solid var(--line); border-radius: var(--r-panel) !important;
+}
+@media (max-width: 639px) {
+  .vp-doc div[class*='language-'] { margin: 16px 0; }
+}
+.vp-doc [class*='language-'] > button.copy { border-radius: var(--r-control); border-color: var(--line-strong); }
+
+/* Callouts: like pdfgrabber notes. A tinted panel with a colored edge */
+.custom-block {
+  border-radius: var(--r-panel) !important; border: 1px solid var(--line) !important; border-left: 2px solid var(--line-strong) !important;
+  background: rgba(255,255,255,0.025) !important; color: var(--text-2) !important;
+}
+.custom-block .custom-block-title { color: var(--text) !important; }
+.custom-block.tip { border-left-color: var(--accent) !important; background: var(--vp-c-tip-soft) !important; }
+.custom-block.tip .custom-block-title { color: var(--accent) !important; }
+.custom-block.warning { border-left-color: var(--warn) !important; background: var(--vp-c-warning-soft) !important; }
+.custom-block.warning .custom-block-title { color: var(--warn) !important; }
+.custom-block.danger, .custom-block.caution { border-left-color: var(--bad) !important; background: var(--vp-c-danger-soft) !important; }
+.custom-block.danger .custom-block-title, .custom-block.caution .custom-block-title { color: var(--bad) !important; }
+.custom-block.info .custom-block-title { color: var(--text) !important; }
+.custom-block a { color: var(--accent) !important; }
+.custom-block div[class*='language-'] { background: rgba(0,0,0,0.4) !important; }
+
+/* Buttons */
+.VPButton { border-radius: var(--r-btn) !important; font-weight: var(--btn-weight) !important; transition: background-color .15s, border-color .15s, color .15s !important; }
+
+/* Home */
+.VPHero .name { letter-spacing: -0.03em; }
+.VPHero .text { letter-spacing: -0.02em; color: var(--text-2); }
+.VPHero .tagline { color: var(--text-2); }
+.VPHero .image-src { border-radius: var(--r-panel); max-width: 100% !important; }
+@media (min-width: 960px) {
+  .VPHero .image-src { max-width: 520px !important; width: 520px !important; }
+  .VPHero .image-container { max-width: 520px !important; }
+}
+@media (max-width: 959px) {
+  .VPHero .image { margin: 0 auto 28px !important; width: 100%; max-width: 520px; }
+  .VPHero .image-container { width: 100% !important; max-width: 520px !important; height: auto !important; }
+  .VPHero .image-src { position: static !important; transform: none !important; width: 100% !important; }
+}
+.VPHero .clip { background: none; -webkit-text-fill-color: currentColor; }
+.VPHero .name .clip { color: var(--text); }
+.VPFeature {
+  background: var(--panel) !important; border: 1px solid var(--panel-border) !important; border-radius: var(--r-panel) !important;
+  transition: border-color .15s !important;
+}
+.VPFeature:hover { border-color: var(--accent) !important; }
+.VPFeature .title { font-weight: 600; letter-spacing: -0.01em; }
+.VPFeature .details { color: var(--text-2) !important; }
+
+/* Footer */
+.VPFooter { background: transparent !important; border-top: 1px solid var(--line) !important; }
+
+/* Floating layers keep a solid fallback when transparency is reduced */
+@media (prefers-reduced-transparency: reduce) {
+  .VPNav, .VPLocalNav { background: #0b0b0d !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .VPDoc .content-container, .VPFeature { background: #050506 !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
+}

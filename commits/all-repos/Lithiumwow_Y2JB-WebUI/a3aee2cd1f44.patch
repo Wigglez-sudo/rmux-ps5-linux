@@ -1,0 +1,107 @@
+From a3aee2cd1f44646328da7d7bf9dc4a7a63a47b4f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 27 Jan 2026 22:40:47 +0100
+Subject: [PATCH] feat: organize elf payloads into dedicated subdirectory
+
+---
+ payloads/{ => elf}/ftpsrv-ps5.elf  | Bin
+ payloads/{ => elf}/kstuff.elf      | Bin
+ payloads/{ => elf}/notify.elf      | Bin
+ payloads/{ => elf}/shadowmount.elf | Bin
+ payloads/{ => elf}/websrv-ps5.elf  | Bin
+ server.py                          |  23 +++++++++++++++++++----
+ 6 files changed, 19 insertions(+), 4 deletions(-)
+ rename payloads/{ => elf}/ftpsrv-ps5.elf (100%)
+ rename payloads/{ => elf}/kstuff.elf (100%)
+ rename payloads/{ => elf}/notify.elf (100%)
+ rename payloads/{ => elf}/shadowmount.elf (100%)
+ rename payloads/{ => elf}/websrv-ps5.elf (100%)
+
+diff --git a/payloads/ftpsrv-ps5.elf b/payloads/elf/ftpsrv-ps5.elf
+similarity index 100%
+rename from payloads/ftpsrv-ps5.elf
+rename to payloads/elf/ftpsrv-ps5.elf
+diff --git a/payloads/kstuff.elf b/payloads/elf/kstuff.elf
+similarity index 100%
+rename from payloads/kstuff.elf
+rename to payloads/elf/kstuff.elf
+diff --git a/payloads/notify.elf b/payloads/elf/notify.elf
+similarity index 100%
+rename from payloads/notify.elf
+rename to payloads/elf/notify.elf
+diff --git a/payloads/shadowmount.elf b/payloads/elf/shadowmount.elf
+similarity index 100%
+rename from payloads/shadowmount.elf
+rename to payloads/elf/shadowmount.elf
+diff --git a/payloads/websrv-ps5.elf b/payloads/elf/websrv-ps5.elf
+similarity index 100%
+rename from payloads/websrv-ps5.elf
+rename to payloads/elf/websrv-ps5.elf
+diff --git a/server.py b/server.py
+index b48f28c..c6894ab 100644
+--- a/server.py
++++ b/server.py
+@@ -29,6 +29,7 @@
+ dns_service = None
+ 
+ PAYLOAD_DIR = "payloads"
++ELF_DIR = "payloads/elf"
+ DAT_DIR = "payloads/dat"
+ CONFIG_DIR = "static/config"
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+@@ -41,6 +42,7 @@
+ url = "http://localhost:8000/send_payload"
+ 
+ os.makedirs(PAYLOAD_DIR, exist_ok=True)
++os.makedirs(ELF_DIR, exist_ok=True)
+ os.makedirs(DAT_DIR, exist_ok=True)
+ os.makedirs(CONFIG_DIR, exist_ok=True)
+ os.makedirs('templates', exist_ok=True)
+@@ -301,7 +303,11 @@ def upload_payload():
+ 
+     if file and allowed_file(file.filename):
+         filename = secure_filename(file.filename)
+-        save_path = os.path.join(PAYLOAD_DIR, filename)
++        
++        if filename.lower().endswith('.elf'):
++            save_path = os.path.join(ELF_DIR, filename)
++        else:
++            save_path = os.path.join(PAYLOAD_DIR, filename)
+ 
+         try:
+             file.save(save_path)
+@@ -362,14 +368,23 @@ def sending_payload():
+                 kstuff_result = True 
+ 
+                 if kstuff_enabled:
++                    kstuff_path = os.path.join(ELF_DIR, 'kstuff.elf')
++                    if not os.path.exists(kstuff_path):
++                        kstuff_path = 'payloads/kstuff.elf'
++
+                     print(f"[SEND] kstuff.elf -> {host}:9021")
+-                    kstuff_result = send_payload(file_path='payloads/kstuff.elf', host=host, port=9021)
++                    kstuff_result = send_payload(file_path=kstuff_path, host=host, port=9021)
+                     time.sleep(10)
+                 else:
+                     print("[SKIP] kstuff.elf (Disabled in Settings)")
+                 
+                 if kstuff_result:
+-                    files = os.listdir(PAYLOAD_DIR)
++                    files = []
++                    for root, _, filenames in os.walk(PAYLOAD_DIR):
++                        for f in filenames:
++                            rel_path = os.path.relpath(os.path.join(root, f), PAYLOAD_DIR).replace("\\", "/")
++                            files.append(rel_path)
++
+                     try:
+                         order = get_payload_order()
+                         weights = {name: i for i, name in enumerate(order)}
+@@ -389,7 +404,7 @@ def sending_payload():
+                             print(f"[SKIP] {filename} (Disabled in settings)")
+                             continue
+ 
+-                        if (fnmatch.fnmatch(filename, '*.bin') or fnmatch.fnmatch(filename, '*.elf')) and filename != 'kstuff.elf':
++                        if (fnmatch.fnmatch(filename, '*.bin') or fnmatch.fnmatch(filename, '*.elf')) and 'kstuff.elf' not in filename:
+                             print(f"[SEND] {filename} -> {host}:9021")
+                             result = send_payload(file_path=os.path.join(PAYLOAD_DIR,filename), host=host, port=9021)
+                             

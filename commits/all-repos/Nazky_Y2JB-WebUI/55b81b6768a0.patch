@@ -1,0 +1,18 @@
+From 55b81b6768a017bb34ba1e5960cd3ed125605208 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 18 Jan 2026 15:13:07 +0100
+Subject: [PATCH] (.gitignore): add payload_order.json
+
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index 5179b67..2b5b928 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,3 +3,4 @@
+ /src/__pycache__
+ static/config/settings.json
+ static/config/payload_config.json
++static/config/payload_order.json

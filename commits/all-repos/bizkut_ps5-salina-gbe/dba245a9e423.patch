@@ -1,0 +1,80 @@
+From dba245a9e423871e24a18c15a8f8fe4d905a6808 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 14:52:01 +0000
+Subject: [PATCH] ps5-gbe: add RX path
+
+---
+ gbe.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 60 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index 172c73d..e6bc51a 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -269,6 +269,66 @@ static void gbe_tx_complete(struct gbe_priv *p)
+ 		netif_wake_queue(p->netdev);
+ }
+ 
++/* grab whatever rx slots are done up to budget, copy em out and re-arm */
++static int gbe_rx_poll(struct gbe_priv *p, int budget)
++{
++	struct net_device *dev = p->netdev;
++	unsigned int i = p->rx_head;
++	int done = 0;
++
++	while (done < budget &&
++	       (le32_to_cpu(p->rx_ring[i].flags) & GBE_DESC_DONE)) {
++		u32 flags = le32_to_cpu(p->rx_ring[i].flags);
++		u32 len = flags & GBE_DESC_RX_LEN_MASK;
++
++		netdev_dbg(dev, "rx[%u] len=%u flags=%#x w2=%#x\n", i, len,
++			   flags, le32_to_cpu(p->rx_ring[i].word2));
++
++		if (len >= ETH_ZLEN && len <= GBE_DESC_RX_LEN) {
++			struct sk_buff *skb;
++			const u8 *src = (const u8 *)p->rx_pool +
++					i * GBE_DESC_RX_LEN;
++
++			p->cnt_rx_pkts++;
++			if (is_broadcast_ether_addr(src))
++				p->cnt_rx_bcast++;
++			else if (is_multicast_ether_addr(src))
++				p->cnt_rx_mcast++;
++
++			skb = netdev_alloc_skb_ip_align(dev, len);
++			if (skb) {
++				skb_put_data(skb, src, len);
++				skb->protocol = eth_type_trans(skb, dev);
++				netif_rx(skb);
++				dev->stats.rx_packets++;
++				dev->stats.rx_bytes += len;
++			} else {
++				p->cnt_rx_nomem++;
++				dev->stats.rx_dropped++;
++			}
++		} else {
++			p->cnt_rx_bad_len++;
++			dev->stats.rx_errors++;
++		}
++
++		/* hand the slot back to the chip */
++		p->rx_ring[i].word2 = 0;
++		p->rx_ring[i].word3 = 0;
++		dma_wmb();
++		p->rx_ring[i].flags = cpu_to_le32(GBE_DESC_RX_LEN |
++			(i == GBE_RING_SIZE - 1 ? GBE_DESC_WRAP : 0));
++
++		done++;
++		i = (i + 1) % GBE_RING_SIZE;
++	}
++	p->rx_head = i;
++
++	if (done)
++		gbe_set(p, GBE_REG_RX_DMA_CTRL, GBE_DMA_KICK);
++
++	return done;
++}
++
+ static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct gbe_priv *p = netdev_priv(dev);

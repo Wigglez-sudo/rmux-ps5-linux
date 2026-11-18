@@ -1,0 +1,19 @@
+# 93 Maintainer
+opened by zero2346 2026-11-02T06:46:31Z
+
+Need @rmuxnet or someone else knowledgeable on the topic to maintain the repo all of these random ai generated commits keeps breaking shit 
+
+--- VanilliteFroyo 2026-11-02T06:50:25Z
+Agreed.
+
+--- cheese0606 2026-11-02T06:59:16Z
+I agree with zero2346, the repo has been filled with nothing but with commits that have been done by Artificial Intelligence and the person has zero knowledge of what was written, unfinished, not working as explicitly intended, or experimental commits which are clearly not prepared for a public release. @rmuxnet is definitely the correct person to maintain the ps5 Linux Repo as he is knowledgeable, knows what the code means line by line unlike some people who just push PR with zero clue on what claude has written.
+
+--- Wigglez-sudo 2026-11-02T11:00:44Z
+W Rmux
+
+--- wii3d 2026-11-02T14:53:58Z
+AI keeps on breaking shit and we lowk need someone knowledgeable to maintain allat without the use of AI, I vouch rmux as the best fit
+
+--- nothinglikeuuuuu 2026-11-02T15:22:09Z
+Rmux is the best choice to be the maintainer imo cause he knows what is ai slop code and hand written working code

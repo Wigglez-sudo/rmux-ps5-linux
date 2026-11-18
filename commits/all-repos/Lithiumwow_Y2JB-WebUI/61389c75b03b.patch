@@ -1,0 +1,457 @@
+From 61389c75b03b8331202a23b2c34768a91f8e2ad2 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 18 Jan 2026 15:14:16 +0100
+Subject: [PATCH] feat(UI & Backend): Integrate Firing Order Customization
+
+---
+ server.py                 | 37 +++++++++++++++++++++-
+ static/auto_payload.js    | 49 +++++++++++++++++++----------
+ static/drag_sort.js       | 66 +++++++++++++++++++++++++++++++++++++++
+ static/index.js           | 45 ++++++++++++++++++++------
+ static/style/index.css    | 33 ++++++++++++++++++++
+ static/style/settings.css | 14 ++++++++-
+ templates/index.html      |  1 +
+ templates/settings.html   |  1 +
+ 8 files changed, 218 insertions(+), 28 deletions(-)
+ create mode 100644 static/drag_sort.js
+
+diff --git a/server.py b/server.py
+index 7495392..78e0d2a 100644
+--- a/server.py
++++ b/server.py
+@@ -27,6 +27,7 @@
+ CONFIG_DIR = "static/config"
+ CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+ PAYLOAD_CONFIG_FILE = os.path.join(CONFIG_DIR, "payload_config.json")
++PAYLOAD_ORDER_FILE = os.path.join(CONFIG_DIR, "payload_order.json")
+ ALLOWED_EXTENSIONS = {'bin', 'elf', 'js', 'dat'}
+ url = "http://localhost:8000/send_payload"
+ 
+@@ -48,6 +49,19 @@ def get_payload_config():
+     except:
+         return {}
+ 
++def get_payload_order():
++    if not os.path.exists(PAYLOAD_ORDER_FILE):
++        return []
++    try:
++        with open(PAYLOAD_ORDER_FILE, 'r') as f:
++            return json.load(f)
++    except:
++        return []
++
++def save_payload_order(order):
++    with open(PAYLOAD_ORDER_FILE, 'w') as f:
++        json.dump(order, f, indent=4)
++
+ def save_payload_config(config):
+     with open(PAYLOAD_CONFIG_FILE, 'w') as f:
+         json.dump(config, f, indent=4)
+@@ -131,6 +145,19 @@ def toggle_payload_config():
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+ 
++@app.route('/api/payload_order', methods=['GET', 'POST'])
++def handle_payload_order():
++    if request.method == 'GET':
++        return jsonify(get_payload_order())
++    
++    if request.method == 'POST':
++        try:
++            order = request.json.get('order', [])
++            save_payload_order(order)
++            return jsonify({"success": True})
++        except Exception as e:
++            return jsonify({"error": str(e)}), 500
++
+ @app.route('/edit_ajb', methods=['POST'])
+ def edit_ajb():
+     new_content = request.json.get('content')
+@@ -232,7 +259,15 @@ def sending_payload():
+                 time.sleep(10)
+                 
+                 if result:
+-                    for filename in os.listdir(PAYLOAD_DIR):
++                    files = os.listdir(PAYLOAD_DIR)
++                    try:
++                        order = get_payload_order()
++                        weights = {name: i for i, name in enumerate(order)}
++                        files.sort(key=lambda x: weights.get(x, 9999))
++                    except Exception as e:
++                        print(f"[SORT] Error sorting payloads: {e}")
++
++                    for filename in files:
+                         if not config.get(filename, True):
+                             print(f"[SKIP] {filename} (Disabled in settings)")
+                             continue
+diff --git a/static/auto_payload.js b/static/auto_payload.js
+index 0ab4956..79d504c 100644
+--- a/static/auto_payload.js
++++ b/static/auto_payload.js
+@@ -9,13 +9,15 @@ async function loadPayloadManager() {
+     container.innerHTML = '<div class="text-center py-4 text-xs opacity-50"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+ 
+     try {
+-        const [filesRes, configRes] = await Promise.all([
++        const [filesRes, configRes, orderRes] = await Promise.all([
+             fetch('/list_payloads'),
+-            fetch('/api/payload_config')
++            fetch('/api/payload_config'),
++            fetch('/api/payload_order')
+         ]);
+         
+-        const files = await filesRes.json();
++        let files = await filesRes.json();
+         const config = await configRes.json();
++        const order = await orderRes.json();
+ 
+         container.innerHTML = ''; 
+ 
+@@ -24,26 +26,40 @@ async function loadPayloadManager() {
+             return;
+         }
+ 
++        if (order && order.length > 0) {
++            const weights = {};
++            order.forEach((name, index) => weights[name] = index);
++            files.sort((a, b) => {
++                const wa = weights[a.split('/').pop()] ?? 9999;
++                const wb = weights[b.split('/').pop()] ?? 9999;
++                return wa - wb;
++            });
++        }
++
+         files.forEach(file => {
+-            const isEnabled = config[file.split('/').pop()] !== false && config[file] !== false; 
+-            const configKey = file.split('/').pop(); 
+-            const checked = config[configKey] !== false; 
++            const configKey = file.split('/').pop();
++            const checked = config[configKey] !== false && config[file] !== false; 
+ 
+             const item = document.createElement('div');
+-            item.className = "flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-blue/30 transition-colors";
++            item.className = "draggable-item flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-blue/30 transition-all cursor-grab active:cursor-grabbing mb-2";
++            item.draggable = true;
++            item.dataset.filename = configKey;
+             
+             item.innerHTML = `
+-                <div class="flex items-center gap-3 overflow-hidden">
++                <div class="flex items-center gap-3 overflow-hidden flex-1 pointer-events-none">
++                    <div class="text-white/20 group-hover:text-brand-light transition-colors px-1">
++                         <i class="fa-solid fa-grip-vertical"></i>
++                    </div>
++                    
+                     <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-brand-light">
+                         <i class="fa-solid fa-microchip text-xs"></i>
+                     </div>
+                     <div class="flex flex-col overflow-hidden">
+                         <span class="text-xs font-bold truncate" title="${file}">${file}</span>
+-                        <span class="text-[10px] opacity-40">Payload</span>
+                     </div>
+                 </div>
+                 
+-                <label class="relative inline-flex items-center cursor-pointer">
++                <label class="relative inline-flex items-center cursor-pointer pointer-events-auto">
+                     <input type="checkbox" class="sr-only peer" onchange="togglePayloadAutoload('${configKey}', this)" ${checked ? 'checked' : ''}>
+                     <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-blue"></div>
+                 </label>
+@@ -51,6 +67,12 @@ async function loadPayloadManager() {
+             container.appendChild(item);
+         });
+ 
++        if (typeof enableDragSort === "function") {
++            enableDragSort('payload-autoload-list', () => {
++                saveCurrentOrder('payload-autoload-list');
++            });
++        }
++
+     } catch (e) {
+         console.error(e);
+         container.innerHTML = '<p class="text-xs text-red-400 p-4 text-center">Failed to load payloads</p>';
+@@ -59,19 +81,14 @@ async function loadPayloadManager() {
+ 
+ async function togglePayloadAutoload(filename, checkbox) {
+     const enabled = checkbox.checked;
+-    
+     try {
+-        const response = await fetch('/api/payload_config/toggle', {
++        await fetch('/api/payload_config/toggle', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ filename, enabled })
+         });
+-        
+-        if (!response.ok) throw new Error("API Error");
+-        
+     } catch (e) {
+         console.error(e);
+-        showToast('Failed to save preference', 'error');
+         checkbox.checked = !enabled; 
+     }
+ }
+\ No newline at end of file
+diff --git a/static/drag_sort.js b/static/drag_sort.js
+new file mode 100644
+index 0000000..910c463
+--- /dev/null
++++ b/static/drag_sort.js
+@@ -0,0 +1,66 @@
++let draggedItem = null;
++
++function enableDragSort(containerId, onUpdate) {
++    const container = document.getElementById(containerId);
++    
++    container.addEventListener('dragstart', (e) => {
++        draggedItem = e.target.closest('.draggable-item');
++        if (!draggedItem) return;
++        
++        e.dataTransfer.effectAllowed = 'move';
++        setTimeout(() => draggedItem.classList.add('dragging'), 0);
++    });
++
++    container.addEventListener('dragend', () => {
++        if (draggedItem) {
++            draggedItem.classList.remove('dragging');
++            draggedItem = null;
++            if (onUpdate) onUpdate();
++        }
++    });
++
++    container.addEventListener('dragover', (e) => {
++        e.preventDefault();
++        const afterElement = getDragAfterElement(container, e.clientY);
++        const currentDraggable = document.querySelector('.dragging');
++        
++        if (afterElement == null) {
++            container.appendChild(currentDraggable);
++        } else {
++            container.insertBefore(currentDraggable, afterElement);
++        }
++    });
++}
++
++function getDragAfterElement(container, y) {
++    const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
++
++    return draggableElements.reduce((closest, child) => {
++        const box = child.getBoundingClientRect();
++        const offset = y - box.top - box.height / 2;
++        
++        if (offset < 0 && offset > closest.offset) {
++            return { offset: offset, element: child };
++        } else {
++            return closest;
++        }
++    }, { offset: Number.NEGATIVE_INFINITY }).element;
++}
++
++async function saveCurrentOrder(containerId) {
++    const container = document.getElementById(containerId);
++    const items = Array.from(container.children);
++    const order = items.map(item => item.dataset.filename).filter(x => x);
++
++    try {
++        await fetch('/api/payload_order', {
++            method: 'POST',
++            headers: { 'Content-Type': 'application/json' },
++            body: JSON.stringify({ order })
++        });
++        if (typeof Toast !== "undefined" && Toast.show) Toast.show('Order saved', 'success');
++    } catch (e) {
++        console.error("Failed to save order", e);
++        if (typeof Toast !== "undefined" && Toast.show) Toast.show('Failed to save order', 'error');
++    }
++}
+\ No newline at end of file
+diff --git a/static/index.js b/static/index.js
+index 519fb19..bca5088 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -89,7 +89,6 @@ async function saveIP() {
+ async function loadIP() {
+     try {
+         const savedIP = await getJSONValue('static/config/settings.json', 'ip');
+-        // Better check to handle undefined values
+         if (savedIP) {
+             document.getElementById('IP').value = savedIP;
+         } else {
+@@ -308,13 +307,15 @@ async function togglePayloadIndex(filename, checkbox) {
+ 
+ async function loadpayloads() {
+     try {
+-        const [filesRes, configRes] = await Promise.all([
++        const [filesRes, configRes, orderRes] = await Promise.all([
+             fetch('/list_payloads'),
+-            fetch('/api/payload_config')
++            fetch('/api/payload_config'),
++            fetch('/api/payload_order')
+         ]);
+         
+-        const files = await filesRes.json();
++        let files = await filesRes.json();
+         const config = await configRes.json();
++        const order = await orderRes.json();
+ 
+         const listElement = document.getElementById('PL');
+         const countElement = document.getElementById('payload-count');
+@@ -332,25 +333,41 @@ async function loadpayloads() {
+ 
+         document.getElementById('empty-state').classList.add('hidden');
+ 
++        if (order && order.length > 0) {
++            const weights = {};
++            order.forEach((name, index) => weights[name] = index);
++            files.sort((a, b) => {
++                const wa = weights[a.split('/').pop()] ?? 9999;
++                const wb = weights[b.split('/').pop()] ?? 9999;
++                return wa - wb;
++            });
++        }
++
+         files.forEach(file => {
+             const configKey = file.split('/').pop();
+             const isEnabled = config[configKey] !== false && config[file] !== false;
+ 
+             const card = document.createElement('li');
+-            card.className = "input-field border rounded-xl p-4 flex items-center justify-between group transition-colors hover:border-brand-blue";
++            card.className = "draggable-item input-field border rounded-xl p-2 pr-4 flex items-center justify-between group transition-colors hover:border-brand-blue mb-3 bg-black/20";
++            card.draggable = true;
++            card.dataset.filename = configKey;
+             
+             card.innerHTML = `
+-                <div class="flex items-center gap-4 overflow-hidden">
+-                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
++                <div class="flex items-center gap-2 overflow-hidden flex-1">
++                    <div class="drag-handle touch-manipulation">
++                        <i class="fa-solid fa-grip-vertical"></i>
++                    </div>
++
++                    <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg shrink-0">
+                         <i class="fa-solid fa-microchip text-xl opacity-70"></i>
+                     </div>
+-                    <div class="flex flex-col overflow-hidden">
++                    <div class="flex flex-col overflow-hidden min-w-0">
+                         <span class="font-medium text-sm truncate" title="${file}">${file}</span>
+                         <span class="text-[10px] opacity-50 uppercase tracking-wide">Payload</span>
+                     </div>
+                 </div>
+ 
+-                <div class="flex items-center gap-3">
++                <div class="flex items-center gap-3 shrink-0 ml-4">
+                     <div class="flex items-center gap-2 border-r pr-3 border-gray-300 dark:border-gray-700" title="Enable Autoload">
+                         <span class="text-[10px] opacity-40 font-bold uppercase hidden sm:inline">Auto</span>
+                         <label class="relative inline-flex items-center cursor-pointer">
+@@ -359,7 +376,7 @@ async function loadpayloads() {
+                         </label>
+                     </div>
+ 
+-                    <button onclick="SendPayload('payloads/${file}')" class="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-brand-blue hover:text-white rounded-lg text-xs font-bold transition-colors">
++                    <button onclick="SendPayload('payloads/${file}')" class="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-brand-blue hover:text-white rounded-lg text-xs font-bold transition-colors shadow-sm">
+                         LOAD
+                     </button>
+                     <button onclick="DeletePayload('${file}')" class="p-2 text-gray-400 hover:text-red-500 transition-colors">
+@@ -369,8 +386,16 @@ async function loadpayloads() {
+             `;
+             listElement.appendChild(card);
+         });
++
++        if (typeof enableDragSort === "function") {
++            enableDragSort('PL', () => {
++                saveCurrentOrder('PL');
++            });
++        }
++
+     } catch (e) {
+         console.error(e);
++        Toast.show('Failed to load payloads', 'error');
+     }
+ }
+ 
+diff --git a/static/style/index.css b/static/style/index.css
+index f82ae51..b496d79 100644
+--- a/static/style/index.css
++++ b/static/style/index.css
+@@ -7,3 +7,36 @@ html.dark .input-field { background-color: #000000; border-color: #333; color: w
+ html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
+ html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+ html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++.draggable-item {
++    cursor: grab;
++    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s, border-color 0.2s;
++}
++
++.draggable-item:active {
++    cursor: grabbing;
++}
++
++.draggable-item.dragging {
++    opacity: 0.5;
++    background: rgba(0, 67, 156, 0.2);
++    border-color: #00439c;
++    transform: scale(0.98);
++    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
++}
++
++.drag-handle {
++    cursor: grab;
++    padding: 0.5rem;
++    margin-right: 0.5rem;
++    color: rgba(255, 255, 255, 0.2);
++    transition: color 0.2s;
++}
++
++.draggable-item:hover .drag-handle {
++    color: rgba(255, 255, 255, 0.6);
++}
++
++.drag-handle:hover {
++    color: #fff;
++}
+diff --git a/static/style/settings.css b/static/style/settings.css
+index ff2937f..947d701 100644
+--- a/static/style/settings.css
++++ b/static/style/settings.css
+@@ -46,4 +46,16 @@ body {
+ 
+ main {
+     animation: fadeIn 0.4s ease-out;
+-}
+\ No newline at end of file
++}
++
++.draggable-item {
++    cursor: grab;
++    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s;
++}
++
++.draggable-item.dragging {
++    opacity: 0.5;
++    background: rgba(0, 67, 156, 0.2);
++    border-color: #00439c;
++    transform: scale(0.98);
++}
+diff --git a/templates/index.html b/templates/index.html
+index 9b48263..73d9cf2 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -41,6 +41,7 @@
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='direct.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='drag_sort.js') }}" defer></script> 
+     <script src="{{ url_for('static', filename='index.js') }}" defer></script>
+ </head>
+ 
+diff --git a/templates/settings.html b/templates/settings.html
+index 3b495ec..8afd2fb 100644
+--- a/templates/settings.html
++++ b/templates/settings.html
+@@ -27,6 +27,7 @@
+     <script src="{{ url_for('static', filename='settings.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='auto_payload.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script> 
++    <script src="{{ url_for('static', filename='drag_sort.js') }}" defer></script>
+ </head>
+ <body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-2xl mx-auto bg-oled-base text-gray-200 transition-colors duration-300">
+ 

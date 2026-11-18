@@ -1,0 +1,24 @@
+From 56922cf9af91142cdcf7d54cbcfb3d46bdfb397a Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Sun, 9 Aug 2026 20:04:10 +0200
+Subject: [PATCH] config: enable Android binder for waydroid (#33)
+
+---
+ .config | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/.config b/.config
+index e374341..d5972d8 100644
+--- a/.config
++++ b/.config
+@@ -4815,7 +4815,9 @@ CONFIG_AMD_ATL=m
+ #
+ # Android
+ #
+-# CONFIG_ANDROID_BINDER_IPC is not set
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDERFS=y
++CONFIG_ANDROID_BINDER_DEVICES="binder,hwbinder,vndbinder"
+ # end of Android
+ 
+ # CONFIG_LIBNVDIMM is not set

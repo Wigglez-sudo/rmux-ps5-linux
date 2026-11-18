@@ -1,0 +1,27 @@
+From 71f0da6ed7a7528e885e0c59393f4f08f6a0b86b Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 9 Nov 2026 00:31:58 +0100
+Subject: [PATCH] amdgpu: ps4 bridge: clear the bad first header byte in the
+ icc edid
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index cc9cbaa28ba4..b51e9e9cb997 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -1004,6 +1004,11 @@ static int ps4_bridge_read_edid_block_icc(void *data, u8 *buf,
+ 		return ret;
+ 
+ 	memcpy(buf, seg + (block % 2) * EDID_LENGTH, len);
++	if (block == 0 && len == EDID_LENGTH && buf[0] &&
++	    !memcmp(buf + 1, "\xff\xff\xff\xff\xff\xff\x00", 7)) {
++		buf[EDID_LENGTH - 1] += buf[0];
++		buf[0] = 0;
++	}
+ 	return 0;
+ }
+ 

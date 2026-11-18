@@ -1,0 +1,62 @@
+======================================================================
+commit 388e9c0f387f3dd0b7f262649717e46d885d6c02
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+install-linux-int: confirm before erasing and check the input
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 3fd8624c92cc7c1febe2e29e0994838d66b0b403
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+init: open the PS4 HDD only when needed and boot after one
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit 6094ac7b43dfdf2771161435b9dc3399a3e6772c
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+bake: keep repo files out of the archive and pack as root
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit bc5139bbc0d98f11962205297b8259fd1d521378
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+unlock-luks: do not use the password as printf format
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit cfd1e4b0c07a86fcecac8d5359dfe5802281f94e
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+README: note the EAP key requirement
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit d97c9d74ca933df8951b7acebbd15438565c72da
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+profile: source profile.d files without the exec bit
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ddb9f838ace542fd645847995b4c870e322bdc1b
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 12 Oct 2026 11:12:36 +0200
+
+install-linux-ext: rewrite and enable
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>

@@ -1,0 +1,22 @@
+From 7a5bdc715bcf7fa237c82f1965613a8c6c4d14e1 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 21 Jan 2026 16:36:18 +0100
+Subject: [PATCH] fixup: Forgot the Global Delay
+
+---
+ server.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/server.py b/server.py
+index 6f7d83f..e15d5a1 100644
+--- a/server.py
++++ b/server.py
+@@ -545,7 +545,7 @@ def handle_settings():
+             new_settings = request.get_json()
+             current_config = get_config()
+             
+-            valid_keys = ['ip', 'ajb', 'ftp_port']
++            valid_keys = ['ip', 'ajb', 'ftp_port', 'global_delay', 'ui_animations']
+             for key in valid_keys:
+                 if key in new_settings:
+                     current_config[key] = str(new_settings[key])

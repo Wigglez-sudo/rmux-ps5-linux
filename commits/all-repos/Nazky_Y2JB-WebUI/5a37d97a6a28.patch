@@ -1,0 +1,19 @@
+From 5a37d97a6a28f64e97c282fc13b2b753f8c96600 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 12:40:28 +0100
+Subject: [PATCH] Add settings.json to .gitignore
+
+Updated .gitignore to exclude static/config/settings.json from version control.
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index f12a16c..d6d42d0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,4 @@
+ /__pycache__
+ /config
+ /src/__pycache__
++static/config/settings.json

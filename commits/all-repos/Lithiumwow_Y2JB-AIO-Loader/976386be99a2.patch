@@ -1,0 +1,23 @@
+From 976386be99a29aeb2faf483cd31edf948b8fda41 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 14 Jan 2026 09:23:09 +0100
+Subject: [PATCH] Set fixed height for payloads section
+
+Changed the min-h-[500px] class to h-[500px] in the payloads section to enforce a fixed height instead of a minimum height.
+---
+ templates/index.html | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/templates/index.html b/templates/index.html
+index ee7f910..7bcb690 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -106,7 +106,7 @@ <h3 class="text-sm font-semibold opacity-50 uppercase tracking-wider mb-4">Conne
+             </div>
+         </section>
+ 
+-        <section class="surface border rounded-2xl p-6 transition-colors duration-300 flex flex-col min-h-[500px]">
++        <section class="surface border rounded-2xl p-6 transition-colors duration-300 flex flex-col h-[500px]">
+             <div class="flex flex-col xl:flex-row items-center justify-between mb-6 gap-4">
+                 <h3 class="text-lg font-bold">Payloads</h3>
+                 

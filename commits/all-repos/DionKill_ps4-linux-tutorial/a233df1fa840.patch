@@ -1,0 +1,37 @@
+From a233df1fa84083f3c521c3d1acc2ff6f8961aba8 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Wed, 11 Nov 2026 10:10:26 +0100
+Subject: [PATCH] docs: name 7.3.3 as the kernel with hardware video
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ docs/distrodiy.md   | 2 +-
+ docs/postinstall.md | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/docs/distrodiy.md b/docs/distrodiy.md
+index e7be844..a585564 100644
+--- a/docs/distrodiy.md
++++ b/docs/distrodiy.md
+@@ -53,7 +53,7 @@ Jokes aside, you would need to do something like so:
+ Uninstall the `mesa-git`, `libdrm`, and `xf86-video-amdgpu` packages, and install the ones that are required by the PS4.
+ To uninstall the mesa packages, use your package manager instructions. Do not remove the dependencies, as it could break your system. just remove `mesa` and `lib32-mesa`.
+ - DO NOT USE MESA 22 FFS, IF YOU DO YOU ARE LIKE ACTUALLY A MORON
+-- Hardware video decode and encode isn't locked behind DRM. The next Strawberry kernel has it, see [Hardware video](/postinstall#hardware-video-decode-encode-streaming).
++- Hardware video decode and encode isn't locked behind DRM. The Strawberry 7.3.3 kernel has it, see [Hardware video](/postinstall#hardware-video-decode-encode-streaming).
+ 
+ ::: details Package management config (if you don't want to update Mesa)
+ After that you need to add these packages to the ignore section so they can't be updated. On Arch based distros, change your pacman config, and add these packages to the ignore section:
+diff --git a/docs/postinstall.md b/docs/postinstall.md
+index 8a4c465..b9fec47 100644
+--- a/docs/postinstall.md
++++ b/docs/postinstall.md
+@@ -242,7 +242,7 @@ In the past there were overclocked kernels, but alas they don't make them anymor
+ 
+ Do not go and download an older kernel to try as they don't work anymore either!
+ ## Hardware video (decode, encode, streaming)
+-The next Strawberry kernel (not released yet) turns on the PS4 video engines: UVD for decode and VCE for encode. This works on Aeolia, Belize and Baikal consoles. It isn't available on the PS4 Pro yet.
++The Strawberry 7.3.3 kernel turns on the PS4 video engines: UVD for decode and VCE for encode. This works on Aeolia, Belize and Baikal consoles. It isn't available on the PS4 Pro yet.
+ 
+ This means video playback, screen recording and game streaming can use the hardware instead of the weak CPU.
+ 

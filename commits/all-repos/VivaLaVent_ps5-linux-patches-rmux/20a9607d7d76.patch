@@ -1,0 +1,110 @@
+From 20a9607d7d76ab6de8676617d673ecb89af8b069 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 22 Oct 2026 21:16:05 -0700
+Subject: [PATCH] firmware: add patcher for VCN firmware. (#44)
+
+* firmware: add patcher for VCN firmware.
+
+* firmware: add README for VCN firmware patcher
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+---------
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ firmware/README.md                    | 36 +++++++++++++++++++++++
+ firmware/amdgpu/patch_vcn_navi10fw.py | 41 +++++++++++++++++++++++++++
+ 2 files changed, 77 insertions(+)
+ create mode 100644 firmware/README.md
+ create mode 100644 firmware/amdgpu/patch_vcn_navi10fw.py
+
+diff --git a/firmware/README.md b/firmware/README.md
+new file mode 100644
+index 0000000..d01dd3b
+--- /dev/null
++++ b/firmware/README.md
+@@ -0,0 +1,36 @@
++# VCN firmware
++
++ps5_vcn.bin is just amd's navi10 vcn firmware with 2 patches.
++it gets built into the kernel (CONFIG_EXTRA_FIRMWARE), so no need to copy it anywhere.
++
++stock firmware waits for the smu to answer, ps5 smu never does, so vcn never comes up. the patches skip that.
++
++## Stock firmware
++
++you need navi10_vcn.bin rev 9 (ENC 1.24 DEC 8).
++linux-firmware tags 20251125 to 20260622 have it.
++newer ones wont work, the script will just say `Unexpected instruction at 0xfd2d`.
++
++```bash
++curl -LO https://gitlab.com/kernel-firmware/linux-firmware/-/raw/20260622/amdgpu/navi10_vcn.bin
++sha256sum navi10_vcn.bin
++```
++
++sha256 should be `ac5f2182b0ddee7a2886bf1239a47b4027becd0c37a1b0b6cac1f335393302c9`.
++
++dont grab the one from your distro, its probably newer and compressed anyway.
++
++## Usage
++
++```bash
++python3 firmware/amdgpu/patch_vcn_navi10fw.py navi10_vcn.bin ps5_vcn.bin
++```
++
++output should be the same as ps5_vcn.bin in this repo (sha256 `bbd15ab65e76178c2918e8224b6ab4ab1711f1b59d935ee131ab188a9712e596`).
++
++## What it patches
++
++- `0xfd2d`: `16 fe 0e` -> `f0 20 00`, skips the smu wait on boot
++- `0x10977`: `8c 28` -> `3d f0`, runtime smu helper returns without sending anything
++
++then it fixes the payload crc32 at `0x1c`.
+diff --git a/firmware/amdgpu/patch_vcn_navi10fw.py b/firmware/amdgpu/patch_vcn_navi10fw.py
+new file mode 100644
+index 0000000..3c1edcb
+--- /dev/null
++++ b/firmware/amdgpu/patch_vcn_navi10fw.py
+@@ -0,0 +1,41 @@
++import argparse
++import struct
++import zlib
++from pathlib import Path
++
++
++PATCHES = (
++    # Skip the SMU wait during boot.
++    (0xFD2D, b"\x16\xfe\x0e", b"\xf0\x20\x00"),
++    # Return from the runtime SMU helper without sending a request.
++    (0x10977, b"\x8c\x28", b"\x3d\xf0"),
++)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("source", type=Path)
++    parser.add_argument("output", type=Path)
++    args = parser.parse_args()
++
++    firmware = bytearray(args.source.read_bytes())
++
++    for offset, before, after in PATCHES:
++        end = offset + len(before)
++        if firmware[offset:end] != before:
++            raise SystemExit(f"Unexpected instruction at {offset:#x}")
++        firmware[offset:end] = after
++
++    payload_size, payload_offset = struct.unpack_from("<II", firmware, 20)
++    if payload_offset != 256 or payload_offset + payload_size != len(firmware):
++        raise SystemExit("Unexpected firmware payload size")
++
++    payload_crc = zlib.crc32(firmware[payload_offset:])
++    struct.pack_into("<I", firmware, 28, payload_crc)
++
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    args.output.write_bytes(firmware)
++
++
++if __name__ == "__main__":
++    main()

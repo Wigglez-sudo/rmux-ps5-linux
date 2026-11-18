@@ -1,0 +1,31 @@
+From 5e45895570ac98c7c154027dcee177eff49e90df Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 24 May 2026 08:51:34 +0000
+Subject: [PATCH] readme: note the stable-nodbg branch with debug logging
+ removed
+
+---
+ README.md | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 1f2583a..43a16ff 100644
+--- a/README.md
++++ b/README.md
+@@ -9,7 +9,14 @@ sudo ./install.sh            # build + install + load
+ sudo ./install.sh uninstall  # remove it
+ ```
+ 
++## branches
++
++`main` keeps the full debug logging for now. the `stable-nodbg` branch has
++the verbose debug output commented out (rx/tx traces, periodic stats dump,
++rx_mode and PHY tune logging) while keeping link state, HW error and
++recovery logging - use that one if you want a quieter dmesg.
++
+ ## TODO
+ 
+-- remove all the debug stuff? TheFlow decides. maybe just rip it out of
+-  main and keep a separate branch with the debugging around. idk.
++- remove all the debug stuff? TheFlow decides. for now it's ripped out on
++  the `stable-nodbg` branch and left in on main.

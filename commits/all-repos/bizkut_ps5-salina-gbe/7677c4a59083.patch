@@ -1,0 +1,161 @@
+From 7677c4a590834f0bf114ce691f293a76ecaecfe7 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 21 May 2026 14:31:55 +0000
+Subject: [PATCH] ps5-gbe: add PHY serdes calibration
+
+---
+ gbe_phy.c | 134 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 134 insertions(+)
+
+diff --git a/gbe_phy.c b/gbe_phy.c
+index ab1220e..9e0a3c3 100644
+--- a/gbe_phy.c
++++ b/gbe_phy.c
+@@ -75,6 +75,134 @@ static void gbe_smi_write(struct gbe_priv *p, u8 reg, u16 val)
+ 	gbe_smi_wait(p);
+ }
+ 
++/* clause-45 is indirect, set the adress first then read/write the data */
++static int gbe_cl45_addr(struct gbe_priv *p, u32 sel)
++{
++	gbe_wr(p, GBE_REG_SMI, SMI_BUSY);
++	gbe_wr(p, GBE_REG_SMI, (sel & 0xffff0000) | ((sel & 0x1f) << 8) | 0x20);
++	return gbe_smi_wait(p);
++}
++
++static void gbe_cl45_write(struct gbe_priv *p, u32 sel, u16 val)
++{
++	if (gbe_cl45_addr(p, sel))
++		return;
++	gbe_wr(p, GBE_REG_SMI, SMI_BUSY);
++	gbe_wr(p, GBE_REG_SMI, ((u32)val << 16) | ((sel & 0x1f) << 8) | 0x60);
++	gbe_smi_wait(p);
++}
++
++static u16 gbe_cl45_read(struct gbe_priv *p, u32 sel)
++{
++	if (gbe_cl45_addr(p, sel))
++		return 0;
++	gbe_wr(p, GBE_REG_SMI, SMI_BUSY);
++	gbe_wr(p, GBE_REG_SMI, ((sel & 0x1f) << 8) | 0xe0);
++	if (gbe_smi_wait(p))
++		return 0;
++	return gbe_rd(p, GBE_REG_SMI) >> 16;
++}
++
++/* PCS/SerDes regs live in Salina Glue BAR4 at offset GBE_PCS_BASE */
++static u32 gbe_pcs_rd(struct gbe_priv *p, u32 off)
++{
++	return readl(p->glue_base + GBE_PCS_BASE + off);
++}
++
++/* maps a measured serdes field to its analog setting */
++static const u8 gbe_cal_lut[64] = {
++	0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f,
++	0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f,
++	0x7b, 0x7a, 0x75, 0x73, 0x70, 0x67, 0x64, 0x62,
++	0x57, 0x55, 0x53, 0x51, 0x48, 0x46, 0x44, 0x42,
++	0x40, 0x37, 0x35, 0x34, 0x32, 0x31, 0x30, 0x26,
++	0x24, 0x23, 0x22, 0x21, 0x20, 0x16, 0x15, 0x14,
++	0x13, 0x12, 0x11, 0x10, 0x07, 0x06, 0x05, 0x04,
++	0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++
++static u8 gbe_cal_lut_idx(u32 field)
++{
++	field &= 0x7f;
++	if (field < 2)
++		field = 1;
++	if (field >= 0x40)
++		field = 0x40;
++	return gbe_cal_lut[field - 1];
++}
++
++/* shove a cal value into the high or low byte of a lane reg */
++static void gbe_cal_lane(struct gbe_priv *p, u32 sel, u8 cal, bool high)
++{
++	u16 cur = gbe_cl45_read(p, sel);
++
++	if (high)
++		gbe_cl45_write(p, sel, (cur & 0x00ff) | (cal << 8) | 0x8000);
++	else
++		gbe_cl45_write(p, sel, (cur & 0xff00) | cal | 0x80);
++}
++
++static u16 gbe_eq_preset(u32 field)
++{
++	return (min_t(u32, field & 0x3f, 0x3c) + 3) & 0xff;
++}
++
++/* feed the measured serdes status back into the analog tunning regs :) */
++static void gbe_phy_calibrate(struct gbe_priv *p)
++{
++	u32 v;
++
++	v = gbe_pcs_rd(p, 0x68);
++	gbe_cl45_write(p, 0x000e001e, (v & 0x3f) << 8);
++	v = gbe_pcs_rd(p, 0x68);
++	gbe_cl45_write(p, 0x0115001f, (v >> 6) & 7);
++
++	v = gbe_pcs_rd(p, 0x60);
++	gbe_cal_lane(p, 0x0174001e, gbe_cal_lut_idx(v), true);
++	v = gbe_pcs_rd(p, 0x60);
++	gbe_cal_lane(p, 0x0174001e, gbe_cal_lut_idx(v >> 0x13), false);
++	v = gbe_pcs_rd(p, 0x64);
++	gbe_cal_lane(p, 0x0175001e, gbe_cal_lut_idx(v >> 6), true);
++	v = gbe_pcs_rd(p, 0x64);
++	gbe_cal_lane(p, 0x0175001e, gbe_cal_lut_idx(v >> 0x19), false);
++
++	v = gbe_pcs_rd(p, 0x5c);
++	gbe_cl45_write(p, 0x0172001e,
++		       (gbe_cl45_read(p, 0x0172001e) & 0xc0ff) | ((v >> 0xc) & 0x3f00));
++	v = gbe_pcs_rd(p, 0x60);
++	gbe_cl45_write(p, 0x0172001e,
++		       (gbe_cl45_read(p, 0x0172001e) & 0xffc0) | ((v >> 7) & 0x3f));
++	v = gbe_pcs_rd(p, 0x60);
++	gbe_cl45_write(p, 0x0173001e,
++		       (gbe_cl45_read(p, 0x0173001e) & 0xc0ff) | ((v >> 0x12) & 0x3f00));
++	v = gbe_pcs_rd(p, 0x64);
++	gbe_cl45_write(p, 0x0173001e,
++		       (gbe_cl45_read(p, 0x0173001e) & 0xffc0) | ((v >> 0xd) & 0x3f));
++
++	v = gbe_pcs_rd(p, 0x5c) >> 0x1a;
++	gbe_cl45_write(p, 0x0012001e, (v << 0xa) | v);
++	gbe_cl45_write(p, 0x0016001e, (gbe_eq_preset(v) << 0xa) | v);
++	v = gbe_pcs_rd(p, 0x60) >> 0xd;
++	gbe_cl45_write(p, 0x0017001e, ((v & 0x3f) << 8) | (v & 0x3f));
++	gbe_cl45_write(p, 0x0018001e, (gbe_eq_preset(v) << 8) | (v & 0x3f));
++	v = gbe_pcs_rd(p, 0x64);
++	gbe_cl45_write(p, 0x0019001e, ((v & 0x3f) << 8) | (v & 0x3f));
++	gbe_cl45_write(p, 0x0020001e, (gbe_eq_preset(v) << 8) | (v & 0x3f));
++	v = gbe_pcs_rd(p, 0x64) >> 0x13;
++	gbe_cl45_write(p, 0x0021001e, ((v & 0x3f) << 8) | (v & 0x3f));
++	gbe_cl45_write(p, 0x0022001e, (gbe_eq_preset(v) << 8) | (v & 0x3f));
++
++	gbe_cl45_write(p, 0x0096001e, 0x8000);
++	gbe_cl45_write(p, 0x0037001e, 0x0033);
++	gbe_cl45_write(p, 0x0039001e, gbe_cl45_read(p, 0x0039001e) & 0xb7ff);
++	gbe_cl45_write(p, 0x0107001f, gbe_cl45_read(p, 0x0107001f) & 0xefff);
++	gbe_cl45_write(p, 0x0171001e, gbe_cl45_read(p, 0x0171001e) | 0x0180);
++	gbe_cl45_write(p, 0x0039001e, gbe_cl45_read(p, 0x0039001e) | 0x2000);
++	gbe_cl45_write(p, 0x0039001e, gbe_cl45_read(p, 0x0039001e) & 0xdfff);
++	udelay(50);
++	gbe_cl45_write(p, 0x0171001e, gbe_cl45_read(p, 0x0171001e) & 0xfe7f);
++}
++
+ int gbe_phy_init(struct gbe_priv *p)
+ {
+ 	u16 bmcr;
+@@ -85,6 +213,12 @@ int gbe_phy_init(struct gbe_priv *p)
+ 	gbe_wr(p, GBE_REG_RESET, 9);
+ 	usleep_range(680, 1000);
+ 
++	/* both SerDes lanes must be locked before calibraton is valid */
++	if (~gbe_pcs_rd(p, 0x6c) & 0x80800000)
++		netdev_info(p->netdev, "SerDes not locked, skipping calibration\n");
++	else
++		gbe_phy_calibrate(p);
++
+ 	{
+ 		u16 adv = gbe_cl22_read(p, MII_ADVERTISE);
+ 

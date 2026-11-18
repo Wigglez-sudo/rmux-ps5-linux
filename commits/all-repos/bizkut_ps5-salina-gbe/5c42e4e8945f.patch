@@ -1,0 +1,105 @@
+From 5c42e4e8945feb3e3c769bdd56f5b92694f82f4e Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 13:31:09 +0000
+Subject: [PATCH] ps5-gbe: add ring init and HW setup
+
+---
+ gbe.c | 85 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 85 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index 5deb924..ca19369 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -111,6 +111,91 @@ static void gbe_reset(struct gbe_priv *p)
+ 	usleep_range(680, 1000);
+ }
+ 
++/* mark every tx slot done+free so the chip leaves em alone till we arm one */
++static void gbe_init_tx_ring(struct gbe_priv *p)
++{
++	int i;
++
++	for (i = 0; i < GBE_RING_SIZE; i++) {
++		p->tx_ring[i].flags = cpu_to_le32(GBE_DESC_DONE |
++			(i == GBE_RING_SIZE - 1 ? GBE_DESC_WRAP : 0));
++		p->tx_ring[i].buf_addr = 0;
++		p->tx_ring[i].word2 = cpu_to_le32(GBE_DESC_W2_ARM);
++		p->tx_ring[i].word3 = 0;
++	}
++	p->tx_head = p->tx_tail = 0;
++	p->tx_scratch_off = 0;
++}
++
++/* point each rx slot at its pool buffer and give it back to teh chip */
++static void gbe_rx_fill(struct gbe_priv *p)
++{
++	int i;
++
++	for (i = 0; i < GBE_RING_SIZE; i++) {
++		p->rx_ring[i].buf_addr = cpu_to_le32(p->rx_pool_dma +
++						     i * GBE_DESC_RX_LEN);
++		p->rx_ring[i].word2 = 0;
++		p->rx_ring[i].word3 = 0;
++		dma_wmb();
++		p->rx_ring[i].flags = cpu_to_le32(GBE_DESC_RX_LEN |
++			(i == GBE_RING_SIZE - 1 ? GBE_DESC_WRAP : 0));
++	}
++	p->rx_head = 0;
++}
++
++static void gbe_init_rings_hw(struct gbe_priv *p)
++{
++	gbe_init_tx_ring(p);
++
++	wmb();
++
++	gbe_wr(p, GBE_REG_TX_RING_BASE, p->tx_ring_dma);
++	gbe_wr(p, GBE_REG_TX_RING_CUR, p->tx_ring_dma);
++	gbe_wr(p, GBE_REG_RX_RING_BASE, p->rx_ring_dma);
++	gbe_wr(p, GBE_REG_RX_RING_CUR, p->rx_ring_dma);
++
++	/* toggle bit6 to clear any stale LSO cause latched from before init */
++	gbe_clr(p, GBE_REG_TXKICK, BIT(6));
++	gbe_set(p, GBE_REG_TXKICK, BIT(6));
++
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, BIT(0));
++	gbe_set(p, GBE_REG_RX_DMA_CTRL, BIT(0));
++	gbe_wr(p, GBE_REG_IER, GBE_IER_MASK);
++}
++
++/* tell both dma engines to stop, then jsut spin till the bit clears */
++static void gbe_stop_dma(struct gbe_priv *p)
++{
++	int i;
++
++	gbe_wr(p, GBE_REG_IER, 0);
++
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_STOP);
++	for (i = 0; i < 1000000 &&
++	     (gbe_rd(p, GBE_REG_TX_DMA_CTRL) & GBE_DMA_STOP); i++)
++		udelay(1);
++
++	gbe_set(p, GBE_REG_RX_DMA_CTRL, GBE_DMA_STOP);
++	for (i = 0; i < 1000000 &&
++	     (gbe_rd(p, GBE_REG_RX_DMA_CTRL) & GBE_DMA_STOP); i++)
++		udelay(1);
++}
++
++/* full bringup: reset, clocks, phy, then the magic mode/serdes vaules */
++static void gbe_init_hw(struct gbe_priv *p)
++{
++	gbe_reset(p);
++	gbe_set(p, GBE_REG_CLK_CTRL, GBE_CLK_ENABLE);
++	gbe_phy_init(p);
++	gbe_clr(p, GBE_REG_CTRL, BIT(7));
++	gbe_wr(p, GBE_REG_SERDES, GBE_SERDES_1G);
++	gbe_wr(p, GBE_REG_MODE, (gbe_rd(p, GBE_REG_MODE) & 0xffffff6e) | 0x81);
++	gbe_wr(p, GBE_REG_RXBUF, 0x10100);
++	gbe_write_mac(p, p->netdev->dev_addr);
++	gbe_wr(p, GBE_REG_COAL, GBE_COAL_VAL);
++}
++
+ /* the two rings + tx bounce scratch + rx pool, all dma coherent */
+ static int gbe_alloc_rings(struct gbe_priv *p)
+ {

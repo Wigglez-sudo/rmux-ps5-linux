@@ -1,0 +1,22 @@
+From 4a4372b2188e47e5d7e190507e85069bb60b302a Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 23:31:40 +0100
+Subject: [PATCH] Y2JB-WEBUI: Bump Version to 1.1.1
+
+Overall changes are Just UI, clean up, improvements, let's just call it ricing.
+---
+ version.json | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/version.json b/version.json
+index 2ab4cf0..111fb88 100644
+--- a/version.json
++++ b/version.json
+@@ -1,6 +1,6 @@
+ {
+   "branch": "main",
+-  "version": "1.1",
++  "version": "1.1.1",
+   "date": "2026-01-16",
+   "description": "lil meow meow"
+ }

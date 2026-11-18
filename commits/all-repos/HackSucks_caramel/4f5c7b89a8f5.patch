@@ -1,0 +1,85 @@
+From 4f5c7b89a8f563af7eb5782ad0d035099a0e5626 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Fri, 6 Nov 2026 18:40:46 +0100
+Subject: [PATCH] ps4: guard the uarts without serial 8250
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-apcie-uart.c | 22 ++++++++++++++++++++++
+ drivers/ps4/ps4-bpcie-uart.c | 22 ++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
+
+diff --git a/drivers/ps4/ps4-apcie-uart.c b/drivers/ps4/ps4-apcie-uart.c
+index cd7244c0fceb..44d9a7fd2b80 100644
+--- a/drivers/ps4/ps4-apcie-uart.c
++++ b/drivers/ps4/ps4-apcie-uart.c
+@@ -7,6 +7,7 @@
+ int apcie_uart_init(struct apcie_dev *sc); /* Don't know why the compiler complains about prototypes despite the definition*/
+ void apcie_uart_remove(struct apcie_dev *sc);
+ 
++#ifdef CONFIG_SERIAL_8250
+ int apcie_uart_init(struct apcie_dev *sc)
+ {
+ 	int i;
+@@ -69,3 +70,24 @@ void apcie_uart_resume(struct apcie_dev *sc)
+ 			serial8250_resume_port(sc->serial_line[i]);
+ }
+ #endif
++
++#else
++int apcie_uart_init(struct apcie_dev *sc)
++{
++	return 0;
++}
++
++void apcie_uart_remove(struct apcie_dev *sc)
++{
++}
++
++#ifdef CONFIG_PM
++void apcie_uart_suspend(struct apcie_dev *sc, pm_message_t state)
++{
++}
++
++void apcie_uart_resume(struct apcie_dev *sc)
++{
++}
++#endif
++#endif
+diff --git a/drivers/ps4/ps4-bpcie-uart.c b/drivers/ps4/ps4-bpcie-uart.c
+index 1f9f0092848b..101e82c172eb 100644
+--- a/drivers/ps4/ps4-bpcie-uart.c
++++ b/drivers/ps4/ps4-bpcie-uart.c
+@@ -5,6 +5,7 @@
+ #include "baikal.h"
+ void bpcie_uart_remove(struct bpcie_dev *sc);
+ 
++#ifdef CONFIG_SERIAL_8250
+ int bpcie_uart_init(struct bpcie_dev *sc)
+ {
+ 	int i;
+@@ -64,3 +65,24 @@ void bpcie_uart_resume(struct bpcie_dev *sc)
+ 			serial8250_resume_port(sc->serial_line[i]);
+ }
+ #endif
++
++#else
++int bpcie_uart_init(struct bpcie_dev *sc)
++{
++	return 0;
++}
++
++void bpcie_uart_remove(struct bpcie_dev *sc)
++{
++}
++
++#ifdef CONFIG_PM
++void bpcie_uart_suspend(struct bpcie_dev *sc, pm_message_t state)
++{
++}
++
++void bpcie_uart_resume(struct bpcie_dev *sc)
++{
++}
++#endif
++#endif

@@ -1,0 +1,19 @@
+From 80b8f8cff601dec7adf62b07d401e0457954b03d Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 21 Feb 2026 22:27:38 +0100
+Subject: [PATCH] fix: forgot the loadtheme brah
+
+---
+ static/color_mode.js | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/static/color_mode.js b/static/color_mode.js
+index f1cd4a1..bd8b4df 100644
+--- a/static/color_mode.js
++++ b/static/color_mode.js
+@@ -1,3 +1,5 @@
++document.addEventListener('DOMContentLoaded', loadTheme);
++
+ function toggleTheme() {
+     const html = document.documentElement;
+     const isDark = html.classList.toggle('dark');

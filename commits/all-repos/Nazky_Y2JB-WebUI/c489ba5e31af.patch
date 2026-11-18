@@ -1,0 +1,168 @@
+From c489ba5e31af778783932a3c4a0e26ae6b3df5f9 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 21 Feb 2026 22:28:10 +0100
+Subject: [PATCH] fix: reference color mode styles.
+
+---
+ static/style/backpork.css |  4 ++++
+ static/style/compact.css  | 16 ++++++++++++++++
+ static/style/ftp.css      | 13 +++++++++++++
+ static/style/index.css    | 23 +++++++++++++++++++++++
+ static/style/logs.css     |  8 ++++++++
+ static/style/repo.css     |  4 ++++
+ static/style/system.css   |  4 ++++
+ static/style/toast.css    |  7 +++++++
+ 8 files changed, 79 insertions(+)
+
+diff --git a/static/style/backpork.css b/static/style/backpork.css
+index 20d0cd0..70ee3e0 100644
+--- a/static/style/backpork.css
++++ b/static/style/backpork.css
+@@ -1 +1,5 @@
+ /* soo yes the stuff goes here in theory, someone help meeeeeee */
++
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
+diff --git a/static/style/compact.css b/static/style/compact.css
+index 10406a2..523b5fb 100644
+--- a/static/style/compact.css
++++ b/static/style/compact.css
+@@ -1,3 +1,19 @@
++html:not(.dark) body {
++    background-color: #f3f4f6;
++    color: #111827;
++}
++
++html:not(.dark) .surface {
++    background-color: #ffffff;
++    border-color: #e5e7eb;
++}
++
++html:not(.dark) .input-field {
++    background-color: #f9fafb;
++    border-color: #d1d5db;
++    color: #111827;
++}
++
+ body.compact-mode {
+     padding: 1rem !important;
+ }
+diff --git a/static/style/ftp.css b/static/style/ftp.css
+index 1c035c5..864d4da 100644
+--- a/static/style/ftp.css
++++ b/static/style/ftp.css
+@@ -23,4 +23,17 @@
+ .scrollbar-hide {
+     -ms-overflow-style: none;
+     scrollbar-width: none;
++}
++
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++html:not(.dark) .btn-tool {
++    background: rgba(0, 0, 0, 0.05);
++    color: #374151;
++}
++html:not(.dark) .btn-tool:hover {
++    background: rgba(0, 0, 0, 0.1);
++    color: #111827;
+ }
+\ No newline at end of file
+diff --git a/static/style/index.css b/static/style/index.css
+index c3d483f..d1cdc74 100644
+--- a/static/style/index.css
++++ b/static/style/index.css
+@@ -8,6 +8,29 @@ html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
+ html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+ html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
+ 
++html:not(.dark) .draggable-item {
++    background: rgba(0, 0, 0, 0.02);
++}
++
++html:not(.dark) .draggable-item:hover {
++    border-color: #00439c;
++}
++
++html:not(.dark) .drag-handle {
++    color: rgba(0, 0, 0, 0.2);
++}
++
++html:not(.dark) .draggable-item:hover .drag-handle {
++    color: rgba(0, 0, 0, 0.5);
++}
++
++html:not(.dark) body.drag-highlight::after {
++    background-color: rgba(255, 255, 255, 0.9);
++    color: rgba(0, 0, 0, 0.7);
++    border: 2px dashed rgba(0, 0, 0, 0.2);
++    box-shadow: 0 0 0 100vmax rgba(255, 255, 255, 0.8);
++}
++
+ .draggable-item {
+     cursor: grab;
+     transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s, border-color 0.2s;
+diff --git a/static/style/logs.css b/static/style/logs.css
+index 65bbc01..937b8f8 100644
+--- a/static/style/logs.css
++++ b/static/style/logs.css
+@@ -1,3 +1,11 @@
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
++html:not(.dark) .console-window {
++    background: linear-gradient(to bottom, #1a1a2e, #16162a);
++}
++
+ .console-window {
+     background: linear-gradient(to bottom, #0a0a0a, #050505);
+ }
+diff --git a/static/style/repo.css b/static/style/repo.css
+index 36c4481..4207177 100644
+--- a/static/style/repo.css
++++ b/static/style/repo.css
+@@ -1,6 +1,10 @@
+ html.dark body { background-color: #000000; color: #e5e5e5; }
+ html.dark .surface { background-color: #121212; border-color: #2a2a2a; }
+ html.dark .input-field { background-color: #000000; border-color: #333; color: white; }
++
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
+ .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+ .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+ .custom-scroll::-webkit-scrollbar-thumb { background-color: #333; border-radius: 3px; }
+diff --git a/static/style/system.css b/static/style/system.css
+index f6dc820..3f735f8 100644
+--- a/static/style/system.css
++++ b/static/style/system.css
+@@ -1,3 +1,7 @@
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
++
+ #cpu-bar, #ram-bar, #disk-bar {
+     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+     box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+diff --git a/static/style/toast.css b/static/style/toast.css
+index 6e4b581..8385cbb 100644
+--- a/static/style/toast.css
++++ b/static/style/toast.css
+@@ -33,6 +33,13 @@
+ .toast.info { border-left: 4px solid #60a5fa; }
+ .toast.warning { border-left: 4px solid #facc15; }
+ 
++html:not(.dark) .toast {
++    background: rgba(255, 255, 255, 0.95);
++    color: #111827;
++    border-color: rgba(0, 0, 0, 0.1);
++    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
++}
++
+ @keyframes slideIn {
+     from { opacity: 0; transform: translateX(50px); }
+     to { opacity: 1; transform: translateX(0); }

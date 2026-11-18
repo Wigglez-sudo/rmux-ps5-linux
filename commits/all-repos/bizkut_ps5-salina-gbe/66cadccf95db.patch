@@ -1,0 +1,200 @@
+From 66cadccf95db90492a0dd74855d11e68e490d715 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 20 May 2026 13:36:52 +0000
+Subject: [PATCH] ps5-gbe: add link polling and stats
+
+---
+ README.md |  10 +++++
+ gbe.c     | 125 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 134 insertions(+), 1 deletion(-)
+ create mode 100644 README.md
+
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..6ef7cc7
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,10 @@
++# ps5-salina-gbe
++
++linux driver for the ps5 "salina" gigabit ethernet controller (104d:9104).
++
++needs the in-tree ps5 `spcie` driver; the install script wires up the softdep.
++
++```sh
++sudo ./install.sh            # build + install + load
++sudo ./install.sh uninstall  # remove it
++```
+diff --git a/gbe.c b/gbe.c
+index 09f1a0a..7ab6768 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -394,6 +394,105 @@ static netdev_tx_t gbe_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++static int gbe_set_mac_address(struct net_device *dev, void *addr)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++	struct sockaddr *sa = addr;
++
++	if (!is_valid_ether_addr(sa->sa_data))
++		return -EADDRNOTAVAIL;
++
++	eth_hw_addr_set(dev, sa->sa_data);
++	gbe_write_mac(p, dev->dev_addr);
++	return 0;
++}
++
++/* no hw filter wired up yet, just log what got asked for */
++static void gbe_set_rx_mode(struct net_device *dev)
++{
++	struct gbe_priv *p = netdev_priv(dev);
++	struct netdev_hw_addr *ha;
++	int mc_count = 0;
++
++	netdev_for_each_mc_addr(ha, dev)
++		mc_count++;
++
++	netdev_info(dev,
++		"rx_mode: flags=%#x %s%s%s%s mc_count=%d\n",
++		dev->flags,
++		(dev->flags & IFF_PROMISC)   ? "PROMISC "   : "",
++		(dev->flags & IFF_ALLMULTI)  ? "ALLMULTI "  : "",
++		(dev->flags & IFF_MULTICAST) ? "MULTICAST " : "",
++		(dev->flags & IFF_BROADCAST) ? "BROADCAST " : "",
++		mc_count);
++
++	(void)p;
++}
++
++static void gbe_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
++{
++	strscpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
++}
++
++static const struct ethtool_ops gbe_ethtool_ops = {
++	.get_drvinfo	= gbe_get_drvinfo,
++	.get_link	= ethtool_op_get_link,
++};
++
++/* bit0 of the link reg is carrier, just mirror it into netdev */
++static void gbe_link_change(struct gbe_priv *p)
++{
++	u32 link_reg = gbe_rd(p, GBE_REG_LINK);
++	int up = link_reg & BIT(0);
++
++	if (up == p->link_up)
++		return;
++
++	p->link_up = up;
++	if (up) {
++		p->cnt_link_up++;
++		netif_carrier_on(p->netdev);
++		netdev_info(p->netdev, "link up (reg=%#x)\n", link_reg);
++	} else {
++		p->cnt_link_down++;
++		netif_carrier_off(p->netdev);
++		netdev_info(p->netdev, "link down (reg=%#x)\n", link_reg);
++	}
++}
++
++static void gbe_dump_stats(struct gbe_priv *p)
++{
++	netdev_info(p->netdev,
++		"stats: irq=%u (link=%u tx=%u rx=%u err=%u lso=%u) "
++		"tx=%u (busy=%u drop_big=%u done=%u) "
++		"rx=%u (bcast=%u mcast=%u badlen=%u nomem=%u) "
++		"link_up=%u link_down=%u lso_recover=%u link_reg=%#x\n",
++		p->cnt_irq, p->cnt_irq_link, p->cnt_irq_tx, p->cnt_irq_rx,
++		p->cnt_irq_err, p->cnt_irq_lso,
++		p->cnt_tx_pkts, p->cnt_tx_busy, p->cnt_tx_drop_big,
++		p->cnt_tx_completed,
++		p->cnt_rx_pkts, p->cnt_rx_bcast, p->cnt_rx_mcast,
++		p->cnt_rx_bad_len, p->cnt_rx_nomem,
++		p->cnt_link_up, p->cnt_link_down, p->cnt_lso_recover,
++		gbe_rd(p, GBE_REG_LINK));
++}
++
++/* link irq is masked off (autoneg pulses storm it lol), so poll it once a sec */
++static void gbe_link_poll_work(struct work_struct *work)
++{
++	struct gbe_priv *p = container_of(to_delayed_work(work),
++					  struct gbe_priv, link_poll);
++
++	gbe_link_change(p);
++
++	if (++p->poll_tick >= 10) {
++		gbe_dump_stats(p);
++		p->poll_tick = 0;
++	}
++
++	schedule_delayed_work(&p->link_poll, HZ);
++}
++
+ /* napi: do tx, then rx, turn irqs back on once we drop under budget */
+ static int gbe_poll(struct napi_struct *napi, int budget)
+ {
+@@ -426,6 +525,21 @@ static irqreturn_t gbe_isr(int irq, void *data)
+ 	/* ack everyhting we just read off */
+ 	gbe_wr(p, GBE_REG_ISR, status);
+ 
++	p->cnt_irq++;
++	if (status & GBE_ISR_LINK)
++		p->cnt_irq_link++;
++	if (status & GBE_ISR_TX_DONE)
++		p->cnt_irq_tx++;
++	if (status & GBE_ISR_RX_DONE)
++		p->cnt_irq_rx++;
++	if (status & GBE_ISR_ERRORS)
++		p->cnt_irq_err++;
++	if (status & GBE_ISR_LSO_RECOVER)
++		p->cnt_irq_lso++;
++
++	if (status & GBE_ISR_LINK)
++		gbe_link_change(p);
++
+ 	if (status & GBE_ISR_ERRORS) {
+ 		u32 err = status & GBE_ISR_ERRORS;
+ 
+@@ -468,6 +582,9 @@ static int gbe_open(struct net_device *dev)
+ 	napi_enable(&p->napi);
+ 	netif_start_queue(dev);
+ 
++	gbe_link_change(p);
++	schedule_delayed_work(&p->link_poll, HZ);
++
+ 	return 0;
+ }
+ 
+@@ -478,6 +595,8 @@ static int gbe_stop(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 	netif_carrier_off(dev);
+ 
++	cancel_delayed_work_sync(&p->link_poll);
++
+ 	gbe_stop_dma(p);
+ 
+ 	free_irq(p->irq, p);
+@@ -489,6 +608,8 @@ static const struct net_device_ops gbe_netdev_ops = {
+ 	.ndo_open		= gbe_open,
+ 	.ndo_stop		= gbe_stop,
+ 	.ndo_start_xmit		= gbe_xmit,
++	.ndo_set_mac_address	= gbe_set_mac_address,
++	.ndo_set_rx_mode	= gbe_set_rx_mode,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
+ 
+@@ -544,9 +665,11 @@ static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 			 netdev->dev_addr);
+ 	}
+ 
+-	netdev->netdev_ops = &gbe_netdev_ops;
++	netdev->netdev_ops	= &gbe_netdev_ops;
++	netdev->ethtool_ops	= &gbe_ethtool_ops;
+ 
+ 	netif_napi_add(netdev, &p->napi, gbe_poll);
++	INIT_DELAYED_WORK(&p->link_poll, gbe_link_poll_work);
+ 
+ 	/* device has no intx pin so msi is the only optoin here */
+ 	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSI | PCI_IRQ_INTX);

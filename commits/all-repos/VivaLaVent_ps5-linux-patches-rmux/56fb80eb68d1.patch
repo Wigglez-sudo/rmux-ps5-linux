@@ -1,0 +1,40 @@
+From 56fb80eb68d1df5d2f4618941f333df7aba452ca Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 2 Nov 2026 17:39:26 +0100
+Subject: [PATCH] release: build in linux-release, not the build.cfg tree
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ create-release.sh | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/create-release.sh b/create-release.sh
+index aed7a00..ccb5d9e 100755
+--- a/create-release.sh
++++ b/create-release.sh
+@@ -4,7 +4,7 @@ set -euo pipefail
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ CFG="$SCRIPT_DIR/build.cfg"
+ REPO=rmuxnet/ps5-linux-patches-1
+-SRC_DIR="$(dirname "$SCRIPT_DIR")/linux-release"
++SRC_ARG=""
+ OUT_DIR="$(dirname "$SCRIPT_DIR")/release-out"
+ PREVIEW=n
+ 
+@@ -12,7 +12,7 @@ while [ $# -gt 0 ]; do
+   case "$1" in
+     --preview) PREVIEW=y ;;
+     --repo) REPO="$2"; shift ;;
+-    --src) SRC_DIR="$2"; shift ;;
++    --src) SRC_ARG="$2"; shift ;;
+     --out) OUT_DIR="$2"; shift ;;
+     *) CFG="$1" ;;
+   esac
+@@ -24,6 +24,7 @@ log() { echo "==> $*"; }
+ 
+ [ -f "$CFG" ] || die "config not found: $CFG"
+ source "$CFG"
++SRC_DIR="${SRC_ARG:-$(dirname "$SCRIPT_DIR")/linux-release}"
+ 
+ case "$LTO" in
+   full) TARGET_LTO=FullLTO; LOCALVERSION=-PinkSoup ;;

@@ -1,0 +1,156 @@
+From bb84bcffaa2f44d8f80aa13b9adf79fa0f23310a Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 21 Feb 2026 22:28:33 +0100
+Subject: [PATCH] fix: reference color mode script
+
+---
+ templates/backpork.html | 2 +-
+ templates/credits.html  | 3 ++-
+ templates/dns.html      | 2 +-
+ templates/ftp.html      | 2 +-
+ templates/index.html    | 6 +++---
+ templates/logs.html     | 2 +-
+ templates/repos.html    | 3 ++-
+ templates/settings.html | 2 +-
+ templates/system.html   | 2 +-
+ 9 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/templates/backpork.html b/templates/backpork.html
+index 132558f..7bc3ecd 100644
+--- a/templates/backpork.html
++++ b/templates/backpork.html
+@@ -30,7 +30,7 @@
+     <script src="{{ url_for('static', filename='backpork.js') }}" defer></script>
+ </head>
+ 
+-<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-oled-base text-gray-100">
++<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-100">
+ 
+ <nav class="relative w-full border-b border-white/5">
+     <div class="mx-auto px-4 sm:px-4 lg:px-8">
+diff --git a/templates/credits.html b/templates/credits.html
+index d832ed4..8b54fcb 100644
+--- a/templates/credits.html
++++ b/templates/credits.html
+@@ -22,9 +22,10 @@
+         }
+     </script>
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/credits.css') }}">
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='credits.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto transition-colors duration-300">
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto transition-colors duration-300 bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+ 
+     <header class="flex items-center gap-4 mb-8 animate-fade-in">
+         <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all hover:scale-110 active:scale-95 text-brand-light hover:shadow-lg hover:shadow-brand-blue/20">
+diff --git a/templates/dns.html b/templates/dns.html
+index ac8205b..64920da 100644
+--- a/templates/dns.html
++++ b/templates/dns.html
+@@ -27,7 +27,7 @@
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='ui_features.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-oled-base text-gray-200">
++<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+     <nav class="w-full border-b surface/90 backdrop-blur-md sticky top-0 z-30 border-white/5">
+         <div class="mx-auto px-4 h-16 flex items-center justify-between max-w-4xl">
+             <div class="flex items-center gap-3">
+diff --git a/templates/ftp.html b/templates/ftp.html
+index 145bb45..3849ecb 100644
+--- a/templates/ftp.html
++++ b/templates/ftp.html
+@@ -29,7 +29,7 @@
+     <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
+ </head>
+ 
+-<body class="font-sans antialiased min-h-screen flex flex-col bg-oled-base text-white">
++<body class="font-sans antialiased min-h-screen flex flex-col bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-white">
+ 
+     <nav class="w-full border-b surface/90 backdrop-blur-md border-white/5 sticky top-0 z-30">
+         <div class="mx-auto px-4 h-16 flex items-center justify-between">
+diff --git a/templates/index.html b/templates/index.html
+index 90e9475..e0b4ba1 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -50,13 +50,13 @@
+     <script src="{{ url_for('static', filename='effects.js') }}" defer></script>
+ </head>
+ 
+-<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300">
++<body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+ 
+ <nav class="relative w-full border-b border-white/5">
+     <div class="mx-auto px-4 sm:px-4 lg:px-8">
+         <div class="relative flex h-16 items-center justify-between">
+             <div class="flex items-center gap-2">
+-                <i class="fa-brands fa-playstation text-3xl"></i>
++                <i class="fa-brands fa-playstation text-3xl text-brand-blue dark:text-white"></i>
+                 <span class="font-bold text-xl tracking-tight">Y2JB</span>
+             </div>
+             <div class="absolute inset-y-0 right-0 flex items-center gap-2 lg:hidden">
+@@ -112,7 +112,7 @@
+                 </a>
+                 <button onclick="toggleTheme()"
+                         class="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95">
+-                    <i id="theme-icon" class="fa-solid fa-moon"></i>
++                    <i id="theme-icon-desktop" class="fa-solid fa-moon"></i>
+                 </button>
+             </div>
+         </div>
+diff --git a/templates/logs.html b/templates/logs.html
+index 67edb89..bab1f86 100644
+--- a/templates/logs.html
++++ b/templates/logs.html
+@@ -27,7 +27,7 @@
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='logs.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen h-screen overflow-hidden flex flex-col p-6 max-w-5xl mx-auto bg-oled-base text-gray-200">
++<body class="font-sans antialiased min-h-screen h-screen overflow-hidden flex flex-col p-6 max-w-5xl mx-auto bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+ 
+     <header class="flex items-center justify-between mb-6">
+         <div class="flex items-center gap-4">
+diff --git a/templates/repos.html b/templates/repos.html
+index 0a42132..8f0dec2 100644
+--- a/templates/repos.html
++++ b/templates/repos.html
+@@ -24,9 +24,10 @@
+         }
+     </script>
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/repo.css') }}">
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='repos.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-5xl mx-auto">
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-5xl mx-auto bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+ 
+     <header class="flex items-center justify-between mb-8">
+         <div class="flex items-center gap-4">
+diff --git a/templates/settings.html b/templates/settings.html
+index 3d550cd..732d437 100644
+--- a/templates/settings.html
++++ b/templates/settings.html
+@@ -32,7 +32,7 @@
+     <script src="{{ url_for('static', filename='kstuff.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='drag_sort.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-2xl mx-auto bg-oled-base text-gray-200 transition-colors duration-300">
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-2xl mx-auto bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200 transition-colors duration-300">
+ 
+     <header class="flex items-center justify-between mb-8">
+         <div class="flex items-center gap-4">
+diff --git a/templates/system.html b/templates/system.html
+index 3f74fa6..86fc0fa 100644
+--- a/templates/system.html
++++ b/templates/system.html
+@@ -28,7 +28,7 @@
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='system.js') }}" defer></script>
+ </head>
+-<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto bg-oled-base text-gray-200">
++<body class="font-sans antialiased min-h-screen flex flex-col p-6 max-w-4xl mx-auto bg-gray-100 dark:bg-oled-base text-gray-900 dark:text-gray-200">
+ 
+     <header class="flex items-center justify-between mb-8">
+         <div class="flex items-center gap-4">

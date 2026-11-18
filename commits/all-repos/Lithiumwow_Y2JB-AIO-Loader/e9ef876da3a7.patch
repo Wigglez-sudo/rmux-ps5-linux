@@ -1,0 +1,68 @@
+From e9ef876da3a77ddddcc2c8879fc33c47ef4a06f5 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 3 Feb 2026 10:37:47 +0100
+Subject: [PATCH] fix: #35
+
+---
+ static/auto_payload.js |  8 +++++---
+ static/index.js        | 11 +++++++----
+ 2 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/static/auto_payload.js b/static/auto_payload.js
+index 941c43c..483b69b 100644
+--- a/static/auto_payload.js
++++ b/static/auto_payload.js
+@@ -32,14 +32,16 @@ async function loadPayloadManager() {
+             const weights = {};
+             order.forEach((name, index) => weights[name] = index);
+             files.sort((a, b) => {
+-                const wa = weights[a.split('/').pop()] ?? 9999;
+-                const wb = weights[b.split('/').pop()] ?? 9999;
++                // Fix: Use full path to lookup weights
++                const wa = weights[a] ?? 9999;
++                const wb = weights[b] ?? 9999;
+                 return wa - wb;
+             });
+         }
+ 
+         files.forEach(file => {
+-            const configKey = file.split('/').pop();
++            // Fix: Use full path for configKey
++            const configKey = file;
+             const checked = config[configKey] !== false && config[file] !== false; 
+             const delayEnabled = delays[configKey] === true;
+ 
+diff --git a/static/index.js b/static/index.js
+index f973002..10e51ab 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -340,7 +340,8 @@ async function loadsettings() {
+ 
+ async function togglePayloadIndex(filename, checkbox) {
+     const enabled = checkbox.checked;
+-    const configKey = filename.split('/').pop();
++    // Fix: Use the full filename/path as the key, do not strip path
++    const configKey = filename;
+ 
+     const card = checkbox.closest('.draggable-item');
+     const nameSpan = card?.querySelector('.payload-name');
+@@ -456,14 +457,16 @@ async function loadpayloads() {
+             const weights = {};
+             order.forEach((name, index) => weights[name] = index);
+             files.sort((a, b) => {
+-                const wa = weights[a.split('/').pop()] ?? 9999;
+-                const wb = weights[b.split('/').pop()] ?? 9999;
++                // Fix: Use full path to lookup weights
++                const wa = weights[a] ?? 9999;
++                const wb = weights[b] ?? 9999;
+                 return wa - wb;
+             });
+         }
+ 
+         files.forEach(file => {
+-            const configKey = file.split('/').pop();
++            // Fix: Use full path for configKey
++            const configKey = file; 
+             const isEnabled = config[configKey] !== false && config[file] !== false;
+             const delayEnabled = delays[configKey] === true;
+ 

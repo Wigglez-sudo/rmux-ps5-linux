@@ -1,0 +1,22 @@
+From 73f10194e98ba0ae25f8fa2e5af4670e1a645a4d Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 20 Oct 2026 09:28:03 -0700
+Subject: [PATCH] fix 13.00 WLAN firmware offset (#54)
+
+---
+ source/offsets.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source/offsets.c b/source/offsets.c
+index 952c78b..e4ae8cd 100644
+--- a/source/offsets.c
++++ b/source/offsets.c
+@@ -799,7 +799,7 @@ offset_list off_1300 = {
+     .FUN_TRANSMITTER_CONTROL = 0xC01CD0,
+     .FUN_MP3_INITIALIZE = 0xA0BAC0,
+     .FUN_MP3_INVOKE = 0xA0A6C0,
+-    .PS5_WIFI_FW_OFFSET = 0x1505170,
++    .PS5_WIFI_FW_OFFSET = 0x15050D0,
+     .PS5_WIFI_FW_SIZE = 0x7A248,
+     .HV_MP_STARTUP_CALL = 0xC0A110,
+     .MP_STARTUP_INIT_VECTOR = 0x269238,

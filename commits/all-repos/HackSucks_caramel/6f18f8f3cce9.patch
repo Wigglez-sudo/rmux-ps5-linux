@@ -1,0 +1,25 @@
+From 6f18f8f3cce9b6bd8b87f449ab9b36d4b71fcdc7 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Sat, 7 Nov 2026 11:07:28 +0100
+Subject: [PATCH] build: turn off the samu ccp and trng for now
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ configs/base.cfg | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/base.cfg b/configs/base.cfg
+index 9c0ca5976da7..b448da8c081b 100644
+--- a/configs/base.cfg
++++ b/configs/base.cfg
+@@ -17,8 +17,8 @@ disable CONFIG_KVM_INTEL
+ 
+ enable CONFIG_PS4_DMI_SPOOF
+ 
+-enable CONFIG_PS4_CCP
+-enable CONFIG_PS4_TRNG
++disable CONFIG_PS4_CCP
++disable CONFIG_PS4_TRNG
+ enable CONFIG_PS4_CPUFREQ
+ enable CONFIG_NET_VENDOR_SONY
+ enable CONFIG_MTS

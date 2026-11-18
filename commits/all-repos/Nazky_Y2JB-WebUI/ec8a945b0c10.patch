@@ -1,0 +1,445 @@
+From ec8a945b0c10fe6f7f94caabc1c6004b6fd0c86f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 25 Jan 2026 22:17:37 +0100
+Subject: [PATCH] feat(backend&UI): Add Some New Features
+
+im really lazy to document everything. ill let clawbot do it.
+---
+ server.py                   | 25 ++++++++++++-----
+ src/features.py             | 17 ++++++++++++
+ static/config/settings.json |  6 ++++-
+ static/settings.js          | 45 +++++++++++++++----------------
+ static/style/compact.css    | 23 ++++++++++++++++
+ static/style/settings.css   | 32 ++++++++++++++++++++++
+ static/ui_features.js       | 37 +++++++++++++++++++++++++
+ templates/dns.html          |  2 ++
+ templates/index.html        |  2 ++
+ templates/settings.html     | 54 ++++++++++++++++++++++++++++++++++---
+ 10 files changed, 209 insertions(+), 34 deletions(-)
+ create mode 100644 src/features.py
+ create mode 100644 static/style/compact.css
+ create mode 100644 static/ui_features.js
+
+diff --git a/server.py b/server.py
+index 1e23a17..4383987 100644
+--- a/server.py
++++ b/server.py
+@@ -20,6 +20,7 @@
+ import uuid
+ from src.dns_server import DNSServer
+ from src.backpork.core import BackporkEngine
++from src.features import setup_logging, run_startup_tasks
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -553,7 +554,11 @@ def handle_settings():
+             new_settings = request.get_json()
+             current_config = get_config()
+             
+-            valid_keys = ['ip', 'ajb', 'ftp_port', 'global_delay', 'ui_animations', 'kstuff']
++            valid_keys = [
++                'ip', 'ajb', 'ftp_port', 'global_delay', 
++                'ui_animations', 'kstuff', 'debug_mode', 
++                'auto_update_repos', 'dns_auto_start', 'compact_mode'
++            ]
+             for key in valid_keys:
+                 if key in new_settings:
+                     current_config[key] = str(new_settings[key])
+@@ -731,6 +736,12 @@ def run_backpork_process():
+     return Response(BackporkEngine.run_process(data), mimetype='text/event-stream')
+ 
+ if __name__ == "__main__":
++    config = get_config()
++    
++    setup_logging(config)
++    
++    run_startup_tasks(config)
++
+     threading.Thread(target=check_ajb, daemon=True).start()
+ 
+     try:
+@@ -741,9 +752,11 @@ def run_backpork_process():
+     except:
+         local_ip = "127.0.0.1"
+ 
+-    print(f"--- Initializing DNS Server on {local_ip} ---")
+-    
+-    dns_service = DNSServer(config_file=DNS_CONFIG_FILE, host_ip=local_ip)
+-    threading.Thread(target=dns_service.start, daemon=True).start()
++    if config.get("dns_auto_start", "true") == "true":
++        print(f"--- Initializing DNS Server on {local_ip} ---")
++        dns_service = DNSServer(config_file=DNS_CONFIG_FILE, host_ip=local_ip)
++        threading.Thread(target=dns_service.start, daemon=True).start()
++    else:
++        print("[STARTUP] DNS Server disabled by settings")
+ 
+-    app.run(host="0.0.0.0", port=8000, debug=False)
+\ No newline at end of file
++    app.run(host="0.0.0.0", port=8000, debug=(config.get("debug_mode") == "true"))
+\ No newline at end of file
+diff --git a/src/features.py b/src/features.py
+new file mode 100644
+index 0000000..2300589
+--- /dev/null
++++ b/src/features.py
+@@ -0,0 +1,17 @@
++import logging
++import threading
++from src.repo_manager import update_payloads
++
++def setup_logging(config):
++    level = logging.DEBUG if config.get("debug_mode") == "true" else logging.INFO
++    logging.basicConfig(
++        level=level,
++        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
++    )
++    logger = logging.getLogger("Y2JB")
++    logger.info(f"Logging initialized at {'DEBUG' if level == logging.DEBUG else 'INFO'} level")
++
++def run_startup_tasks(config):
++    if config.get("auto_update_repos", "true") == "true":
++        print("[STARTUP] Auto-updating repositories...")
++        threading.Thread(target=lambda: update_payloads(['all']), daemon=True).start()
+diff --git a/static/config/settings.json b/static/config/settings.json
+index 5b7ffc3..2564666 100644
+--- a/static/config/settings.json
++++ b/static/config/settings.json
+@@ -4,5 +4,9 @@
+     "ftp_port": "1337",
+     "global_delay": "10",
+     "ui_animations": "true",
+-    "kstuff": "true"
++    "kstuff": "true",
++    "debug_mode": "true",
++    "auto_update_repos": "false",
++    "dns_auto_start": "true",
++    "compact_mode": "false"
+ }
+\ No newline at end of file
+diff --git a/static/settings.js b/static/settings.js
+index 40e8edb..a5466d6 100644
+--- a/static/settings.js
++++ b/static/settings.js
+@@ -7,16 +7,9 @@ async function loadSettings() {
+ 
+         if (config.ip) document.getElementById('ip').value = config.ip;
+         if (config.ftp_port) document.getElementById('ftp_port').value = config.ftp_port;
++        document.getElementById('global_delay').value = config.global_delay || "5";
+         
+-        if (config.global_delay) {
+-            document.getElementById('global_delay').value = config.global_delay;
+-        } else {
+-            document.getElementById('global_delay').value = "5";
+-        }
+-        
+-        const ajbCheckbox = document.getElementById('ajb');
+-        ajbCheckbox.checked = config.ajb === 'true';
+-
++        document.getElementById('ajb').checked = config.ajb === 'true';
+         const kstuffCheckbox = document.getElementById('kstuff-toggle');
+         if (kstuffCheckbox) kstuffCheckbox.checked = config.kstuff !== 'false';
+ 
+@@ -24,6 +17,14 @@ async function loadSettings() {
+         const animationsEnabled = config.ui_animations === 'true';
+         animCheckbox.checked = animationsEnabled;
+         
++        document.getElementById('debug_mode').checked = config.debug_mode === 'true';
++        document.getElementById('auto_update_repos').checked = config.auto_update_repos !== 'false';
++        document.getElementById('dns_auto_start').checked = config.dns_auto_start !== 'false';
++        
++        const compactCheckbox = document.getElementById('compact_mode');
++        compactCheckbox.checked = config.compact_mode === 'true';
++        if (compactCheckbox.checked) document.body.classList.add('compact-mode');
++
+         localStorage.setItem('animations', animationsEnabled);
+ 
+     } catch (error) {
+@@ -33,20 +34,17 @@ async function loadSettings() {
+ }
+ 
+ async function saveAllSettings() {
+-    const ip = document.getElementById('ip').value;
+-    const ftpPort = document.getElementById('ftp_port').value;
+-    const globalDelay = document.getElementById('global_delay').value;
+-    const ajb = document.getElementById('ajb').checked ? "true" : "false";
+-    const kstuff = document.getElementById('kstuff-toggle').checked ? "true" : "false";
+-    const uiAnimations = document.getElementById('ui_animations').checked ? "true" : "false";
+-
+     const payload = {
+-        ip: ip,
+-        ftp_port: ftpPort,
+-        global_delay: globalDelay,
+-        ajb: ajb,
+-        kstuff: kstuff,
+-        ui_animations: uiAnimations
++        ip: document.getElementById('ip').value,
++        ftp_port: document.getElementById('ftp_port').value,
++        global_delay: document.getElementById('global_delay').value,
++        ajb: document.getElementById('ajb').checked ? "true" : "false",
++        kstuff: document.getElementById('kstuff-toggle').checked ? "true" : "false",
++        ui_animations: document.getElementById('ui_animations').checked ? "true" : "false",
++        debug_mode: document.getElementById('debug_mode').checked ? "true" : "false",
++        auto_update_repos: document.getElementById('auto_update_repos').checked ? "true" : "false",
++        dns_auto_start: document.getElementById('dns_auto_start').checked ? "true" : "false",
++        compact_mode: document.getElementById('compact_mode').checked ? "true" : "false"
+     };
+ 
+     try {
+@@ -61,7 +59,8 @@ async function saveAllSettings() {
+         const result = await response.json();
+ 
+         if (result.success) {
+-            localStorage.setItem('animations', uiAnimations);
++            document.body.classList.toggle('compact-mode', payload.compact_mode === "true");
++            localStorage.setItem('animations', payload.ui_animations === "true");
+             Toast.show('Settings saved successfully!', 'success');
+         } else {
+             Toast.show('Error: ' + result.error, 'error');
+diff --git a/static/style/compact.css b/static/style/compact.css
+new file mode 100644
+index 0000000..10406a2
+--- /dev/null
++++ b/static/style/compact.css
+@@ -0,0 +1,23 @@
++body.compact-mode {
++    padding: 1rem !important;
++}
++
++body.compact-mode main {
++    max-width: 100% !important;
++    gap: 0.75rem !important;
++}
++
++body.compact-mode section {
++    padding: 1rem !important;
++    margin-bottom: 0.25rem !important;
++    border-radius: 0.75rem !important;
++}
++
++body.compact-mode h2 {
++    font-size: 1rem !important;
++    margin-bottom: 0.5rem !important;
++}
++
++body.compact-mode .input-field {
++    padding: 0.5rem 0.75rem !important;
++}
+diff --git a/static/style/settings.css b/static/style/settings.css
+index 947d701..b43dcaf 100644
+--- a/static/style/settings.css
++++ b/static/style/settings.css
+@@ -59,3 +59,35 @@ main {
+     border-color: #00439c;
+     transform: scale(0.98);
+ }
++
++@keyframes slideUp {
++    from { opacity: 0; transform: translateY(20px); }
++    to { opacity: 1; transform: translateY(0); }
++}
++
++@keyframes pulse-subtle {
++    0% { box-shadow: 0 0 0 0 rgba(0, 112, 209, 0.2); }
++    70% { box-shadow: 0 0 0 10px rgba(0, 112, 209, 0); }
++    100% { box-shadow: 0 0 0 0 rgba(0, 112, 209, 0); }
++}
++
++.animate-section {
++    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
++}
++
++.stagger-1 { animation-delay: 0.1s; }
++.stagger-2 { animation-delay: 0.2s; }
++.stagger-3 { animation-delay: 0.3s; }
++
++section {
++    transition: transform 0.2s ease, border-color 0.2s ease;
++}
++
++section:hover {
++    transform: translateY(-2px);
++    border-color: rgba(0, 112, 209, 0.4) !important;
++}
++
++.save-btn-active {
++    animation: pulse-subtle 2s infinite;
++}
+diff --git a/static/ui_features.js b/static/ui_features.js
+new file mode 100644
+index 0000000..1b1e807
+--- /dev/null
++++ b/static/ui_features.js
+@@ -0,0 +1,37 @@
++        if (enabled) {
++            document.body.classList.add('compact-mode');
++        } else {
++            document.body.classList.remove('compact-mode');
++        }
++    },
++
++    initDebugLogging: (enabled) => {
++        window.is_debug_enabled = enabled;
++        
++        window.debugLog = function(module, message, data = null) {
++            if (!window.is_debug_enabled) return;
++            
++            const timestamp = new Date().toLocaleTimeString();
++            console.group(`[DEBUG] ${timestamp} - ${module}`);
++            console.log(`Message: ${message}`);
++            if (data) console.dir(data);
++            console.groupEnd();
++        };
++
++        if (enabled) {
++            console.warn("DEBUG MODE ENABLED: Verbose logging is active.");
++        }
++    }
++};
++
++document.addEventListener('DOMContentLoaded', async () => {
++    try {
++        const response = await fetch('/api/settings');
++        const config = await response.json();
++        
++        UI.applyCompactMode(config.compact_mode === 'true');
++        UI.initDebugLogging(config.debug_mode === 'true');
++    } catch (e) {
++        console.error("Failed to initialize UI features", e);
++    }
++});
+diff --git a/templates/dns.html b/templates/dns.html
+index 52fe848..ac8205b 100644
+--- a/templates/dns.html
++++ b/templates/dns.html
+@@ -22,8 +22,10 @@
+         }
+     </script>
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='ui_features.js') }}" defer></script>
+ </head>
+ <body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 bg-oled-base text-gray-200">
+     <nav class="w-full border-b surface/90 backdrop-blur-md sticky top-0 z-30 border-white/5">
+diff --git a/templates/index.html b/templates/index.html
+index 9b1777f..b2f82b8 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -37,10 +37,12 @@
+         }
+     </script>
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='direct.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='ui_features.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='drag_sort.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='index.js') }}" defer></script>
+ </head>
+diff --git a/templates/settings.html b/templates/settings.html
+index c0aa29f..3d550cd 100644
+--- a/templates/settings.html
++++ b/templates/settings.html
+@@ -22,9 +22,11 @@
+         }
+     </script>
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/settings.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
+     <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='settings.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='ui_features.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='auto_payload.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script> 
+     <script src="{{ url_for('static', filename='kstuff.js') }}" defer></script>
+@@ -49,7 +51,7 @@ <h1 class="text-2xl font-bold tracking-tight">Settings</h1>
+ 
+     <main class="space-y-6">
+         
+-        <section class="surface border rounded-2xl p-6 transition-all hover:border-brand-blue/30 shadow-sm">
++        <section class="surface border rounded-2xl p-6 transition-all animate-section stagger-1">
+             <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 <i class="fa-solid fa-network-wired"></i> Connection
+             </h2>
+@@ -68,7 +70,7 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+             </div>
+         </section>
+ 
+-        <section class="surface border rounded-2xl p-6 transition-all hover:border-brand-blue/30 shadow-sm">
++        <section class="surface border rounded-2xl p-6 transition-all animate-section stagger-2">
+             <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 <i class="fa-solid fa-robot"></i> Automation
+             </h2>
+@@ -95,6 +97,28 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                 </label>
+             </div>
+ 
++            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++                <div>
++                    <span class="block text-sm font-bold">Auto-Update Repos</span>
++                    <span class="text-xs opacity-50">Check for payload updates on startup.</span>
++                </div>
++                <label class="relative inline-flex items-center cursor-pointer">
++                    <input type="checkbox" id="auto_update_repos" class="sr-only peer">
++                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
++                </label>
++            </div>
++    
++            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++                <div>
++                    <span class="block text-sm font-bold">DNS Server Auto-Start</span>
++                    <span class="text-xs opacity-50">Launch DNS service with the web server.</span>
++                </div>
++                <label class="relative inline-flex items-center cursor-pointer">
++                    <input type="checkbox" id="dns_auto_start" class="sr-only peer">
++                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
++                </label>
++            </div>
++
+             <div class="mb-4 mt-4">
+                 <label for="global_delay" class="block text-xs uppercase opacity-70 mb-1.5 font-bold">Global Delay Sequence (Seconds)</label>
+                 <input type="number" id="global_delay" placeholder="5" step="0.1" class="input-field block w-full px-4 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-brand-light focus:border-transparent outline-none transition-all font-mono shadow-sm bg-black/20">
+@@ -116,9 +140,9 @@ <h3 class="text-xs font-bold uppercase opacity-60 mb-3 ml-1">Payload Sequence</h
+             </div>
+         </section>
+ 
+-        <section class="surface border rounded-2xl p-6 transition-all hover:border-brand-blue/30 shadow-sm opacity-60 hover:opacity-100">
++        <section class="surface border rounded-2xl p-6 transition-all animate-section stagger-3">
+              <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+-                <i class="fa-solid fa-sliders"></i> Application
++                <i class="fa-solid fa-gears"></i> Advanced
+             </h2>
+             <div class="flex items-center justify-between mb-4">
+                 <span class="text-sm">Dark Mode</span>
+@@ -136,6 +160,28 @@ <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-brand-light">
+                     <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
+                 </label>
+             </div>
++
++            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++                <div>
++                    <span class="block text-sm font-bold">Debug Mode</span>
++                    <span class="text-xs opacity-50">Enable verbose logging in the console.</span>
++                </div>
++                <label class="relative inline-flex items-center cursor-pointer">
++                    <input type="checkbox" id="debug_mode" class="sr-only peer">
++                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
++                </label>
++            </div>
++
++            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 mt-3">
++                <div>
++                    <span class="block text-sm font-bold">Compact Layout</span>
++                    <span class="text-xs opacity-50">Reduce padding and use full width.</span>
++                </div>
++                <label class="relative inline-flex items-center cursor-pointer">
++                    <input type="checkbox" id="compact_mode" class="sr-only peer">
++                    <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blue"></div>
++                </label>
++            </div>
+         </section>
+ 
+     </main>

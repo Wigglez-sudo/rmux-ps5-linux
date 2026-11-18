@@ -1,0 +1,120 @@
+From 9130f776faa8cef0b6f93cb78df95152ab29be24 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 6 Feb 2026 21:52:19 +0100
+Subject: [PATCH] UI: add shake effect. clock.
+
+---
+ static/clock.js          | 12 ++++++++++++
+ static/effects.js        | 10 ++++++++++
+ static/index.js          |  3 +++
+ static/style/effects.css |  9 +++++++++
+ templates/index.html     |  8 ++++++++
+ 5 files changed, 42 insertions(+)
+ create mode 100644 static/clock.js
+ create mode 100644 static/effects.js
+ create mode 100644 static/style/effects.css
+
+diff --git a/static/clock.js b/static/clock.js
+new file mode 100644
+index 0000000..125ad0a
+--- /dev/null
++++ b/static/clock.js
+@@ -0,0 +1,12 @@
++document.addEventListener('DOMContentLoaded', startClock);
++
++function startClock() {
++    const clockEl = document.getElementById('live-clock');
++    if (!clockEl) return;
++    function update() {
++        const now = new Date();
++        clockEl.textContent = now.toLocaleTimeString();
++    }
++    update();
++    setInterval(update, 1000);
++}
+diff --git a/static/effects.js b/static/effects.js
+new file mode 100644
+index 0000000..d89dc9f
+--- /dev/null
++++ b/static/effects.js
+@@ -0,0 +1,10 @@
++function shakeElement(elementId) {
++    const el = document.getElementById(elementId);
++    if (!el) return;
++    el.classList.remove('shake-animation');
++    void el.offsetWidth;
++    el.classList.add('shake-animation');
++    el.addEventListener('animationend', () => {
++        el.classList.remove('shake-animation');
++    }, { once: true });
++}
+\ No newline at end of file
+diff --git a/static/index.js b/static/index.js
+index 10e51ab..ff50e99 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -100,6 +100,7 @@ async function uploadPayload(droppedFile = null) {
+     const file = (droppedFile instanceof File) ? droppedFile : fileInput.files[0];
+ 
+     if (!file) {
++        if (typeof shakeElement === 'function') shakeElement('UPB');
+         Toast.show('Please select a file first', 'error');
+         return;
+     }
+@@ -139,6 +140,8 @@ async function saveIP() {
+     const ipValue = ipInput.value;
+     if (ipValue.trim() !== "") {
+         setip(ipValue);
++    } else {
++        shakeElement('IP');
+     }
+ }
+ 
+diff --git a/static/style/effects.css b/static/style/effects.css
+new file mode 100644
+index 0000000..fa0f6d6
+--- /dev/null
++++ b/static/style/effects.css
+@@ -0,0 +1,9 @@
++@keyframes shake {
++    0%, 100% { transform: translateX(0); }
++    25% { transform: translateX(-5px); border-color: #ef4444; /* red-500 */ }
++    75% { transform: translateX(5px); border-color: #ef4444; }
++}
++
++.shake-animation {
++    animation: shake 0.4s ease-in-out;
++}
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index c5aaa0e..5754586 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -39,12 +39,15 @@
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
+     <link rel="stylesheet" href="{{ url_for('static', filename='style/toast.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/effects.css') }}">
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='direct.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='toast.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='ui_features.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='drag_sort.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='index.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='clock.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='effects.js') }}" defer></script>
+ </head>
+ 
+ <body class="font-sans antialiased min-h-screen flex flex-col transition-colors duration-300">
+@@ -267,6 +270,11 @@ <h3 class="text-lg font-bold flex items-center gap-2">
+                 <i class="fa-solid fa-laptop-code"></i>
+                 <span>Client: <span id="client-ip" class="text-brand-light">Loading...</span></span>
+             </div>
++
++            <div class="flex items-center gap-2" title="Local System Time">
++                <i class="fa-regular fa-clock"></i>
++                <span id="live-clock" class="text-brand-light font-mono">00:00:00</span>
++            </div>
+         </div>
+ 
+         <div class="flex items-center gap-2">

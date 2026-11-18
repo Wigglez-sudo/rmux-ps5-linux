@@ -1,0 +1,470 @@
+From ad5b0a1159a657136e6388b3ef3f6db138564d1b Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 19 May 2026 09:40:11 +0000
+Subject: [PATCH] ps5-gbe: initial driver skeleton
+
+---
+ Makefile  |  10 +++
+ gbe.c     | 212 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ gbe.h     | 162 +++++++++++++++++++++++++++++++++++++++++
+ gbe_phy.c |  46 ++++++++++++
+ 4 files changed, 430 insertions(+)
+ create mode 100644 Makefile
+ create mode 100644 gbe.c
+ create mode 100644 gbe.h
+ create mode 100644 gbe_phy.c
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..307eea1
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,10 @@
++obj-m += ps5_gbe.o
++ps5_gbe-objs := gbe.o gbe_phy.o
++
++KERNELDIR ?= /lib/modules/$(shell uname -r)/build
++
++all:
++	$(MAKE) -C $(KERNELDIR) M=$(PWD) ARCH=x86 modules
++
++clean:
++	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+diff --git a/gbe.c b/gbe.c
+new file mode 100644
+index 0000000..54afb87
+--- /dev/null
++++ b/gbe.c
+@@ -0,0 +1,212 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * PlayStation 5 Salina GBE controller driver
++ *
++ * Time wasted here total : 26 hours. (baikal took 2x that and is still not stable lol)
++ *
++ * based on mtk_star_emac - turns out Salina is literally that IP with
++ * Sony glue slapped on top. MTK is the worst thing humanity has ever
++ * produced.
++ *
++ * TheFlow probably saw the PS4 baikal work (5.4 -> 7.0 upstream) and
++ * said i did a good job, so figured i'd try the PS5 too. nearly lost
++ * the whole driver once - accidentally bricked my tablet twice in the
++ * process. might actually get a PS5 now that there's a reason to lol.
++ *
++ * credits:
++ * - slidybat for some info that helped early on
++ * - cow for bearing with me, testing my garbage code, correcting me
++ *   when i was going wrong, and just being a great guy <3
++ * - the team for not pestering me about baikal while i was knee deep
++ *   in this mess lol
++ *
++ * heads up to whoever reads this: most of the debug logging is left in
++ * for now until i'm sure it's stable enough, will rip it out later. meow.
++ * the code quality might not be the greatest but hey it seems to work? :3
++ * sorry if it doesn't meet your criteria, i tried my best ok. meow meow :3
++ *
++ * TODO: add proper comments
++ * TODO: make the baikal (PS4) ethernet driver actually stable
++ * TODO: not sure if this needs to be more modular or w/e, no idea what the ps5 linux gods want lol
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
++#include <linux/ps5.h>
++
++#include "gbe.h"
++
++#define GBE_VENDOR_ID	0x104d
++#define GBE_DEVICE_ID	0x9104
++#define GBE_GLUE_ID	0x9107
++
++static void gbe_write_mac(struct gbe_priv *p, const u8 *addr)
++{
++	gbe_wr(p, GBE_REG_MAC_HI, (addr[0] << 8) | addr[1]);
++	gbe_wr(p, GBE_REG_MAC_LO,
++	       (addr[2] << 24) | (addr[3] << 16) | (addr[4] << 8) | addr[5]);
++}
++
++/* the glue is a seperate pci function, grab it too :) */
++static int gbe_glue_map(struct gbe_priv *p)
++{
++	struct pci_dev *glue;
++
++	glue = pci_get_device(GBE_VENDOR_ID, GBE_GLUE_ID, NULL);
++	if (!glue)
++		return -ENODEV;
++
++	if (!(pci_resource_flags(glue, 4) & IORESOURCE_MEM)) {
++		pci_dev_put(glue);
++		return -ENODEV;
++	}
++
++	p->glue_base = ioremap(pci_resource_start(glue, 4),
++			       pci_resource_len(glue, 4));
++	if (!p->glue_base) {
++		pci_dev_put(glue);
++		return -ENOMEM;
++	}
++
++	p->glue_pdev = glue;
++	return 0;
++}
++
++static void gbe_glue_unmap(struct gbe_priv *p)
++{
++	if (p->glue_base) {
++		iounmap(p->glue_base);
++		p->glue_base = NULL;
++	}
++	if (p->glue_pdev) {
++		pci_dev_put(p->glue_pdev);
++		p->glue_pdev = NULL;
++	}
++}
++
++/* MAC address lives at offset 0x3000 in Salina Glue BAR4 scratchpad */
++static int gbe_read_glue_mac(struct gbe_priv *p, u8 *addr)
++{
++	int i;
++
++	if (!p->glue_base)
++		return -ENODEV;
++
++	for (i = 0; i < ETH_ALEN; i++)
++		addr[i] = readb(p->glue_base + 0x3000 + i);
++	return 0;
++}
++
++/* writing 9 to the reset reg pulses the whole MAC, needs a short settle */
++static void gbe_reset(struct gbe_priv *p)
++{
++	gbe_wr(p, GBE_REG_RESET, 9);
++	usleep_range(680, 1000);
++}
++
++static const struct net_device_ops gbe_netdev_ops = {
++	.ndo_validate_addr	= eth_validate_addr,
++};
++
++static int gbe_probe(struct pci_dev *pdev, const struct pci_device_id *id)
++{
++	struct net_device *netdev;
++	struct gbe_priv *p;
++	u8 mac[ETH_ALEN];
++	int ret;
++
++	ret = pcim_enable_device(pdev);
++	if (ret)
++		return ret;
++
++	/* GBE registers are in BAR0 */
++	ret = pcim_iomap_regions(pdev, BIT(0), KBUILD_MODNAME);
++	if (ret)
++		return ret;
++
++	pci_set_master(pdev);
++
++	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
++	if (ret)
++		return ret;
++
++	netdev = alloc_etherdev(sizeof(*p));
++	if (!netdev)
++		return -ENOMEM;
++
++	SET_NETDEV_DEV(netdev, &pdev->dev);
++
++	p		= netdev_priv(netdev);
++	p->netdev	= netdev;
++	p->pdev		= pdev;
++	p->base		= pcim_iomap_table(pdev)[0];
++	spin_lock_init(&p->lock);
++
++	ret = gbe_glue_map(p);
++	if (ret) {
++		dev_err(&pdev->dev, "probe: glue BAR4 map failed: %d\n", ret);
++		goto err_free;
++	}
++
++	if (gbe_read_glue_mac(p, mac) == 0 && is_valid_ether_addr(mac)) {
++		eth_hw_addr_set(netdev, mac);
++	} else {
++		eth_hw_addr_random(netdev);
++		dev_warn(&pdev->dev, "no MAC from Salina Glue, using random %pM\n",
++			 netdev->dev_addr);
++	}
++
++	netdev->netdev_ops = &gbe_netdev_ops;
++
++	pci_set_drvdata(pdev, netdev);
++
++	ret = register_netdev(netdev);
++	if (ret)
++		goto err_glue;
++
++	netif_carrier_off(netdev);
++
++	dev_info(&pdev->dev, "Salina GBE (chip %#x)\n", spcie_get_chip_id());
++	return 0;
++
++err_glue:
++	gbe_glue_unmap(p);
++err_free:
++	free_netdev(netdev);
++	return ret;
++}
++
++static void gbe_remove(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct gbe_priv *p = netdev_priv(netdev);
++
++	unregister_netdev(netdev);
++	gbe_glue_unmap(p);
++	free_netdev(netdev);
++}
++
++static const struct pci_device_id gbe_pci_tbl[] = {
++	{ PCI_DEVICE(GBE_VENDOR_ID, GBE_DEVICE_ID) },
++	{ }
++};
++MODULE_DEVICE_TABLE(pci, gbe_pci_tbl);
++
++static struct pci_driver gbe_driver = {
++	.name		= KBUILD_MODNAME,
++	.id_table	= gbe_pci_tbl,
++	.probe		= gbe_probe,
++	.remove		= gbe_remove,
++};
++
++module_pci_driver(gbe_driver);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("PlayStation 5 Salina GBE controller");
+diff --git a/gbe.h b/gbe.h
+new file mode 100644
+index 0000000..569aa49
+--- /dev/null
++++ b/gbe.h
+@@ -0,0 +1,162 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * PlayStation 5 Salina GBE controller driver
++ *
++ * Time wasted here total : 26 hours. (baikal took 2x that and is still not stable lol)
++ *
++ * based on mtk_star_emac - turns out Salina is literally that IP with
++ * Sony glue slapped on top. MTK is the worst thing humanity has ever
++ * produced.
++ *
++ * TheFlow probably saw the PS4 baikal work (5.4 -> 7.0 upstream) and
++ * said i did a good job, so figured i'd try the PS5 too. nearly lost
++ * the whole driver once - accidentally bricked my tablet twice in the
++ * process. might actually get a PS5 now that there's a reason to lol.
++ *
++ * credits:
++ * - slidybat for some info that helped early on
++ * - cow for bearing with me, testing my garbage code, correcting me
++ *   when i was going wrong, and just being a great guy <3
++ * - the team for not pestering me about baikal while i was knee deep
++ *   in this mess lol
++ *
++ * heads up to whoever reads this: most of the debug logging is left in
++ * for now until i'm sure it's stable enough, will rip it out later. meow.
++ * the code quality might not be the greatest but hey it seems to work? :3
++ * sorry if it doesn't meet your criteria, i tried my best ok. meow meow :3
++ *
++ * TODO: add proper comments
++ * TODO: make the baikal (PS4) ethernet driver actually stable
++ * TODO: not sure if this needs to be more modular or w/e, no idea what the ps5 linux gods want lol
++ */
++
++#ifndef _PS5_GBE_H
++#define _PS5_GBE_H
++
++#include <linux/types.h>
++#include <linux/bits.h>
++#include <linux/io.h>
++#include <linux/spinlock.h>
++#include <linux/netdevice.h>
++#include <linux/workqueue.h>
++
++struct pci_dev;
++struct sk_buff;
++
++#define GBE_REG_SMI		0x00
++#define GBE_REG_LINK		0x04
++#define GBE_REG_CLK_CTRL	0x08
++#define GBE_REG_CTRL		0x0c
++#define GBE_REG_MODE		0x10
++#define GBE_REG_MAC_HI		0x14
++#define GBE_REG_MAC_LO		0x18
++#define GBE_REG_RXBUF		0x30
++#define GBE_REG_TX_DMA_CTRL	0x34
++#define GBE_REG_RX_DMA_CTRL	0x38
++#define GBE_REG_TX_RING_CUR	0x3c
++#define GBE_REG_RX_RING_CUR	0x40
++#define GBE_REG_TX_RING_BASE	0x44
++#define GBE_REG_RX_RING_BASE	0x48
++#define GBE_REG_ISR		0x50
++#define GBE_REG_IER		0x54
++#define GBE_REG_SERDES		0x74
++#define GBE_REG_RX_PCODE	0x78
++#define GBE_REG_TXKICK		0x9c
++#define GBE_REG_RESET		0xac
++#define GBE_REG_TX_EN		0x1b8
++#define GBE_REG_FILT_CTRL	0x1c4
++#define GBE_REG_FILT_DATA	0x1c8
++#define GBE_REG_RX_EN		0x1d4
++#define GBE_REG_COAL		0x204
++
++#define GBE_PCS_BASE		0x4000
++
++#define GBE_CLK_ENABLE		0x7597c00
++
++#define GBE_SERDES_1G		0x303277
++#define GBE_SERDES_OTHER	0x304277
++
++#define GBE_ISR_LINK		BIT(2)
++#define GBE_ISR_TX_DONE		BIT(7)
++#define GBE_ISR_RX_DONE		BIT(6)
++#define GBE_ISR_ERRORS		0x7be600
++#define GBE_ISR_LSO_RECOVER	0x500000
++
++#define GBE_ST_LSO_RECOVER	0
++
++#define GBE_ERR_LSO_FIFO	0x200000
++#define GBE_ERR_LSO_PROTO	0x80000
++#define GBE_ERR_RX_AXI		0x20000
++#define GBE_ERR_IP_CKSUM	0x8000
++#define GBE_ERR_TCP_CKSUM	0x4000
++#define GBE_ERR_UDP_CKSUM	0x2000
++#define GBE_ERR_RX_PCODE	0x400
++
++#define GBE_COAL_VAL		0x10001388
++
++/* excludes bit2 (LINK) - polling link state avoids IRQ storm from autoneg pulses */
++#define GBE_IER_MASK		0x5014fa
++
++#define GBE_DMA_STOP		BIT(1)
++#define GBE_DMA_KICK		BIT(2)
++
++struct gbe_desc {
++	__le32	flags;
++	__le32	buf_addr;
++	__le32	word2;
++	__le32	word3;
++};
++
++#define GBE_DESC_DONE		BIT(31)
++#define GBE_DESC_WRAP		BIT(30)
++#define GBE_DESC_SOP		BIT(29)
++#define GBE_DESC_EOP		BIT(28)
++#define GBE_DESC_LEN_MASK	0xffff
++#define GBE_DESC_RX_LEN		0x600
++#define GBE_DESC_RX_LEN_MASK	0x7ff
++/* idle TX descriptor word2 - chip treats anything >= 0xffff0000 as free */
++#define GBE_DESC_W2_ARM		0xffff0000
++/* active TX descriptor word2 */
++#define GBE_DESC_W2_TX		0x4
++
++#define GBE_RING_SIZE		256
++#define GBE_DESC_RING_BYTES	(GBE_RING_SIZE * sizeof(struct gbe_desc))
++#define GBE_RX_BUF_LEN		1536
++
++#define GBE_TX_SCRATCH_SIZE	0xa0000
++#define GBE_RX_POOL_SIZE	(GBE_RING_SIZE * GBE_DESC_RX_LEN)
++
++struct gbe_priv {
++	struct net_device	*netdev;
++	struct pci_dev		*pdev;
++	void __iomem		*base;
++	/* PCS/SerDes regs live in Salina Glue (104d:9107) BAR4, not BAR0 */
++	void __iomem		*glue_base;
++	struct pci_dev		*glue_pdev;
++
++	spinlock_t		lock;
++};
++
++static inline u32 gbe_rd(struct gbe_priv *p, u32 reg)
++{
++	return readl(p->base + reg);
++}
++
++static inline void gbe_wr(struct gbe_priv *p, u32 reg, u32 val)
++{
++	writel(val, p->base + reg);
++}
++
++static inline void gbe_set(struct gbe_priv *p, u32 reg, u32 bits)
++{
++	gbe_wr(p, reg, gbe_rd(p, reg) | bits);
++}
++
++static inline void gbe_clr(struct gbe_priv *p, u32 reg, u32 bits)
++{
++	gbe_wr(p, reg, gbe_rd(p, reg) & ~bits);
++}
++
++int gbe_phy_init(struct gbe_priv *p);
++
++#endif /* _PS5_GBE_H */
+diff --git a/gbe_phy.c b/gbe_phy.c
+new file mode 100644
+index 0000000..cffa3a5
+--- /dev/null
++++ b/gbe_phy.c
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * PlayStation 5 Salina GBE controller driver
++ *
++ * Time wasted here total : 26 hours. (baikal took 2x that and is still not stable lol)
++ *
++ * based on mtk_star_emac - turns out Salina is literally that IP with
++ * Sony glue slapped on top. MTK is the worst thing humanity has ever
++ * produced.
++ *
++ * TheFlow probably saw the PS4 baikal work (5.4 -> 7.0 upstream) and
++ * said i did a good job, so figured i'd try the PS5 too. nearly lost
++ * the whole driver once - accidentally bricked my tablet twice in the
++ * process. might actually get a PS5 now that there's a reason to lol.
++ *
++ * credits:
++ * - slidybat for some info that helped early on
++ * - cow for bearing with me, testing my garbage code, correcting me
++ *   when i was going wrong, and just being a great guy <3
++ * - the team for not pestering me about baikal while i was knee deep
++ *   in this mess lol
++ *
++ * heads up to whoever reads this: most of the debug logging is left in
++ * for now until i'm sure it's stable enough, will rip it out later. meow.
++ * the code quality might not be the greatest but hey it seems to work? :3
++ * sorry if it doesn't meet your criteria, i tried my best ok. meow meow :3
++ *
++ * TODO: add proper comments
++ * TODO: make the baikal (PS4) ethernet driver actually stable
++ * TODO: not sure if this needs to be more modular or w/e, no idea what the ps5 linux gods want lol
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/kernel.h>
++#include <linux/minmax.h>
++#include <linux/delay.h>
++#include <linux/mii.h>
++#include <linux/netdevice.h>
++#include <linux/ps5.h>
++#include "gbe.h"
++
++int gbe_phy_init(struct gbe_priv *p)
++{
++	return 0;
++}

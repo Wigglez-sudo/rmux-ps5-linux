@@ -1,0 +1,26 @@
+From bc6621863050a409a43df1d72862978a944381ff Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 13:05:50 +0000
+Subject: [PATCH] x86: amd: name the ps4 cpus
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ arch/x86/kernel/cpu/amd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index 9edc08b867ca..16e098815146 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -858,6 +858,11 @@ static void init_amd_jg(struct cpuinfo_x86 *c)
+ 	 * instruction support via CPUID.
+ 	 */
+ 	clear_rdrand_cpuid_bit(c);
++
++#ifdef CONFIG_X86_PS4
++	if (c->x86_model <= 0x30)
++		strscpy(c->x86_model_id, "AMD Jaguar");
++#endif
+ }
+ 
+ static void init_amd_bd(struct cpuinfo_x86 *c)

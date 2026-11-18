@@ -1,0 +1,173 @@
+From 24706f20073a98083b3e29dbf91f23e8e1025915 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 13 Jan 2026 18:19:57 +0100
+Subject: [PATCH] Add Y2JB core update feature via UI and backend
+
+Introduced a new button in the UI to update the Y2JB core (lapse.js) file. Added a corresponding backend endpoint (/update_y2jb) in server.py to fetch the latest lapse.js from GitHub and save it to the payload directory. Implemented frontend logic in index.js to handle the update process and provide user feedback.
+---
+ index.html      | 13 +++++++++++++
+ server.py       | 30 +++++++++++++++++++++---------
+ static/index.js | 35 ++++++++++++++++++++++++++++++++++-
+ 3 files changed, 68 insertions(+), 10 deletions(-)
+
+diff --git a/index.html b/index.html
+index d4493f9..e8c4023 100644
+--- a/index.html
++++ b/index.html
+@@ -37,5 +37,18 @@ <h2 id="PLT">Payloads</h2>
+ 
+             </ul>
+         </div>
++        <div id="UPD-C" style="text-align: center; margin-top: 15px;">
++            <button id="update-btn" onclick="UpdateY2JB()" style="
++                background-color: #00469b;
++                color: white;
++                border: none;
++                padding: 10px 20px;
++                font-family: 'Share Tech', sans-serif;
++                font-size: 1.2rem;
++                cursor: pointer;
++                clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
++            ">Update Y2JB Core (lapse.js)</button>
++        </div>
++        </div>
+     </body>
+ </html>
+\ No newline at end of file
+diff --git a/server.py b/server.py
+index d871349..658ca7a 100644
+--- a/server.py
++++ b/server.py
+@@ -23,7 +23,6 @@ def allowed_file(filename):
+            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+ 
+ def secure_filename(filename):
+-    """Basic filename sanitization"""
+     import re
+     return re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
+ 
+@@ -70,7 +69,7 @@ def check_ajb():
+             print("Error:", str(e))
+ 
+         finally:
+-            time.sleep(5)  # Check every 5 seconds
++            time.sleep(5)
+ 
+ @app.route("/")
+ def home():
+@@ -104,18 +103,15 @@ def list_files():
+     
+ @app.route('/upload_payload', methods=['POST'])
+ def upload_payload():
+-    # Check if file is present in request
+     if 'file' not in request.files:
+         return jsonify({'error': 'No file part'}), 400
+ 
+     file = request.files['file']
+ 
+-    # Check if file is empty
+     if file == '':
+         return jsonify({'error': 'No selected file'}), 400
+ 
+     if file and allowed_file(file.filename):
+-        # Secure the filename
+         filename = secure_filename(file.filename)
+         save_path = os.path.join(PAYLOAD_DIR, filename)
+ 
+@@ -175,23 +171,19 @@ def delete_payload():
+                 'error': 'filename parameter is required'
+             }), 400
+ 
+-        # Validate filename (prevent directory traversal)
+         if '..' in payload or '/' in payload or '\\' in payload:
+             return jsonify({
+                 'error': 'Invalid filename'
+             }), 400
+ 
+-        # Get file extension and validate
+         file_extension = payload.rsplit('.', 1)[-1].lower()
+         if file_extension not in ALLOWED_EXTENSIONS:
+             return jsonify({
+                 'error': f'File type {file_extension} not allowed'
+             }), 400
+ 
+-        # Build safe filepath
+         filepath = os.path.join(PAYLOAD_DIR, payload)
+ 
+-        # Check if file exists
+         if os.path.exists(filepath) and os.path.isfile(filepath):
+             os.remove(filepath)
+             return jsonify({
+@@ -211,6 +203,26 @@ def delete_payload():
+             'message': 'Failed to delete file'
+         }), 500
+ 
++@app.route('/update_y2jb', methods=['POST'])
++def update_y2jb():
++    try:
++        url = "https://raw.githubusercontent.com/Gezine/Y2JB/main/payloads/lapse.js"
++        print(f"Fetching update from: {url}")
++        import requests 
++        response = requests.get(url, timeout=10)
++        if response.status_code == 200:
++            target_dir = os.path.join(PAYLOAD_DIR, 'js')
++            os.makedirs(target_dir, exist_ok=True)
++            file_path = os.path.join(target_dir, 'lapse.js')
++            with open(file_path, 'wb') as f:
++                f.write(response.content)
++            return jsonify({"success": True, "message": "Updated lapse.js successfully!"})
++        else:
++            return jsonify({"error": f"GitHub Error: {response.status_code}"}), 500
++    except Exception as e:
++        print(f"Update Failed: {e}")
++        return jsonify({"error": str(e)}), 500
++
+ if __name__ == "__main__":
+     threading.Thread(target=check_ajb, daemon=True).start()
+     app.run(host="0.0.0.0", port=8000 ,debug=False)
+\ No newline at end of file
+diff --git a/static/index.js b/static/index.js
+index 595c229..cfe41ea 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -181,4 +181,37 @@ async function loadpayloads() {
+ document.getElementById('SJB').addEventListener('click', function(event) {
+     event.preventDefault();
+     SendPayload();
+-});
+\ No newline at end of file
++});
++
++async function UpdateY2JB() {
++    const btn = document.getElementById('update-btn');
++    const originalText = btn.innerText;
++    
++    try {
++        btn.innerText = "Updating...";
++        btn.disabled = true;
++
++        const response = await fetch('/update_y2jb', {
++            method: 'POST'
++        });
++
++        if (!response.ok) {
++            const text = await response.text();
++            throw new Error(`Server returned Status ${response.status} (${response.statusText}). Did you restart the server?`);
++        }
++
++        const result = await response.json();
++        
++        if (result.success) {
++            alert(result.message);
++        } else {
++            alert('Update failed: ' + result.error);
++        }
++    } catch (error) {
++        console.error('Error:', error);
++        alert(error.message);
++    } finally {
++        btn.innerText = originalText;
++        btn.disabled = false;
++    }
++}
+\ No newline at end of file

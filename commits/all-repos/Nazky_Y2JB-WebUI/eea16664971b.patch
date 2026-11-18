@@ -1,0 +1,380 @@
+From eea16664971ba00f2236b132876017ad583a0bcb Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 7 Feb 2026 22:27:17 +0100
+Subject: [PATCH] UI: add logs page
+
+---
+ server.py             |  10 +++-
+ src/features.py       |  51 ++++++++++++++++++-
+ static/logs.js        | 114 ++++++++++++++++++++++++++++++++++++++++++
+ static/style/logs.css |  20 ++++++++
+ templates/index.html  |  10 ++++
+ templates/logs.html   |  79 +++++++++++++++++++++++++++++
+ 6 files changed, 282 insertions(+), 2 deletions(-)
+ create mode 100644 static/logs.js
+ create mode 100644 static/style/logs.css
+ create mode 100644 templates/logs.html
+
+diff --git a/server.py b/server.py
+index 3e0cf4a..b1a30df 100644
+--- a/server.py
++++ b/server.py
+@@ -20,7 +20,7 @@
+ import uuid
+ from src.dns_server import DNSServer
+ from src.backpork.core import BackporkEngine
+-from src.features import setup_logging, run_startup_tasks
++from src.features import setup_logging, run_startup_tasks, get_logs
+ 
+ app = Flask(__name__)
+ app.secret_key = 'Nazky'
+@@ -792,6 +792,14 @@ def run_backpork_process():
+     data = request.json
+     return Response(BackporkEngine.run_process(data), mimetype='text/event-stream')
+ 
++@app.route('/logs')
++def logs_page():
++    return render_template('logs.html')
++
++@app.route('/api/logs')
++def api_logs():
++    return jsonify({"logs": get_logs()})
++
+ if __name__ == "__main__":
+     config = get_config()
+     
+diff --git a/src/features.py b/src/features.py
+index 2300589..a8eb5eb 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -1,13 +1,59 @@
+ import logging
+ import threading
++import sys
++from collections import deque
++from datetime import datetime
+ from src.repo_manager import update_payloads
+ 
++LOG_BUFFER = deque(maxlen=2000)
++
++class ListHandler(logging.Handler):
++    def emit(self, record):
++        try:
++            msg = self.format(record)
++            LOG_BUFFER.append(msg)
++        except Exception:
++            self.handleError(record)
++
++class StdoutCapture:
++    def __init__(self, stream):
++        self.stream = stream
++        self.encoding = stream.encoding
++
++    def write(self, data):
++        self.stream.write(data)
++        self.stream.flush()
++        
++        if data.strip(): 
++            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
++            LOG_BUFFER.append(f"{timestamp} [STDOUT] {data.strip()}")
++
++    def flush(self):
++        self.stream.flush()
++
+ def setup_logging(config):
+     level = logging.DEBUG if config.get("debug_mode") == "true" else logging.INFO
++    
++    list_handler = ListHandler()
++    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
++    list_handler.setFormatter(formatter)
++    
++    root_logger = logging.getLogger()
++    root_logger.handlers = []
++    
+     logging.basicConfig(
+         level=level,
+-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
++        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
++        handlers=[
++            logging.StreamHandler(),
++            list_handler
++        ],
++        force=True
+     )
++    
++    if not isinstance(sys.stdout, StdoutCapture):
++        sys.stdout = StdoutCapture(sys.stdout)
++
+     logger = logging.getLogger("Y2JB")
+     logger.info(f"Logging initialized at {'DEBUG' if level == logging.DEBUG else 'INFO'} level")
+ 
+@@ -15,3 +61,6 @@ def run_startup_tasks(config):
+     if config.get("auto_update_repos", "true") == "true":
+         print("[STARTUP] Auto-updating repositories...")
+         threading.Thread(target=lambda: update_payloads(['all']), daemon=True).start()
++
++def get_logs():
++    return list(LOG_BUFFER)
+\ No newline at end of file
+diff --git a/static/logs.js b/static/logs.js
+new file mode 100644
+index 0000000..9ba76b8
+--- /dev/null
++++ b/static/logs.js
+@@ -0,0 +1,114 @@
++let autoScroll = true;
++let logPollInterval;
++let lastLogCount = 0;
++
++document.addEventListener('DOMContentLoaded', () => {
++    startLogPolling();
++    
++    const container = document.getElementById('log-container');
++    container.addEventListener('scroll', () => {
++        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
++        if (!isAtBottom && autoScroll) {
++            disableAutoScroll();
++        } else if (isAtBottom && !autoScroll) {
++            enableAutoScroll();
++        }
++    });
++});
++
++function startLogPolling() {
++    fetchLogs();
++    logPollInterval = setInterval(fetchLogs, 1000);
++}
++
++async function fetchLogs() {
++    const statusBadge = document.getElementById('connection-status');
++    
++    try {
++        const response = await fetch('/api/logs');
++        if (!response.ok) throw new Error("API Error");
++        
++        const data = await response.json();
++        
++        statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-mono transition-colors";
++        statusBadge.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div><span>Live</span>';
++
++        renderLogs(data.logs);
++
++    } catch (error) {
++        console.error(error);
++        statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono transition-colors";
++        statusBadge.innerHTML = '<div class="w-2 h-2 rounded-full bg-red-500"></div><span>Offline</span>';
++    }
++}
++
++function renderLogs(logs) {
++    if (logs.length === lastLogCount) return;
++    
++    const container = document.getElementById('log-container');
++    
++    if (lastLogCount === 0 || logs.length < lastLogCount) {
++        container.innerHTML = '';
++    }
++
++    
++    container.innerHTML = logs.map(line => formatLogLine(line)).join('');
++    
++    lastLogCount = logs.length;
++
++    if (autoScroll) {
++        scrollToBottom();
++    }
++}
++
++function formatLogLine(line) {
++    let colorClass = "text-gray-400";
++    
++    if (line.includes('[ERROR]') || line.includes('Error:') || line.includes('[FAIL]')) {
++        colorClass = "text-red-400 font-bold";
++    } else if (line.includes('[WARNING]')) {
++        colorClass = "text-yellow-400";
++    } else if (line.includes('[INFO]')) {
++        colorClass = "text-blue-300";
++    } else if (line.includes('[STDOUT]')) {
++        colorClass = "text-gray-300";
++    } else if (line.includes('[AJB]')) {
++        colorClass = "text-purple-400";
++    } else if (line.includes('[UPLOAD]')) {
++        colorClass = "text-green-400";
++    }
++
++    const safeLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
++    
++    return `<div class="whitespace-pre-wrap break-all hover:bg-white/5 py-0.5 px-1 rounded ${colorClass}">${safeLine}</div>`;
++}
++
++function scrollToBottom() {
++    const container = document.getElementById('log-container');
++    container.scrollTop = container.scrollHeight;
++}
++
++function toggleAutoScroll() {
++    if (autoScroll) disableAutoScroll();
++    else enableAutoScroll();
++}
++
++function disableAutoScroll() {
++    autoScroll = false;
++    document.getElementById('btn-autoscroll').classList.remove('text-brand-light', 'border-brand-blue');
++    document.getElementById('btn-autoscroll').classList.add('opacity-50');
++    document.getElementById('scroll-lock-indicator').classList.remove('hidden');
++}
++
++function enableAutoScroll() {
++    autoScroll = true;
++    document.getElementById('btn-autoscroll').classList.add('text-brand-light', 'border-brand-blue');
++    document.getElementById('btn-autoscroll').classList.remove('opacity-50');
++    document.getElementById('scroll-lock-indicator').classList.add('hidden');
++    scrollToBottom();
++}
++
++function clearLogs() {
++    document.getElementById('log-container').innerHTML = '<div class="opacity-30 text-center py-4 text-[10px]">Console Cleared</div>';
++    lastLogCount = 0;
++}
+\ No newline at end of file
+diff --git a/static/style/logs.css b/static/style/logs.css
+new file mode 100644
+index 0000000..65bbc01
+--- /dev/null
++++ b/static/style/logs.css
+@@ -0,0 +1,20 @@
++.console-window {
++    background: linear-gradient(to bottom, #0a0a0a, #050505);
++}
++
++.custom-scroll::-webkit-scrollbar {
++    width: 8px;
++}
++
++.custom-scroll::-webkit-scrollbar-track {
++    background: #0a0a0a; 
++}
++
++.custom-scroll::-webkit-scrollbar-thumb {
++    background: #333; 
++    border-radius: 4px;
++}
++
++.custom-scroll::-webkit-scrollbar-thumb:hover {
++    background: #444; 
++}
+\ No newline at end of file
+diff --git a/templates/index.html b/templates/index.html
+index 5754586..02c5a57 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -80,6 +80,11 @@
+                     <i class="fa-solid fa-sliders"></i>
+                     <span>Settings</span>
+                 </a>
++                <a href="{{ url_for('logs_page') }}"
++                   class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                    <i class="fa-solid fa-terminal"></i>
++                    <span>Logs</span>
++                </a>
+                 <a href="{{ url_for('credits_page') }}"
+                    class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                     <i class="fa-solid fa-heart"></i>
+@@ -120,6 +125,11 @@
+                 <i class="fa-solid fa-sliders"></i>
+                 <span>Settings</span>
+             </a>
++            <a href="{{ url_for('logs_page') }}"
++               class="text-sm input-field px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                <i class="fa-solid fa-terminal"></i>
++                <span>Logs</span>
++            </a>
+             <a href="{{ url_for('credits_page') }}"
+                class="text-sm input-field px-3 py-1.5 rounded-lg flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                 <i class="fa-solid fa-heart"></i>
+diff --git a/templates/logs.html b/templates/logs.html
+new file mode 100644
+index 0000000..67edb89
+--- /dev/null
++++ b/templates/logs.html
+@@ -0,0 +1,79 @@
++<!DOCTYPE html>
++<html lang="en" class="dark">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Y2JB - Live Logs</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
++    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
++    <script>
++        tailwind.config = {
++            darkMode: 'class',
++            theme: {
++                extend: {
++                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
++                    colors: {
++                        oled: { base: '#000000', surface: '#121212', border: '#2a2a2a' },
++                        brand: { blue: '#00439c', light: '#0070d1' }
++                    }
++                }
++            }
++        }
++    </script>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/compact.css') }}">
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/logs.css') }}">
++    <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
++    <script src="{{ url_for('static', filename='logs.js') }}" defer></script>
++</head>
++<body class="font-sans antialiased min-h-screen h-screen overflow-hidden flex flex-col p-6 max-w-5xl mx-auto bg-oled-base text-gray-200">
++
++    <header class="flex items-center justify-between mb-6">
++        <div class="flex items-center gap-4">
++            <a href="/" class="surface border w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors hover:border-brand-light group">
++                <i class="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
++            </a>
++            <div>
++                <h1 class="text-2xl font-bold tracking-tight">System Logs</h1>
++                <p class="text-xs opacity-50 uppercase tracking-widest font-medium">Live Console Output</p>
++            </div>
++        </div>
++        
++        <div class="flex items-center gap-2">
++            <div id="connection-status" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono transition-colors">
++                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
++                <span>Disconnected</span>
++            </div>
++            
++            <button onclick="toggleAutoScroll()" id="btn-autoscroll" class="surface border px-3 py-2 rounded-lg hover:border-brand-light text-brand-light transition-all active:scale-95" title="Toggle Auto-Scroll">
++                <i class="fa-solid fa-arrow-down-long"></i>
++            </button>
++            
++            <button onclick="clearLogs()" class="surface border px-3 py-2 rounded-lg hover:border-red-500 hover:text-red-500 transition-all active:scale-95" title="Clear View">
++                <i class="fa-solid fa-trash-can"></i>
++            </button>
++        </div>
++    </header>
++
++    <main class="flex-1 flex flex-col min-h-0 relative">
++        <div class="console-window flex-1 min-h-0 border border-oled-border rounded-xl bg-[#0a0a0a] overflow-hidden flex flex-col shadow-2xl relative">
++            <div class="h-8 bg-[#1a1a1a] border-b border-oled-border flex items-center px-4 gap-2">
++                <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
++                <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
++                <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
++                <div class="ml-2 text-[10px] opacity-40 font-mono select-none">Y2JB-WEBUI:~</div>
++            </div>
++
++            <div id="log-container" class="flex-1 overflow-y-auto p-4 font-mono text-xs md:text-sm space-y-1 custom-scroll">
++                <div class="opacity-30 text-center py-10">Connecting to log stream...</div>
++            </div>
++            
++            <div id="scroll-lock-indicator" class="hidden absolute bottom-4 right-4 bg-brand-blue text-white text-xs px-3 py-1 rounded-full shadow-lg cursor-pointer hover:bg-brand-light transition-colors" onclick="enableAutoScroll()">
++                <i class="fa-solid fa-arrow-down mr-1"></i> Resume Scroll
++            </div>
++        </div>
++    </main>
++
++</body>
++</html>
+\ No newline at end of file

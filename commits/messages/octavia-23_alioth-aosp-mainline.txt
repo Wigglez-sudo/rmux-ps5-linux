@@ -1,0 +1,20 @@
+======================================================================
+commit 69b52fbbed063de9ea5475497013258b9573cd2a
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 07:56:46 +0000
+
+dt-bindings: input: awinic,aw86927: Add Awinic AW8697
+
+======================================================================
+commit 881161e2d6cb0c3bb4a0b3c260785506adb7be81
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 07:56:46 +0000
+
+Input: aw8697 - Add Awinic AW8697 haptics driver
+
+======================================================================
+commit c61dd3fe56c124a379e4fa2214b6b045924a9fa0
+author Armandas Kvietkus <armandas.kvietkus@proton.me>
+date   Mon, 9 Nov 2026 07:56:46 +0000
+
+arm64: dts: qcom: sm8250-xiaomi-alioth: Add AW8697 haptic

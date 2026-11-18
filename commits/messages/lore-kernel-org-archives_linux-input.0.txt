@@ -1,0 +1,6 @@
+======================================================================
+commit 30855e447fb41584bf8b17e1c1207532a4702da1
+author "armandas.kvietkus" <armandas.kvietkus@proton.me>
+date   Mon, 2 Nov 2026 22:04:15 +0000
+
+Re: [PATCH v3 0/2] Input: Add Awinic AW8697 haptics driver

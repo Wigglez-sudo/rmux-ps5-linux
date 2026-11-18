@@ -1,0 +1,12 @@
+pages:
+  tags: [linux]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - npm ci --no-audit --no-fund
+    - npx vitepress build docs
+    - rm -rf public
+    - mv docs/.vitepress/dist public
+  artifacts:
+    paths:
+      - public

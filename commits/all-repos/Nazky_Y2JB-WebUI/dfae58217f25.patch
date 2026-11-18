@@ -1,0 +1,45 @@
+From dfae58217f25713bd123a51c00ccfa20adec947a Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 22:58:17 +0100
+Subject: [PATCH] UI: move icon.png and manifests.json
+
+manifest.json moved to static/json/manifest.json
+
+icon.png moved to static/img/icon.png
+---
+ static/{ => img}/icon.png       | Bin
+ static/{ => json}/manifest.json |   6 +++---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+ rename static/{ => img}/icon.png (100%)
+ rename static/{ => json}/manifest.json (80%)
+
+diff --git a/static/icon.png b/static/img/icon.png
+similarity index 100%
+rename from static/icon.png
+rename to static/img/icon.png
+diff --git a/static/manifest.json b/static/json/manifest.json
+similarity index 80%
+rename from static/manifest.json
+rename to static/json/manifest.json
+index 83cff2c..f647e4f 100644
+--- a/static/manifest.json
++++ b/static/json/manifest.json
+@@ -7,14 +7,14 @@
+     "theme_color": "#00439c",
+     "icons": [
+         {
+-            "src": "icon.png",
++            "src": "/static/img/icon.png",
+             "sizes": "192x192",
+             "type": "image/png"
+         },
+         {
+-            "src": "icon.png",
++            "src": "/static/img/icon.png",
+             "sizes": "512x512",
+             "type": "image/png"
+         }
+     ]
+-}
+\ No newline at end of file
++}

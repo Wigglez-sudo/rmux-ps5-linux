@@ -1,0 +1,21 @@
+From 478c640fb3dc873036727dea0386150c89e23358 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 27 Jan 2026 11:12:05 +0100
+Subject: [PATCH] resolve the Permission denied
+
+---
+ docker-compose.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 9b30dbd..653c7a4 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -5,6 +5,7 @@ services:
+     build: .
+     ports:
+       - "8000:8000"
++    user: "1000:1000"
+     volumes:
+       - .:/app
+     environment:

@@ -1,0 +1,67 @@
+From f97844df76c19bc35def1459a41a2184c593aa04 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 20 May 2026 15:11:30 +0000
+Subject: [PATCH] ps5-gbe: add LSO error recovery
+
+---
+ gbe.c | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/gbe.c b/gbe.c
+index 7ab6768..e6b406f 100644
+--- a/gbe.c
++++ b/gbe.c
+@@ -493,12 +493,43 @@ static void gbe_link_poll_work(struct work_struct *work)
+ 	schedule_delayed_work(&p->link_poll, HZ);
+ }
+ 
++/*
++ * the chip latches an lso error and then just sulks, wont tx until the
++ * ring gets rebuilt. so tear it down and stand it back up, same toggle as init.
++ */
++static void gbe_lso_recover(struct gbe_priv *p)
++{
++	p->cnt_lso_recover++;
++	netdev_warn(p->netdev, "LSO error, rebuilding TX ring (cnt=%u)\n",
++		    p->cnt_lso_recover);
++
++	spin_lock(&p->lock);
++	netif_stop_queue(p->netdev);
++
++	gbe_clr(p, GBE_REG_TXKICK, BIT(6));
++	gbe_set(p, GBE_REG_TXKICK, BIT(6));
++
++	gbe_init_tx_ring(p);
++	dma_wmb();
++
++	gbe_wr(p, GBE_REG_TX_RING_BASE, p->tx_ring_dma);
++	gbe_wr(p, GBE_REG_TX_RING_CUR, p->tx_ring_dma);
++	gbe_set(p, GBE_REG_TX_DMA_CTRL, BIT(0));
++
++	netif_wake_queue(p->netdev);
++	spin_unlock(&p->lock);
++}
++
+ /* napi: do tx, then rx, turn irqs back on once we drop under budget */
+ static int gbe_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct gbe_priv *p = container_of(napi, struct gbe_priv, napi);
+ 	int rx_done;
+ 
++	/* isr flags this when it sees an lso cause, deal with it out of hardirq */
++	if (test_and_clear_bit(GBE_ST_LSO_RECOVER, &p->state))
++		gbe_lso_recover(p);
++
+ 	spin_lock(&p->lock);
+ 	gbe_tx_complete(p);
+ 	gbe_set(p, GBE_REG_TX_DMA_CTRL, GBE_DMA_KICK);
+@@ -555,6 +586,9 @@ static irqreturn_t gbe_isr(int irq, void *data)
+ 		p->netdev->stats.rx_errors++;
+ 	}
+ 
++	if (status & GBE_ISR_LSO_RECOVER)
++		set_bit(GBE_ST_LSO_RECOVER, &p->state);
++
+ 	/* mask irqs and let napi do the ring work out of hardirq */
+ 	if (napi_schedule_prep(&p->napi)) {
+ 		gbe_wr(p, GBE_REG_IER, 0);

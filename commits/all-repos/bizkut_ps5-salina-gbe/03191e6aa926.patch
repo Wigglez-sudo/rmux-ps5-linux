@@ -1,0 +1,115 @@
+From 03191e6aa9266ce6f8c6e3f6e0955da25525537e Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 23 May 2026 13:02:20 +0000
+Subject: [PATCH] ps5-gbe: add install script
+
+---
+ install.sh | 99 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 99 insertions(+)
+ create mode 100755 install.sh
+
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 0000000..a7fb487
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,99 @@
++#!/bin/sh
++set -eu
++
++KERNEL_RELEASE=$(uname -r)
++KERNELDIR=/lib/modules/$KERNEL_RELEASE/build
++
++script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
++
++MODULE_DIR=/lib/modules/$KERNEL_RELEASE/extra/ps5-gbe
++MODPROBE_CONF=/etc/modprobe.d/ps5-gbe.conf
++
++usage() {
++	cat <<EOF
++Usage: $0 [uninstall]
++
++Run without arguments to build, install, and load the driver.
++Run with 'uninstall' to remove installed modules and config.
++EOF
++}
++
++say() {
++	printf '%s\n' "$*"
++}
++
++die() {
++	printf 'ERROR: %s\n' "$*" >&2
++	exit 1
++}
++
++need_root() {
++	[ "$(id -u)" -eq 0 ] || die "run as root"
++}
++
++build_driver() {
++	[ -d "$KERNELDIR" ] || die "kernel build directory not found: $KERNELDIR"
++
++	say "Building ps5_gbe.ko for $KERNEL_RELEASE"
++	make -C "$script_dir" KERNELDIR="$KERNELDIR" -j"$(nproc)"
++
++	[ -f "$script_dir/ps5_gbe.ko" ] || die "build failed: ps5_gbe.ko not found"
++}
++
++write_modprobe_config() {
++	say "Writing modprobe config to $MODPROBE_CONF"
++	install -d "$(dirname "$MODPROBE_CONF")"
++	cat >"$MODPROBE_CONF" <<EOF
++# PS5 Salina GBE
++softdep ps5_gbe pre: spcie
++EOF
++}
++
++install_driver() {
++	need_root
++	build_driver
++
++	say "Installing module to $MODULE_DIR"
++	install -d "$MODULE_DIR"
++	install -m 0644 "$script_dir/ps5_gbe.ko" "$MODULE_DIR/ps5_gbe.ko"
++
++	write_modprobe_config
++
++	say "Running depmod for $KERNEL_RELEASE"
++	depmod "$KERNEL_RELEASE"
++
++	say "Loading driver"
++	if modprobe ps5_gbe; then
++		say "Driver loaded successfully"
++	else
++		say "Install finished, but modprobe failed. Check dmesg for details."
++	fi
++}
++
++uninstall_driver() {
++	need_root
++
++	say "Unloading driver (if loaded)"
++	modprobe -r ps5_gbe 2>/dev/null || true
++
++	say "Removing installed module"
++	rm -f "$MODULE_DIR/ps5_gbe.ko"
++	rmdir "$MODULE_DIR" 2>/dev/null || true
++
++	say "Removing $MODPROBE_CONF"
++	rm -f "$MODPROBE_CONF"
++
++	say "Running depmod for $KERNEL_RELEASE"
++	depmod "$KERNEL_RELEASE"
++
++	say "Uninstall complete"
++}
++
++cmd=${1:-}
++
++case "$cmd" in
++	"") install_driver ;;
++	uninstall) uninstall_driver ;;
++	-h|--help|help) usage ;;
++	*) usage >&2; exit 2 ;;
++esac

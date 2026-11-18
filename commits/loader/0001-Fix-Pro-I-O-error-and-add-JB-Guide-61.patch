@@ -1,0 +1,48 @@
+From a38e90f16209e6fcd317ce9e6946e403f1f59349 Mon Sep 17 00:00:00 2001
+From: rmuxwashere <47540491+rmuxwashere@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 05:52:58 -0300
+Subject: [PATCH] Fix Pro I/O error and add JB Guide (#61)
+
+* Add 7.61-13.60 JB Guide
+
+* Fix Pro I/O error
+
+---------
+
+Co-authored-by: Ouroboros <47540491+Ouroboroshen@users.noreply.github.com>
+---
+ README.md                 | 3 +++
+ shellcode_hv/boot_linux.c | 5 ++---
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/README.md b/README.md
+index 177a06d..6a6c0c4 100644
+--- a/README.md
++++ b/README.md
+@@ -134,6 +134,9 @@ The front top Type-A port is USB 2.0 which is slower and thus not recommended.
+ 1. Install Y2JB by following https://github.com/Gezine/Y2JB.
+ 2. Run kernel exploit: `python3 payload_sender.py $PS5IP 50000 payloads/lapse.js`
+ 
++#### Firmware 7.61-13.60
++1. Install WebKit Autoloader by following https://github.com/itsPLK/ps5-webkit-autoloader
++
+ ### 5. Send the payload
+ If you're on ARM64 Linux, first install the x86-64 cross-compilation tools before:
+ 
+diff --git a/shellcode_hv/boot_linux.c b/shellcode_hv/boot_linux.c
+index 997a056..0f46d58 100644
+--- a/shellcode_hv/boot_linux.c
++++ b/shellcode_hv/boot_linux.c
+@@ -94,10 +94,9 @@ static void e820_memory_setup(struct boot_params *bp) {
+ 
+   if (info.kit_type == KIT_RETAIL_PRO) {
+     append_e820_table(bp, 0x470000000, 0x47f300000, E820_TYPE_RAM);
+-    append_e820_table(bp, 0x47f300000, 0x880000000, E820_TYPE_RESERVED);
+-    append_e820_table(bp, 0x880000000, 0x8e0000000, E820_TYPE_RAM);
++    append_e820_table(bp, 0x47f300000, 0x8e0000000, E820_TYPE_RESERVED);
+     append_e820_table(bp, 0x8e0000000, 0x8e2000000, E820_TYPE_RESERVED); // HV
+-    append_e820_table(bp, 0x8e2000000, 0x900000000, E820_TYPE_RAM);
++    append_e820_table(bp, 0x8e2000000, 0x900000000, E820_TYPE_RESERVED);
+   }
+   // DevKits have 32GB
+   else if (info.kit_type != KIT_DEVKIT) {

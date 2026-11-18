@@ -1,0 +1,96 @@
+From 274f9759bcb99260191559b64c972b1b26d38f60 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Wed, 11 Nov 2026 10:18:21 +0100
+Subject: [PATCH] docs: baikal is the most supported southbridge, drop dead
+ links
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ docs/ending.md      |  2 --
+ docs/files.md       |  2 +-
+ docs/information.md |  2 +-
+ docs/revisions.md   | 12 +++++-------
+ docs/setup.md       |  1 -
+ 5 files changed, 7 insertions(+), 12 deletions(-)
+
+diff --git a/docs/ending.md b/docs/ending.md
+index 1874d0e..1f03fce 100644
+--- a/docs/ending.md
++++ b/docs/ending.md
+@@ -58,8 +58,6 @@ If you want, you can check out their repos:
+ 	- For their tutorial and fixes for baikal consoles and more.
+ - [centi07](https://github.com/centi07/)
+ 	- For their help with up-to-date mesa package repos on Arch and more.
+-- [FlyingPhantom](https://github.com/FlyingPhantom) / z_fentom
+-	- For their forking this project for new additions. You can find it [here](https://flyingphantom.github.io/ps4-linux-tutorial/).
+ 
+ Thank you all so much for making this possible.
+ 
+diff --git a/docs/files.md b/docs/files.md
+index 84da508..7760085 100644
+--- a/docs/files.md
++++ b/docs/files.md
+@@ -58,7 +58,7 @@ You can download the new one and improved initramfs-ps4 [here](https://git.gay/G
+ ::: details More information and other initramfses
+ The new "initramfs-ps4" does work, and it's the one in the link above.
+ 
+-[Here is the old initramfs](https://github.com/DionKill/ps4-linux-tutorial/blob/main/PS4%20Linux/initramfs.zip) (shouldn't use). [Source (not really)](https://bitbucket.org/piotrkarbowski/better-initramfs/src/master/).
++[Here is the old initramfs](https://github.com/DionKill/ps4-linux-tutorial/blob/main/PS4%20Linux/initramfs.zip) (shouldn't use).
+ 
+ > [!NOTE]
+ > On 7.x kernels the Aeolia script is wrong, You should try the Belize initramfs file. (You might think It won't work, but It will.)
+diff --git a/docs/information.md b/docs/information.md
+index db7dbbb..513bfda 100644
+--- a/docs/information.md
++++ b/docs/information.md
+@@ -24,7 +24,7 @@ All consoles that can run a homebrew enabler (like GoldHEN or ps4hen) are able t
+ 
+ <!-- @include: /_includes/min-firm-ver.md -->
+ 
+-However, every console has a different southbridge, and Baikal in particular has many issues. You should be able to get a working installation either way.
++Every console has a different southbridge, and all three are supported by the 7.3.3 kernel.
+ :::
+ 
+ ## Video guide (optional)
+diff --git a/docs/revisions.md b/docs/revisions.md
+index 7fdac40..c97666a 100644
+--- a/docs/revisions.md
++++ b/docs/revisions.md
+@@ -28,20 +28,18 @@ The oldest and very supported for Linux, but is known to have some Wi-Fi or Blue
+ It's only present on early Phat models.
+ 
+ ### Belize
+-The second gen southbridge, and the one with the most support. Gets kernel updates faster and doesn't have any particular problems.
++The second gen southbridge, and very well supported. It doesn't have any particular problems.
+ 
+ It can be found on late Phat models, but also on Slims and Pros.
+ 
+ ### Baikal
+-The third and final southbridge, released very late into the console's lifespan, and the one with the least support. It is known to have many issues, especially on PS4 Pros, but you may be able to get a working system.
+-
+-This is because there are fewer people with Baikal PS4s, so there aren't many developers and testers.
++The third and final southbridge, released very late into the console's lifespan. After years of being stuck on old kernels, it's now the most supported southbridge, on both Slims and Pros, with the 7.3.3 kernel.
+ 
+ > [!TIP]
+ > In a nutshell, the list from most to least supported is:
+-> 1. Belize
+-> 2. Aeolia
+-> 3. Baikal
++> 1. Baikal
++> 2. Belize
++> 3. Aeolia
+ ## Other terms
+ ::: details Linux terms
+ To be fair, it is expected that you already know some of these, but if not, at least you'll learn something today.
+diff --git a/docs/setup.md b/docs/setup.md
+index 5ebe64d..5898bd3 100644
+--- a/docs/setup.md
++++ b/docs/setup.md
+@@ -90,7 +90,6 @@ However, as some issues may arise on certain consoles, you should still go and t
+ 	- Many report that they must be disabled, but this isn't needed anymore. In fact, these need to be enabled for certain exploits, notably BD-JB and PSVue
+ - Check your internet connection
+ 	- Some models have issues if they aren't already connected to internet.
+-	- Ethernet may not work on PS4 Pro Baikal
+ 
+ ## PC
+ You'll need a way to connect to your PS4 to transfer files. A PC is recommended. You will also need an internet connection.

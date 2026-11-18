@@ -1,0 +1,33 @@
+======================================================================
+commit 0ee46a156c3aa1b8b0e52bffc40b969259212cd4
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sat, 24 Oct 2026 23:09:54 -0700
+
+ps5: add 12.xx support (#69)
+
+* ps5: add explicit 12.20 offsets
+
+======================================================================
+commit 73f10194e98ba0ae25f8fa2e5af4670e1a645a4d
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Tue, 20 Oct 2026 09:28:03 -0700
+
+fix 13.00 WLAN firmware offset (#54)
+
+======================================================================
+commit 9e4e102d99452308cedffc6e71bc3ebb09b093d8
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Sun, 25 Oct 2026 13:42:10 -0700
+
+Add CONTRIBUTING.md (#73)
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+
+======================================================================
+commit ba1e507efc28a4491b0d2c6f44979b26be973797
+author rmuxnet <armandas.kvietkus@proton.me>
+date   Mon, 19 Oct 2026 16:11:22 -0700
+
+loader: remove redundant print (#51)
+
+I WAS NOT THERE

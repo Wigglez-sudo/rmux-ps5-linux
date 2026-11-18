@@ -1,0 +1,25 @@
+From e959eb07a8cbd5c5d7a3540bed508a3ab8e3571f Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Wed, 21 Jan 2026 18:42:16 +0100
+Subject: [PATCH] Add Default Settings Config
+
+---
+ static/config/settings.json | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+ create mode 100644 static/config/settings.json
+
+diff --git a/static/config/settings.json b/static/config/settings.json
+new file mode 100644
+index 0000000..5b7ffc3
+--- /dev/null
++++ b/static/config/settings.json
+@@ -0,0 +1,8 @@
++{
++    "ajb": "false",
++    "ip": "",
++    "ftp_port": "1337",
++    "global_delay": "10",
++    "ui_animations": "true",
++    "kstuff": "true"
++}
+\ No newline at end of file

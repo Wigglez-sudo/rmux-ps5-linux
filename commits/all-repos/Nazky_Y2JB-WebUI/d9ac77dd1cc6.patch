@@ -1,0 +1,125 @@
+From d9ac77dd1cc634d754b7808f34b975a294937cd5 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sun, 22 Feb 2026 12:04:14 +0100
+Subject: [PATCH] feat: add update checker UI and version display in JS
+
+- Add static/update_checker.js for banner and dismiss logic
+- Add manualUpdateCheck() to settings.js using version fields
+- Show current app version in footer via index.js
+---
+ static/index.js          |  8 ++++++++
+ static/settings.js       | 31 ++++++++++++++++++++++++++++
+ static/update_checker.js | 44 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+)
+ create mode 100644 static/update_checker.js
+
+diff --git a/static/index.js b/static/index.js
+index ff50e99..0321790 100644
+--- a/static/index.js
++++ b/static/index.js
+@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
+             if (clientIpEl) clientIpEl.textContent = "Unknown";
+         });
+ 
++    fetch("/api/update_check")
++        .then(r => r.json())
++        .then(data => {
++            const el = document.getElementById("app-version");
++            if (el && data.local_version) el.textContent = "v" + data.local_version;
++        })
++        .catch(() => {});
++
+     const dropZone = document.body;
+     const fileInput = document.getElementById('fileInput');
+     let dragLeaveTimer;
+diff --git a/static/settings.js b/static/settings.js
+index a5466d6..fd06b84 100644
+--- a/static/settings.js
++++ b/static/settings.js
+@@ -69,4 +69,35 @@ async function saveAllSettings() {
+         console.error('Error saving settings:', error);
+         Toast.show('Connection error while saving', 'error');
+     }
++}
++
++async function manualUpdateCheck() {
++    const btn = document.getElementById('btn-update-check');
++    const icon = document.getElementById('update-check-icon');
++    const statusText = document.getElementById('update-status-text');
++
++    btn.disabled = true;
++    icon.classList.add('fa-spin');
++
++    try {
++        const res = await fetch('/api/update_check?force=true');
++        const data = await res.json();
++
++        if (data.error) {
++            statusText.textContent = data.error;
++            Toast.show(data.error, 'warning');
++        } else if (data.up_to_date) {
++            statusText.textContent = `Up to date — v${data.local_version} (${data.local_date || data.local_branch || ''})`;
++            Toast.show('You are running the latest version!', 'success');
++        } else {
++            statusText.textContent = `Update: v${data.local_version} → v${data.remote_version} (${data.remote_date || ''})`;
++            Toast.show(`Update available! v${data.remote_version}`, 'info');
++        }
++    } catch (e) {
++        statusText.textContent = 'Failed to check for updates';
++        Toast.show('Update check failed', 'error');
++    } finally {
++        btn.disabled = false;
++        icon.classList.remove('fa-spin');
++    }
+ }
+\ No newline at end of file
+diff --git a/static/update_checker.js b/static/update_checker.js
+new file mode 100644
+index 0000000..8b80d4e
+--- /dev/null
++++ b/static/update_checker.js
+@@ -0,0 +1,44 @@
++document.addEventListener('DOMContentLoaded', () => {
++    checkForUpdates();
++});
++
++async function checkForUpdates() {
++    try {
++        const res = await fetch('/api/update_check');
++        const data = await res.json();
++
++        const banner = document.getElementById('update-banner');
++        if (!banner) return;
++
++        if (data.error) {
++            banner.classList.add('hidden');
++            return;
++        }
++
++        if (data.up_to_date === false) {
++            const msg = banner.querySelector('#update-message');
++            const link = banner.querySelector('#update-link');
++            const detail = banner.querySelector('#update-commits');
++
++            if (msg) msg.textContent = `Update available: v${data.local_version} → v${data.remote_version}`;
++            if (detail) {
++                const parts = [];
++                if (data.remote_date) parts.push(data.remote_date);
++                if (data.remote_description) parts.push(data.remote_description);
++                detail.textContent = parts.join(' — ');
++            }
++            if (link) link.href = data.repo_url + '/releases';
++
++            banner.classList.remove('hidden');
++        } else {
++            banner.classList.add('hidden');
++        }
++    } catch (e) {
++        console.error('Update check failed:', e);
++    }
++}
++
++async function dismissUpdate() {
++    const banner = document.getElementById('update-banner');
++    if (banner) banner.classList.add('hidden');
++}

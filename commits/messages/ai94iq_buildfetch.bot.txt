@@ -1,0 +1,41 @@
+======================================================================
+commit 4eef45ad7fccf3f6f76cff7604d95d4731679697
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 17:14:00 +0100
+
+Create worker.js
+
+======================================================================
+commit 713f2e353c00eb7258211f8230c251a6b8421f0b
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 13:33:35 +0100
+
+Initial commit
+
+======================================================================
+commit 9589f46421532c784703ae948a90b5b02911d94a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 16:20:46 +0100
+
+Create devices.json
+
+======================================================================
+commit a80dc33a69563d4285d6fb0b2ba7264ceb294a0a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 13:34:47 +0100
+
+python : initial script . Test needed
+
+======================================================================
+commit b11d920b44c855d375e5c800c97451b9d8dfb3c5
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 16:25:00 +0100
+
+Update devices.json
+
+======================================================================
+commit b540c33b5041b59c2254f32ec53046d058ed139a
+author rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+date   Thu, 6 Mar 2025 14:13:47 +0100
+
+V2 tested. Cv to cloudflare workers wip

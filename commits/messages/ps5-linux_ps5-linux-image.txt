@@ -1,0 +1,6 @@
+======================================================================
+commit 9350227d7ba39d2bd37838194bec56a27d5253c3
+author rmux <armandas.kvietkus@proton.me>
+date   Tue, 23 Jun 2026 19:47:13 +0200
+
+apply cmd-timeout-recover and kernel71-compat mwifiex patches

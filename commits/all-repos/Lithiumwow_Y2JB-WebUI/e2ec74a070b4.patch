@@ -1,0 +1,47 @@
+From e2ec74a070b493c55bcb6861e53a99a3579d7768 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Tue, 27 Jan 2026 11:07:01 +0100
+Subject: [PATCH] fixup: add .dat file support.
+
+---
+ server.py       | 7 ++++++-
+ static/repos.js | 4 ++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/server.py b/server.py
+index 4383987..b48f28c 100644
+--- a/server.py
++++ b/server.py
+@@ -275,11 +275,16 @@ def list_files():
+     try:
+         for root, dirs, files in os.walk(folder):
+             for file in files:
+-                if file.lower().endswith(('.bin', '.elf', '.js')):
++                if file.lower().endswith(('.bin', '.elf', '.js', '.dat')):
+                     full_path = os.path.join(root, file)
+                     rel_path = os.path.relpath(full_path, folder)
+                     rel_path = rel_path.replace("\\", "/") 
+                     payload_files.append(rel_path)
++        
++        order = get_payload_order()
++        weights = {name: i for i, name in enumerate(order)}
++        payload_files.sort(key=lambda x: weights.get(x, 9999))
++        
+         return jsonify(payload_files)
+     except Exception as e:
+         return jsonify({"error": "Folder not found"}), 404
+diff --git a/static/repos.js b/static/repos.js
+index 0ec6b54..6edf44b 100644
+--- a/static/repos.js
++++ b/static/repos.js
+@@ -131,8 +131,8 @@ async function saveRepo() {
+     const type = document.getElementById('repo-type').value;
+ 
+     if (!name) return Toast.show("Filename is required", "warning");
+-    if (!name.endsWith('.bin') && !name.endsWith('.elf') && !name.endsWith('.js')) {
+-        return Toast.show("Filename must end with .bin, .elf, or .js", "warning");
++    if (!name.endsWith('.bin') && !name.endsWith('.elf') && !name.endsWith('.js') && !name.endsWith('.dat')) {
++        return Toast.show("Filename must end with .bin, .elf, .js, or .dat", "warning");
+     }
+ 
+     let payload = { name, old_name: oldName, type, save_path: `payloads/${name}` };

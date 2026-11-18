@@ -1,0 +1,63 @@
+From 2b09f1f95441f5b932535207b3a8fac633f7c7f6 Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Fri, 16 Jan 2026 19:34:23 +0100
+Subject: [PATCH] UI: add redirect to Repo manager , move css to
+ static/style/index.css
+
+---
+ static/style/index.css |  9 +++++++++
+ templates/index.html   | 18 +++++-------------
+ 2 files changed, 14 insertions(+), 13 deletions(-)
+ create mode 100644 static/style/index.css
+
+diff --git a/static/style/index.css b/static/style/index.css
+new file mode 100644
+index 0000000..f82ae51
+--- /dev/null
++++ b/static/style/index.css
+@@ -0,0 +1,9 @@
++.custom-scroll::-webkit-scrollbar { width: 4px; }
++.custom-scroll::-webkit-scrollbar-track { background: transparent; }
++.custom-scroll::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
++html.dark body { background-color: #000000; color: #e5e5e5; }
++html.dark .surface { background-color: #121212; border-color: #2a2a2a; }
++html.dark .input-field { background-color: #000000; border-color: #333; color: white; }
++html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
++html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
++html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
+diff --git a/templates/index.html b/templates/index.html
+index cc2199e..f8a64c1 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -31,19 +31,7 @@
+             }
+         }
+     </script>
+-    <style>
+-        .custom-scroll::-webkit-scrollbar { width: 4px; }
+-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #555; border-radius: 10px; }
+-        
+-        html.dark body { background-color: #000000; color: #e5e5e5; }
+-        html.dark .surface { background-color: #121212; border-color: #2a2a2a; }
+-        html.dark .input-field { background-color: #000000; border-color: #333; color: white; }
+-        
+-        html:not(.dark) body { background-color: #f3f4f6; color: #111827; }
+-        html:not(.dark) .surface { background-color: #ffffff; border-color: #e5e7eb; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+-        html:not(.dark) .input-field { background-color: #f9fafb; border-color: #d1d5db; color: #111827; }
+-    </style>
++    <link rel="stylesheet" href="{{ url_for('static', filename='style/index.css') }}">
+     <script src="{{ url_for('static', filename='color_mode.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='updater.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='direct.js') }}" defer></script>
+@@ -61,6 +49,10 @@
+                 </div>
+                 
+                 <div class="flex items-center gap-2">
++                    <a href="{{ url_for('repo_manager_ui') }}" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
++                        <i class="fa-solid fa-gear"></i>
++                        <span>Repos</span>
++                    </a>
+                     <div class="relative">
+                         <button onclick="toggleRepoList(event)" class="text-xs input-field px-3 py-1.5 rounded-lg border flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                             <span>Select Update</span>

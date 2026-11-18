@@ -1,0 +1,469 @@
+From 65c591807e7a1bdffb6e14f3138815285e7201a6 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 16 Jun 2026 00:24:34 +0200
+Subject: [PATCH] docs: gaming, GPU benchmarks, hardware PCI IDs, kernel deps,
+ booting fixes
+
+---
+ docs/.vitepress/config.mts    |   1 +
+ docs/guide/arch.md            |  28 ++++++++-
+ docs/guide/booting.md         |  52 +++++++++++++++--
+ docs/guide/display.md         |  20 +++++++
+ docs/guide/firmware.md        |   3 -
+ docs/guide/gaming.md          | 105 ++++++++++++++++++++++++++++++++++
+ docs/guide/getting-started.md |   4 ++
+ docs/guide/gpu.md             |  46 +++++++++++++--
+ docs/guide/hardware.md        |  16 ++++--
+ docs/guide/kernel.md          |  30 ++++++++++
+ 10 files changed, 287 insertions(+), 18 deletions(-)
+ create mode 100644 docs/guide/gaming.md
+
+diff --git a/docs/.vitepress/config.mts b/docs/.vitepress/config.mts
+index fdd1102..0e62978 100644
+--- a/docs/.vitepress/config.mts
++++ b/docs/.vitepress/config.mts
+@@ -70,6 +70,7 @@ export default defineConfig({
+           { text: 'Display Output', link: '/guide/display' },
+           { text: 'Audio', link: '/guide/audio' },
+           { text: 'DualSense Controller', link: '/guide/dualsense' },
++          { text: 'Gaming', link: '/guide/gaming' },
+           { text: 'Known Issues', link: '/guide/known-issues' },
+         ],
+       },
+diff --git a/docs/guide/arch.md b/docs/guide/arch.md
+index 2b4e952..41a614d 100644
+--- a/docs/guide/arch.md
++++ b/docs/guide/arch.md
+@@ -1,4 +1,30 @@
+-# Kernel Setup Arch Linux
++# Arch Linux
++
++Arch is the lowest-overhead distro option. Sway as the window manager keeps idle RAM usage around 750 MiB, leaving the most headroom for games and applications.
++
++```
++                  -`                     ps5@archlinux
++                 .o+`                    OS: Arch Linux x86_64
++                `ooo/                    Host: PlayStation 5 (CFI-1016B 01Y)
++               `+oooo:                   Kernel: Linux 7.1.0
++              `+oooooo:                  Packages: 719 (pacman)
++              -+oooooo+:                 Shell: fish 4.7.1
++            `/:-:++oooo+:                CPU: 100-000000189 (16) @ 3.49 GHz
++           `/++++/+++++++:               GPU: AMD Device 13FB
++          `/++++++++++++++:              Memory: 750.04 MiB / 15.00 GiB (5%)
++         `/+++ooooooooooooo/`            Disk (/): 29.04 GiB / 468.33 GiB (6%)
++        ./ooosssso++osssssso+`           Local IP (wlp64s0f7): 192.168.1.81/24
++       .oossssso-````/ossssss+`
++      -osssssso.      :ssssssso.
++     :osssssss/        osssso+++.
++    /ossssssss/        +ssssooo/-
++  `/ossssso+/:-        -:/+osssso+-
++ `+sso+:-`                 `.-/+oso:
++`++:.                           `-/+/
++.`                                 `/
++```
++
++## Kernel Setup
+ 
+ The ps5-linux project ships a patched kernel via [ps5-linux-patches](https://github.com/ps5-linux/ps5-linux-patches). Pre-built packages are available as `.pkg.tar.zst` for Arch Linux based distributions.
+ 
+diff --git a/docs/guide/booting.md b/docs/guide/booting.md
+index a52d38e..6cdce4b 100644
+--- a/docs/guide/booting.md
++++ b/docs/guide/booting.md
+@@ -7,7 +7,7 @@
+ | Distro | Desktop | Notes |
+ |---|---|---|
+ | Ubuntu 26.04 (default) | GNOME | Reccomended for beginners |
+-| Arch | Sway | Minimal, rolling |
++| Arch | Sway | Low overhead, low RAM usage (~750 MiB idle) |
+ | CachyOS | Gamescope + Steam Big Picture | Gaming-focused |
+ | Kali Linux | XFCE + kali-linux-everything | ~96 GB image, needs ~150 GB free to build |
+ | Fedora | GNOME | |
+@@ -54,7 +54,11 @@ memory=8GB
+ Then restart WSL: `wsl --shutdown`
+ :::
+ 
+-### Editing cmdline.txt from Windows (WSL)
++### Editing cmdline.txt from Windows
++
++**Without WSL:** Use [Explorer++](https://explorerplusplus.com/) (run as admin) - it can access the FAT32 EFI partition directly where `cmdline.txt` lives.
++
++**With WSL:**
+ 
+ To mount the FAT32 partition of the PS5 USB in WSL and edit `cmdline.txt`:
+ 
+@@ -78,7 +82,7 @@ Drive must be 64 GB+. External SSD is strongly reccomended.
+ sudo dd if=ps5-ubuntu2604.img of=/dev/sdX bs=4M status=progress conv=fsync
+ ```
+ 
+-**Windows:** Use [Balena Etcher](https://etcher.balena.io/).
++**Windows:** Use [Rufus](https://rufus.ie/). Balena Etcher has known issues flashing PS5 images - use Rufus instead.
+ 
+ ## 3. Plug USB into PS5
+ 
+@@ -130,6 +134,10 @@ socat -t 99999999 - TCP:$PS5IP:9021 < ps5-linux-loader.elf
+ 
+ ## First Boot
+ 
++::: warning Ubuntu - black screen before user creation
++Ubuntu has no default user. If you get a black screen before completing setup, you cannot SSH in to debug because there is no user to log in as. If this happens, chroot into the install from another Linux environment to create a user first - see [Recovering via Chroot](/guide/booting#recovering-via-chroot).
++:::
++
+ 1. Set up your user account and password. Make sure you remeber it.
+ 2. Disable the screen saver (currently broken).
+ 3. Hold kernel packages to prevent accidental upgrades:
+@@ -162,9 +170,43 @@ socat -t 99999999 - TCP:$PS5IP:9021 < ps5-linux-loader.elf
+    sudo ./install.sh
+    ```
+ 
+-## Recovering a Broken USB (Chroot Reinstall)
++## Recovering via Chroot
++
++If you can't boot but have access to another Linux environment (USB boot, another machine via SSH, etc.), you can chroot into your install to fix things.
++
++**Find your partition:**
++```bash
++lsblk -f
++# Look for the ext4 partition - nvme0n1p3 for M.2, sdXN for USB drive
++```
++
++```bash
++# M.2 install
++sudo mkdir -p /mnt/ps5root
++sudo mount /dev/nvme0n1p3 /mnt/ps5root
++
++sudo mount --bind /dev  /mnt/ps5root/dev
++sudo mount --bind /proc /mnt/ps5root/proc
++sudo mount --bind /sys  /mnt/ps5root/sys
++sudo mount --bind /run  /mnt/ps5root/run
++
++sudo chroot /mnt/ps5root
++
++# do your fixes here, then:
++exit
++
++sudo umount /mnt/ps5root/{run,dev,proc,sys}
++sudo umount /mnt/ps5root
++```
++
++**Common fixes inside chroot:**
++- Reinstall kernel: `dpkg -i /tmp/linux-ps5_*.deb`
++- Create user: `adduser <username>` then `usermod -aG sudo <username>`
++- Fix permissions: `chown -R user:user /home/user`
++
++### Kernel Reinstall (USB drive)
+ 
+-If you broke your external SSD and can't boot, you can reinstall the kernel `.deb` via chroot from another Linux machine or from another booted PS5 Linux instance.
++If you broke your external USB drive and can't boot, reinstall the kernel `.deb` via chroot.
+ 
+ ```bash
+ sudo mkdir -p /mnt/usb
+diff --git a/docs/guide/display.md b/docs/guide/display.md
+index 0ead770..a0ce24f 100644
+--- a/docs/guide/display.md
++++ b/docs/guide/display.md
+@@ -54,6 +54,26 @@ If Linux boots but goes black/blue after the login screen on a 4K display:
+    ```
+ 3. If desktop still doesn't render, SSH in and switch desktop environment - GNOME is confirmed working for some users where other DEs fail
+ 
++## Black Screen but SSH Works
++
++If you can SSH in but display is black, collect logs to diagnose:
++
++```bash
++# Full boot log
++dmesg > logs.txt
++
++# Check firmware loading (look for errors)
++dmesg | grep -iE 'psp|ucode|firmware'
++
++# Check amdgpu firmware files exist
++ls /lib/firmware/amdgpu/
++
++# Full journal
++journalctl -b
++```
++
++Send `logs.txt` somewhere (USB, `scp`, HTTP server) and check for firmware or amdgpu errors.
++
+ ## Wayland / X11
+ 
+ Both work. Wayland (sway, weston) recommended.
+diff --git a/docs/guide/firmware.md b/docs/guide/firmware.md
+index 0696e55..d357d0a 100644
+--- a/docs/guide/firmware.md
++++ b/docs/guide/firmware.md
+@@ -31,9 +31,6 @@ Community recommendations:
+ | M.2 + PS5 games + Linux | **4.03** - community favorite, full jailbreak support, backports, up to 4TB M.2 |
+ | Already on 5.xx/6.02 | Fine to stay, no downsides for Linux |
+ 
+-::: warning Full custom firmware may only support 3.00
+-A full custom firmware (CFW) for PS5 may come in the future and could be limited to 3.00. If you care about that possibility, keep it in mind before updating.
+-:::
+ 
+ ::: info 6.02 jailbreak is more tedious
+ 6.02 uses Y2JB which must be re-run every time. 3.xx-5.50 uses umtx2 which is simpler.
+diff --git a/docs/guide/gaming.md b/docs/guide/gaming.md
+new file mode 100644
+index 0000000..57d1e7b
+--- /dev/null
++++ b/docs/guide/gaming.md
+@@ -0,0 +1,105 @@
++# Gaming
++
++PS5 Linux runs Steam games via Proton. Performance is solid - 1800p is a sweet spot for many titles.
++
++## Steam Installation
++
++**Do not use the snap version.** Install from the Steam website or via apt with i386 enabled:
++
++```bash
++# Ubuntu
++sudo dpkg --add-architecture i386
++sudo apt update
++sudo apt install steam
++```
++
++Or download the `.deb` installer from [store.steampowered.com/about](https://store.steampowered.com/about/) and install it directly.
++
++## Proton
++
++Use **Proton Experimental (bleeding-edge)** for best compatibility. For EAC/BattleEye games specifically, try **Proton EAC** or **Proton BE**.
++
++## Confirmed Working Games
++
++| Game | Settings | Notes |
++|---|---|---|
++| CS2 | - | Working; see mouse issue below |
++| Halo MCC | 4K | 90-100fps, multiplayer works |
++| Call of Duty: Black Ops 3 | 1800p | 90+ fps |
++| Forza Horizon 6 | 1800p high | 60fps; Proton Experimental bleeding-edge; add as non-Steam game |
++| World of Warcraft | 1080p max | Stable 60fps; install via Battlenet |
++| Star Wars Jedi: Survivor | 1080p medium | 60fps, no ray tracing |
++| Blades of Fire | 1080p max | 60+ fps |
++| Another Crab's Treasure | High | Flawless |
++| VOIN | TAA only | Fast and responsive |
++| Call of the Elder Gods | - | Working |
++| Final Fantasy XIV | - | Via XIV Launcher through Steam |
++| 007: First Light | Low + FSR Performance | OK |
++| Rocket League | - | Online works; latest Proton |
++| Factorio | - | Runs great |
++| Final Fantasy XVI | 4K | 60fps with 8GB VRAM; drop to 2K for faster load times |
++| Mafia 3 | - | Stutters; theflow barely hits 60fps - known game optimization issue, not PS5-specific |
++
++## Anti-Cheat
++
++| Anti-Cheat | Status | Notes |
++|---|---|---|
++| EAC / BattleEye | ~ Partial | Use Proton EAC or Proton BE |
++| EA Javelin (FC 26, BF6) | ✗ No Linux support | Blocks Linux outright; no workaround |
++
++## World of Warcraft via Battlenet
++
++WoW requires Battlenet. Install via Proton:
++
++1. Download `battlenet-setup.exe` from battle.net
++2. Add it as a non-Steam game
++3. Install to `/home/<user>/Games` (shows as `Z:/home/<user>/Games` in the installer)
++4. Launch `Battle.net.exe` from that folder to play
++
++## Known Issues
++
++### CS2 - Mouse keeps snapping to center
++
++Caused by DualSense being recognized as a controller while connected. Fix via gamescope (add to Steam launch options):
++
++```
++gamescope --force-grab-cursor --immediate-flips -f -w 1080 -h 1080 -W 1920 -H 1080 -r 144 -S stretch -- %command% -fullscreen -w 1080 -h 1080 -refresh 144
++```
++
++Adjust `-r 144` and resolution to match your display. Also try disconnecting DualSense before launching.
++
++### CS2 - Black screen after Valve logo
++
++Some users on Ubuntu get a black screen after the Valve splash. CS2 is more reliable on CachyOS. If you're on Ubuntu, make sure Mesa is updated (see First Boot steps).
++
++### Steam snap version
++
++The snap install of Steam has known issues. Use the `.deb` from the Steam website instead.
++
++## Gaming Benchmarks
++
++| Game | Settings | FPS |
++|---|---|---|
++| Tiny Tina's Wonderlands | 1080p High | 95 avg |
++| Tiny Tina's Wonderlands | 1080p Ultra | 85 avg |
++| Tiny Tina's Wonderlands | 4K Low | 28 avg |
++| Tiny Tina's Wonderlands | 4K High | OOM crash |
++| Team Fortress 2 | 4K Max (no MSAA) | 60-300 |
++
++## Local LLMs
++
++PS5 Linux runs local LLMs fine via [Open-WebUI](https://github.com/open-webui/open-webui). Community has run:
++
++- Gemma4:12B
++- Qwen3:14B
++
++16GB shared RAM makes it viable for mid-size models.
++
++## Performance Tips
++
++- **1800p** is a sweet spot - many games hit 90+ fps at 1800p that struggle at 4K
++- Enable fan and CPU/GPU boost via `ps5_control` before gaming - see [Post-Install](/guide/booting#first-boot)
++- **gamescope in TTY** (no DE) is the lowest-overhead way to run games - launch gamescope directly from a TTY session
++- Use **gamescope** for FPS limiting and upscaling
++- **mangohud** for an FPS overlay
++- Remove `idle=halt` from `cmdline.txt` if you notice microstuttering - see [GPU](/guide/gpu#performance-tips)
+diff --git a/docs/guide/getting-started.md b/docs/guide/getting-started.md
+index 6c5950b..8e670dd 100644
+--- a/docs/guide/getting-started.md
++++ b/docs/guide/getting-started.md
+@@ -15,6 +15,10 @@ Read [Supported Firmware](/guide/firmware) first. PS5 Phat only, max firmware 6.
+ - M.2 SSD (FW 4.00+ only) for a dedicated Linux partition
+ - USB WLAN adapter for internet (before internal WiFi driver is set up)
+ 
++## PS5 Linux noobs average day
++
++<video src="https://media.tenor.com/u4iPc3J_99UAAAPo/yapping-yapping-level-today.mp4" autoplay loop muted playsinline style="max-width:100%;border-radius:8px"></video>
++
+ ## Overview
+ 
+ 1. [Configure PS5 settings](/guide/prerequisites)
+diff --git a/docs/guide/gpu.md b/docs/guide/gpu.md
+index 5b54734..250dcb5 100644
+--- a/docs/guide/gpu.md
++++ b/docs/guide/gpu.md
+@@ -41,6 +41,14 @@ PS5 units ship with either 36 or 38 active CUs out of 40 total - the remainder a
+ | 3 | Unlock all harvested CUs |
+ | 4 | Probe-all |
+ 
++Without the unlock parameter, dmesg reports the hardware-default active CU count:
++
++```
++amdgpu: SE 2, SH per SE 2, CU per SH 10, active_cu_number 36
++```
++
++(2 × 2 × 10 = 40 total physical CUs, 36 active by default on this unit)
++
+ To unlock all CUs, add to `cmdline.txt` on the FAT32 USB partition:
+ 
+ ```
+@@ -57,8 +65,38 @@ amdgpu for `1002:13fb` does not register the `vcn_v3_0` IP block. Mesa, VAAPI, a
+ 
+ **Known fix (not yet upstream):** patch `drivers/gpu/drm/amd/amdgpu/nv.c` to add `vcn_v3_0` for `0x13fb` and rebuild the kernel. Tracked in [ps5-linux-patches TODO](https://github.com/ps5-linux/ps5-linux-patches#todo).
+ 
+-## Tips
++## VRAM
++
++Default allocation shown in tools is 512MB, but this is **dynamic** - the driver escalates and allocates more as needed. With 16GB shared RAM/VRAM, the GPU can use up to ~12GB in practice.
++
++To set a fixed allocation, edit `vram.txt` on the FAT32 USB partition:
++
++```
++8192
++```
++
++(value in MB)
++
++## Equivalent Hardware
++
++| Component | Equivalent |
++|---|---|
++| GPU | AMD RX 6700 (non-XT) - 36 CU, similar clocks |
++| CPU | ~AMD Ryzen 2700 (downclocked Zen 2, 8c/16t) |
++
++## Benchmarks (Superposition 1080p Extreme)
++
++| Config | Score | Notes |
++|---|---|---|
++| No boost | 4903 | GPU @ 3193 MHz |
++| Fan + boost, no CU unlock | ~5150 | |
++| 40 CU + fan + boost | 5041 | GPU @ 3493 MHz actual, kernel 7.0.10 |
++| 40 CU + fan + boost (CFI-1216A) | 5259 | 6nm APU, highest seen |
++
++BC250 reference: 36CU@2200MHz = ~5336, 40CU@2200MHz = ~5530. Boost mode on PS5 may not always sustain full clock speed depending on thermals.
++
++## Performance Tips
+ 
+-- If you see graphical issues in games, set `RADV_DEBUG=nohiz` (same recommendation as AMD BC250).
+-- VRAM size defaults to 512 MB (dynamic VRAM allocation). Adjust in `vram.txt` on the FAT32 USB partition.
+-- Many tips from [AMD BC250 Documentation](https://elektricm.github.io/amd-bc250-docs/) apply to PS5 too.
++- Remove `idle=halt` from `cmdline.txt` if you notice microstuttering - theflow asked community to test this
++- If you see graphical issues in games, set `RADV_DEBUG=nohiz` (same recommendation as AMD BC250)
++- Many tips from [AMD BC250 Documentation](https://elektricm.github.io/amd-bc250-docs/) apply to PS5 too
+diff --git a/docs/guide/hardware.md b/docs/guide/hardware.md
+index 7c1f934..e33bac2 100644
+--- a/docs/guide/hardware.md
++++ b/docs/guide/hardware.md
+@@ -22,11 +22,17 @@
+ 
+ ## Networking
+ 
+-- Ethernet: MediaTek Star GbE (`104d:9104`), driver `mts` - works out of the box, see [Ethernet](/guide/ethernet)
+-- WiFi: IW620 (mwifiex) - see [WiFi](/guide/wifi)
++- Ethernet: MediaTek Star GbE / Salina GBE (`104d:9104`), driver `mts` - works out of the box, see [Ethernet](/guide/ethernet)
++- WiFi: Marvell IW620 (`1b4b:2b56`), driver `moal` - see [WiFi](/guide/wifi)
++
++## Audio
++
++- HDMI audio: AMD/ATI `1002:13ea` - working
++- HD Audio Coprocessor: AMD Ariel `1022:13eb` - unknown status
+ 
+ ## USB
+ 
+-- Front bottom: Type-C (USB 3.x) - recommended boot port
+-- Front top: Type-A (USB 2.0) - slower, not recommended for boot
+-- Rear: Type-A (USB 3.x) - usable for boot and peripherals
++- Type-A (2 port, USB 3.1 Gen2): AMD Ariel `1022:13ee`
++- Type-C (1 port, USB 3.1 Gen2 + DP Alt Mode): AMD Ariel `1022:13ed`
++- Front bottom Type-C - recommended boot port
++- Rear Type-A - usable for boot and peripherals
+diff --git a/docs/guide/kernel.md b/docs/guide/kernel.md
+index 9bac060..dd9899d 100644
+--- a/docs/guide/kernel.md
++++ b/docs/guide/kernel.md
+@@ -13,6 +13,30 @@ sudo dpkg -i ps5-linux-*.deb
+ 
+ ## 2. Build from Source
+ 
++### Dependencies
++
++GCC works, but Clang/LLVM is recommended.
++
++**Arch Linux:**
++```bash
++# Clang (recommended)
++sudo pacman -S clang llvm lld pahole bison flex bc cpio python openssl
++
++# GCC
++sudo pacman -S gcc pahole bison flex bc cpio python openssl
++```
++
++**Debian/Ubuntu:**
++```bash
++# Clang (recommended)
++sudo apt install clang llvm lld dwarves bison flex bc cpio python3 libssl-dev libelf-dev
++
++# GCC
++sudo apt install gcc dwarves bison flex bc cpio python3 libssl-dev libelf-dev
++```
++
++### Build
++
+ ```bash
+ git clone https://github.com/ps5-linux/ps5-linux-patches
+ git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+@@ -20,7 +44,13 @@ cd linux
+ git checkout "tags/v$(grep -m1 '^# Linux/' ../ps5-linux-patches/.config | awk '{print $3}')"
+ git apply ../ps5-linux-patches/linux.patch
+ cp ../ps5-linux-patches/.config .config
++
++# With Clang (recommended)
++make LLVM=1 LLVM_IAS=1 -j$(nproc)
++
++# With GCC
+ make -j$(nproc)
++
+ sudo make modules_install
+ sudo make install
+ ```

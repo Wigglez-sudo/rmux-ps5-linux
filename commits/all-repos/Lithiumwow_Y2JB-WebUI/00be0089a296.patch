@@ -1,0 +1,25 @@
+From 00be0089a296d881157b48961fb7ffc2a1a5c48a Mon Sep 17 00:00:00 2001
+From: rmuxnet <116457149+rmuxnet@users.noreply.github.com>
+Date: Sat, 17 Jan 2026 21:48:00 +0100
+Subject: [PATCH] info(readme): Include Bugs & Feature Requests
+
+---
+ README.md | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index b1890ad..3c91c57 100644
+--- a/README.md
++++ b/README.md
+@@ -82,7 +82,10 @@ If you did check the "Auto-Jailbreak" before pressing the "Start Jailbreak" butt
+ - [EchoStretch](https://github.com/EchoStretch) | [kstuff](https://github.com/EchoStretch/kstuff)
+ - [voidwhisper-ps](https://github.com/voidwhisper-ps) | [ShadowMount](https://github.com/voidwhisper-ps/ShadowMount)
+ - [drakmor](https://github.com/drakmor) | [ftpsrv](https://github.com/drakmor/ftpsrv)
+-  
++
++## Bugs & Feature Requests
++
++If you encounter any bugs or have ideas for new features, please submit them by opening an issue in this repository. Suggestions and feedback are welcome!
+ 
+ ## TODO
+ - [X] Add Y2JB auto update (download0.dat)
