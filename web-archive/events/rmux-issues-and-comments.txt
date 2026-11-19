@@ -33,6 +33,59 @@ yes it did show that .
 ![Image](https://github.com/user-attachments/assets/704aa4e4-a20a-4214-b07e-e24f53908677)
 
 
+=== 2025-03-18T08:21:33Z  linux-msm/qbootctl  [review]
+
+
+{
+ "id": 2693430585,
+ "node_id": "PRR_kwDOMis3KM6gin05",
+ "user": {
+  "login": "rmuxnet",
+  "id": 116457149,
+  "node_id": "U_kgDOBvD-vQ",
+  "avatar_url": "https://avatars.githubusercontent.com/u/116457149?v=4",
+  "gravatar_id": "",
+  "url": "https://api.github.com/users/rmuxnet",
+  "html_url": "https://github.com/rmuxnet",
+  "followers_url": "https://api.github.com/users/rmuxnet/followers",
+  "following_url": "https://api.github.com/users/rmuxnet/following{/other_user}",
+  "gists_url": "https://api.github.com/users/rmuxnet/gists{/gist_id}",
+  "starred_url": "https://api.github.com/users/rmuxnet/starred{/owner}{/repo}",
+  "subscriptions_url": "https://api.github.com/users/rmuxnet/subscriptions",
+  "organizations_url": "https://api.github.com/users/rmuxnet/orgs",
+  "repos_url": "https://api.github.com/users/rmuxnet/repos",
+  "events_url": "https://api.github.com/users/rmuxnet/events{/privacy}",
+  "received_events_url": "https://api.github.com/users/rmuxnet/received_events",
+  "type": "User",
+  "user_view_type": "public",
+  "site_admin": false
+ },
+ "body": "",
+ "commit_id": "d1db65e76df364c47be6c4ca2331c3d839468e31",
+ "submitted_at": "2025-03-18T08:21:33Z",
+ "state": "approved",
+ "html_url": "https://github.com/linux-msm/qbootctl/pull/1#pullrequestreview-2693430585",
+ "pull_request_url": "https://api.github.com/repos/linux-msm/qbootctl/pulls/1",
+ "author_association": "NONE",
+ "_links": {
+  "html": {
+   "href": "https://github.com/linux-msm/qbootctl/pull/1#pullrequestreview-2693430585"
+  },
+  "pull_request": {
+   "href": "https://api.github.com/repos/linux-msm/qbootctl/pulls/1"
+  }
+ }
+}
+
+
+=== 2025-03-18T13:48:33Z  linux-msm/qbootctl  [comment on #1]
+bootctrl: fall back to active slot if current slot not found in cmdline
+
+> OK I'm not sure what the heck I did here, github just wouldn't let me push to the PR. I adjusted this slightly and pushed it to main in https://github.com/linux-msm/qbootctl/commit/413ee35eda221e4a7e45e3f6ba883829179fa38b
+
+Btw is this supposed to technically fix the soft bricking issue if using any other distro apart pmos as in pmos it works fine as in arch ir corrupts lun and gpt tables. 
+
+
 === 2026-01-13T17:21:01Z  Nazky/Y2JB-WebUI  [PR #1 opened]
 
 
