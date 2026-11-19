@@ -10,6 +10,29 @@ Module Version: PlayIntegrityFix v18.1
 
 
 
+=== 2025-01-16T15:35:39Z  chiteroman/PlayIntegrityFix  [comment on #498]
+High Battery Drain in Standby Mode with PlayIntegrityFix v18.1
+
+> > I can confirm too battery drain went from 1% to 14% on idle
+> > info : Device: Samsung Galaxy A71 OS Version:A14 Crdroid Module Version: PlayIntegrityFix v18.1
+> 
+> Did u tried remove module, may ROM problem
+
+not a rom issue .
+
+
+
+=== 2025-01-16T15:39:08Z  chiteroman/PlayIntegrityFix  [comment on #498]
+High Battery Drain in Standby Mode with PlayIntegrityFix v18.1
+
+> does it show in the settings' "battery usage" that Google Play Services is the app draining the battery? because i had it draining 40% like vojtak so i blamed google for it and degoogled my phone actually.
+
+yes it did show that . 
+(ps i dont have the screen show how much it drained but it did drain 14-20% an hour with screen off) 
+
+![Image](https://github.com/user-attachments/assets/704aa4e4-a20a-4214-b07e-e24f53908677)
+
+
 === 2026-01-13T17:21:01Z  Nazky/Y2JB-WebUI  [PR #1 opened]
 
 
